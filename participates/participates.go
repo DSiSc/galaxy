@@ -9,7 +9,7 @@ import (
 
 type Participates interface {
 	PolicyName() string
-	GetParticipates() []common.Address
+	GetParticipates() ([]common.Address, error)
 	ChangeParticipates() error
 }
 

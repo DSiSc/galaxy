@@ -1,5 +1,8 @@
 {
   "participates":{
     "policy":"solo"
+  },
+  "role":{
+    "policy":"solo"
   }
 }

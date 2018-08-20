@@ -21,10 +21,10 @@ func (self *SoloPolicy) PolicyName() string {
 	return self.name
 }
 
-func (self *SoloPolicy) GetParticipates() []common.Address {
+func (self *SoloPolicy) GetParticipates() ([]common.Address, error) {
 	participates := make([]common.Address, 0, 0)
 	log.Info("Solo will return nil when getting participates.")
-	return participates
+	return participates, nil
 }
 
 func (self *SoloPolicy) ChangeParticipates() error {

@@ -28,7 +28,8 @@ func Test_PolicyName(t *testing.T) {
 func Test_GetParticipates(t *testing.T) {
 	assert := assert.New(t)
 	policy := mock_NewSoloPolicy()
-	address := policy.GetParticipates()
+	address, err := policy.GetParticipates()
 	assert.NotNil(address)
+	assert.Nil(err)
 	assert.Equal(0, len(address), "they should not be equal")
 }
