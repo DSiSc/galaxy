@@ -22,7 +22,6 @@ jobs:
       - run:
           name: Get dependencies
           command: |
-            go get -u github.com/DSiSc/producer | true
             govendor init && govendor fetch +m
 
       - run: 

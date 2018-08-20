@@ -1,8 +1,8 @@
 package participates
 
 import (
+	"github.com/DSiSc/galaxy/config"
 	"github.com/DSiSc/galaxy/participates/policy"
-	"github.com/DSiSc/producer/config"
 	"github.com/DSiSc/txpool/common"
 	"github.com/DSiSc/txpool/common/log"
 )
