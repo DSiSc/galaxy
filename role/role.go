@@ -1,10 +1,10 @@
 package role
 
 import (
+	"github.com/DSiSc/galaxy/config"
 	"github.com/DSiSc/galaxy/participates"
 	rolec "github.com/DSiSc/galaxy/role/common"
 	"github.com/DSiSc/galaxy/role/policy"
-	"github.com/DSiSc/producer/config"
 	"github.com/DSiSc/txpool/common"
 	"github.com/DSiSc/txpool/common/log"
 )
