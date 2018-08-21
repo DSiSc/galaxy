@@ -71,7 +71,7 @@ func (self *SoloPolicy) ToConsensus(p *common.Proposal) (bool, error) {
 		log.Error("Not to consensus.")
 		return false, fmt.Errorf("Not to consensus..")
 	}
-
+	version = proposal.version
 	return state, nil
 }
 
