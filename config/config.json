@@ -4,5 +4,8 @@
   },
   "role":{
     "policy":"solo"
+  },
+  "consensus":{
+    "policy": "solo"
   }
 }
