@@ -7,16 +7,16 @@ import (
 	"testing"
 )
 
-func mock_conf() *config.ConsensusPolicy {
-	return &config.ConsensusPolicy{
+func mock_conf() *config.ConsensusConfig {
+	return &config.ConsensusConfig{
 		PolicyName: "solo",
 	}
 }
 
-func Test_NewConsensusPolicy(t *testing.T) {
+func Test_NewConsensus(t *testing.T) {
 	assert := assert.New(t)
 	conf := mock_conf()
-	consensus, err := NewConsensusPolicy(nil, conf)
+	consensus, err := NewConsensus(nil, conf)
 	assert.Nil(err)
 	assert.NotNil(consensus)
 

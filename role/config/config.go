@@ -1,5 +1,5 @@
 package config
 
-type RolePolicy struct {
+type RoleConfig struct {
 	PolicyName string
 }

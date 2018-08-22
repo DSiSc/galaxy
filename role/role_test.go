@@ -18,18 +18,18 @@ func mock_address(num int) []common.Address {
 	return to
 }
 
-func mock_conf() *config.RolePolicy {
-	return &config.RolePolicy{
+func mock_conf() *config.RoleConfig {
+	return &config.RoleConfig{
 		PolicyName: "solo",
 	}
 }
 
-func Test_NewRolePolicy(t *testing.T) {
+func Test_NewRole(t *testing.T) {
 	assert := assert.New(t)
 	address := mock_address(1)[0]
 	assert.NotNil(address)
 	conf := mock_conf()
-	role, err := NewRolePolicy(nil, address, conf)
+	role, err := NewRole(nil, address, conf)
 	assert.Nil(err)
 	assert.NotNil(role)
 

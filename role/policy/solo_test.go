@@ -19,8 +19,8 @@ func mock_address(num int) []txpoolc.Address {
 	return to
 }
 
-func mock_conf() *config.ParticipatePolicy {
-	return &config.ParticipatePolicy{
+func mock_conf() *config.ParticipateConfig {
+	return &config.ParticipateConfig{
 		PolicyName: "solo",
 	}
 }
@@ -40,7 +40,7 @@ func Test_RoleAssignments(t *testing.T) {
 	assert := assert.New(t)
 	address := mock_address(1)[0]
 	conf := mock_conf()
-	p, err := participates.NewParticipatePolicy(conf)
+	p, err := participates.NewParticipates(conf)
 	assert.Nil(err)
 	assert.NotNil(p)
 

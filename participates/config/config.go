@@ -1,5 +1,5 @@
 package config
 
-type ParticipatePolicy struct {
+type ParticipateConfig struct {
 	PolicyName string
 }

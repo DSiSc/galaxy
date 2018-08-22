@@ -6,16 +6,16 @@ import (
 	"testing"
 )
 
-func mock_conf() *config.ParticipatePolicy {
-	return &config.ParticipatePolicy{
+func mock_conf() *config.ParticipateConfig {
+	return &config.ParticipateConfig{
 		PolicyName: "solo",
 	}
 }
 
-func Test_NewParticipatePolicy(t *testing.T) {
+func Test_NewParticipates(t *testing.T) {
 	assert := assert.New(t)
 	conf := mock_conf()
-	participate, err := NewParticipatePolicy(conf)
+	participate, err := NewParticipates(conf)
 	assert.NotNil(participate)
 	assert.Nil(err)
 }

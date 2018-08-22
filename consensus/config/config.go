@@ -1,5 +1,5 @@
 package config
 
-type ConsensusPolicy struct {
+type ConsensusConfig struct {
 	PolicyName string
 }
