@@ -6,8 +6,8 @@ import (
 	"testing"
 )
 
-func mock_conf() *config.ParticipateConfig {
-	return &config.ParticipateConfig{
+func mock_conf() config.ParticipateConfig {
+	return config.ParticipateConfig{
 		PolicyName: "solo",
 	}
 }

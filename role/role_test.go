@@ -18,8 +18,8 @@ func mock_address(num int) []common.Address {
 	return to
 }
 
-func mock_conf() *config.RoleConfig {
-	return &config.RoleConfig{
+func mock_conf() config.RoleConfig {
+	return config.RoleConfig{
 		PolicyName: "solo",
 	}
 }

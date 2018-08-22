@@ -7,8 +7,8 @@ import (
 	"testing"
 )
 
-func mock_conf() *config.ConsensusConfig {
-	return &config.ConsensusConfig{
+func mock_conf() config.ConsensusConfig {
+	return config.ConsensusConfig{
 		PolicyName: "solo",
 	}
 }

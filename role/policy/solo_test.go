@@ -19,8 +19,8 @@ func mock_address(num int) []txpoolc.Address {
 	return to
 }
 
-func mock_conf() *config.ParticipateConfig {
-	return &config.ParticipateConfig{
+func mock_conf() config.ParticipateConfig {
+	return config.ParticipateConfig{
 		PolicyName: "solo",
 	}
 }

@@ -22,7 +22,7 @@ const (
 	Policy = "role.policy"
 )
 
-func NewRole(p participates.Participates, address common.Address, conf *config.RoleConfig) (Role, error) {
+func NewRole(p participates.Participates, address common.Address, conf config.RoleConfig) (Role, error) {
 	var err error
 	var role Role
 	rolePolicy := conf.PolicyName

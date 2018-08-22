@@ -20,7 +20,7 @@ const (
 	Policy = "participates.policy"
 )
 
-func NewParticipates(conf *config.ParticipateConfig) (Participates, error) {
+func NewParticipates(conf config.ParticipateConfig) (Participates, error) {
 	var err error
 	var participates Participates
 	participatesPolicy := conf.PolicyName

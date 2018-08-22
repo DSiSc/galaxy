@@ -20,7 +20,7 @@ const (
 	Policy = "consensus.policy"
 )
 
-func NewConsensus(participates participates.Participates, conf *config.ConsensusConfig) (Consensus, error) {
+func NewConsensus(participates participates.Participates, conf config.ConsensusConfig) (Consensus, error) {
 	var err error
 	var consensus Consensus
 	consensusPolicy := conf.PolicyName
