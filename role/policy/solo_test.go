@@ -2,6 +2,7 @@ package policy
 
 import (
 	"github.com/DSiSc/galaxy/participates"
+	"github.com/DSiSc/galaxy/participates/config"
 	"github.com/DSiSc/galaxy/role/common"
 	txpoolc "github.com/DSiSc/txpool/common"
 	"github.com/stretchr/testify/assert"
@@ -18,6 +19,12 @@ func mock_address(num int) []txpoolc.Address {
 	return to
 }
 
+func mock_conf() *config.ParticipatePolicy {
+	return &config.ParticipatePolicy{
+		PolicyName: "solo",
+	}
+}
+
 func Test_NewSoloPolicy(t *testing.T) {
 	assert := assert.New(t)
 	address := mock_address(1)[0]
@@ -32,7 +39,8 @@ func Test_NewSoloPolicy(t *testing.T) {
 func Test_RoleAssignments(t *testing.T) {
 	assert := assert.New(t)
 	address := mock_address(1)[0]
-	p, err := participates.NewParticipatePolicy()
+	conf := mock_conf()
+	p, err := participates.NewParticipatePolicy(conf)
 	assert.Nil(err)
 	assert.NotNil(p)
 

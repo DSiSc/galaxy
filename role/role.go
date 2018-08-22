@@ -1,9 +1,10 @@
 package role
 
 import (
-	"github.com/DSiSc/galaxy/config"
+	// "github.com/DSiSc/galaxy/config"
 	"github.com/DSiSc/galaxy/participates"
 	rolec "github.com/DSiSc/galaxy/role/common"
+	"github.com/DSiSc/galaxy/role/config"
 	"github.com/DSiSc/galaxy/role/policy"
 	"github.com/DSiSc/txpool/common"
 	"github.com/DSiSc/txpool/common/log"
@@ -22,11 +23,10 @@ const (
 	Policy = "role.policy"
 )
 
-func NewRolePolicy(p participates.Participates, address common.Address) (Role, error) {
+func NewRolePolicy(p participates.Participates, address common.Address, conf *config.RolePolicy) (Role, error) {
 	var err error
 	var role Role
-	conf := config.New(config.ConfigAbsPath())
-	rolePolicy := conf.GetConfigItem(Policy).(string)
+	rolePolicy := conf.PolicyName
 	switch rolePolicy {
 	case ROLE_SOLO:
 		log.Info("Get role policy is solo.")

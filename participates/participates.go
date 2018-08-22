@@ -1,7 +1,7 @@
 package participates
 
 import (
-	"github.com/DSiSc/galaxy/config"
+	"github.com/DSiSc/galaxy/participates/config"
 	"github.com/DSiSc/galaxy/participates/policy"
 	"github.com/DSiSc/txpool/common"
 	"github.com/DSiSc/txpool/common/log"
@@ -20,11 +20,10 @@ const (
 	Policy = "participates.policy"
 )
 
-func NewParticipatePolicy() (Participates, error) {
+func NewParticipatePolicy(conf *config.ParticipatePolicy) (Participates, error) {
 	var err error
 	var participates Participates
-	conf := config.New(config.ConfigAbsPath())
-	participatesPolicy := conf.GetConfigItem(Policy).(string)
+	participatesPolicy := conf.PolicyName
 	switch participatesPolicy {
 	case PARTICIPATES_SOLO:
 		log.Info("Get participates policy is solo.")

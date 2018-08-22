@@ -1,8 +1,8 @@
 package consensus
 
 import (
-	"github.com/DSiSc/galaxy/config"
 	"github.com/DSiSc/galaxy/consensus/common"
+	"github.com/DSiSc/galaxy/consensus/config"
 	"github.com/DSiSc/galaxy/consensus/policy"
 	"github.com/DSiSc/galaxy/participates"
 	"github.com/DSiSc/txpool/common/log"
@@ -20,11 +20,10 @@ const (
 	Policy = "consensus.policy"
 )
 
-func NewConsensusPolicy(participates participates.Participates) (Consensus, error) {
+func NewConsensusPolicy(participates participates.Participates, conf *config.ConsensusPolicy) (Consensus, error) {
 	var err error
 	var consensus Consensus
-	conf := config.New(config.ConfigAbsPath())
-	consensusPolicy := conf.GetConfigItem(Policy).(string)
+	consensusPolicy := conf.PolicyName
 	switch consensusPolicy {
 	case CONSENSUS_SOLO:
 		log.Info("Get consensus policy is solo.")
