@@ -1,7 +1,7 @@
 package policy
 
 import (
-	"github.com/DSiSc/txpool/common"
+	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/txpool/common/log"
 )
 
@@ -21,8 +21,8 @@ func (self *SoloPolicy) PolicyName() string {
 	return self.name
 }
 
-func (self *SoloPolicy) GetParticipates() ([]common.Address, error) {
-	participates := make([]common.Address, 0, 0)
+func (self *SoloPolicy) GetParticipates() ([]types.Address, error) {
+	participates := make([]types.Address, 0, 0)
 	log.Info("Solo will return nil when getting participates.")
 	return participates, nil
 }

@@ -1,17 +1,17 @@
 package role
 
 import (
+	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/galaxy/role/config"
-	"github.com/DSiSc/txpool/common"
 	"github.com/stretchr/testify/assert"
 	"reflect"
 	"testing"
 )
 
-func mock_address(num int) []common.Address {
-	to := make([]common.Address, num)
+func mock_address(num int) []types.Address {
+	to := make([]types.Address, num)
 	for m := 0; m < num; m++ {
-		for j := 0; j < common.AddressLength; j++ {
+		for j := 0; j < types.AddressLength; j++ {
 			to[m][j] = byte(m)
 		}
 	}

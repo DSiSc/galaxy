@@ -15,9 +15,6 @@ type Consensus interface {
 
 const (
 	CONSENSUS_SOLO = "solo"
-	// Structure must matching with defination of config/config.json
-	Symbol = "consensus"
-	Policy = "consensus.policy"
 )
 
 func NewConsensus(participates participates.Participates, conf config.ConsensusConfig) (Consensus, error) {

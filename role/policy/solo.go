@@ -2,9 +2,9 @@ package policy
 
 import (
 	"fmt"
+	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/galaxy/participates"
-	rolec "github.com/DSiSc/galaxy/role/common"
-	"github.com/DSiSc/txpool/common"
+	"github.com/DSiSc/galaxy/role/common"
 	"github.com/DSiSc/txpool/common/log"
 )
 
@@ -14,11 +14,11 @@ const (
 
 type SoloPolicy struct {
 	name        string
-	local       common.Address
+	local       types.Address
 	participate participates.Participates
 }
 
-func NewSoloPolicy(p participates.Participates, address common.Address) (*SoloPolicy, error) {
+func NewSoloPolicy(p participates.Participates, address types.Address) (*SoloPolicy, error) {
 	soloPolicy := &SoloPolicy{
 		name:        POLICY_NAME,
 		local:       address,
@@ -27,7 +27,7 @@ func NewSoloPolicy(p participates.Participates, address common.Address) (*SoloPo
 	return soloPolicy, nil
 }
 
-func (self *SoloPolicy) RoleAssignments() (map[common.Address]rolec.Roler, error) {
+func (self *SoloPolicy) RoleAssignments() (map[types.Address]common.Roler, error) {
 	participates, err := self.participate.GetParticipates()
 	if err != nil {
 		log.Error("Error to get participates.")
@@ -41,12 +41,12 @@ func (self *SoloPolicy) RoleAssignments() (map[common.Address]rolec.Roler, error
 	return nil, nil
 }
 
-func (self *SoloPolicy) GetRoles(address common.Address) rolec.Roler {
+func (self *SoloPolicy) GetRoles(address types.Address) common.Roler {
 	if address != self.local {
 		log.Error("Wrong address which nobody knows in solo role policy.")
-		return rolec.Unnormal
+		return common.Unnormal
 	}
-	return rolec.Master
+	return common.Master
 }
 
 func (self *SoloPolicy) PolicyName() string {

@@ -1,15 +1,15 @@
 package participates
 
 import (
+	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/galaxy/participates/config"
 	"github.com/DSiSc/galaxy/participates/policy"
-	"github.com/DSiSc/txpool/common"
 	"github.com/DSiSc/txpool/common/log"
 )
 
 type Participates interface {
 	PolicyName() string
-	GetParticipates() ([]common.Address, error)
+	GetParticipates() ([]types.Address, error)
 	ChangeParticipates() error
 }
 

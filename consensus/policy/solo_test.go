@@ -1,8 +1,8 @@
 package policy
 
 import (
+	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/galaxy/consensus/common"
-	producer_c "github.com/DSiSc/producer/common"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -18,7 +18,7 @@ func Test_NewSoloPolicy(t *testing.T) {
 }
 
 func mock_proposal() *common.Proposal {
-	var block producer_c.Block
+	var block types.Block
 	return &common.Proposal{
 		Block: &block,
 	}

@@ -1,14 +1,14 @@
 package common
 
 import (
-	"github.com/DSiSc/producer/common"
+	"github.com/DSiSc/craft/types"
 )
 
 type Version uint8
 
 // Base proposal
 type Proposal struct {
-	Block *common.Block
+	Block *types.Block
 }
 
 type ConsensusStatus uint8
