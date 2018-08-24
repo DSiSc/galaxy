@@ -6,7 +6,7 @@ import (
 	"github.com/DSiSc/galaxy/role/common"
 	"github.com/DSiSc/galaxy/role/config"
 	"github.com/DSiSc/galaxy/role/policy"
-	"github.com/DSiSc/txpool/common/log"
+	"github.com/DSiSc/txpool/log"
 )
 
 type Role interface {

@@ -5,7 +5,7 @@ import (
 	"github.com/DSiSc/galaxy/consensus/config"
 	"github.com/DSiSc/galaxy/consensus/policy"
 	"github.com/DSiSc/galaxy/participates"
-	"github.com/DSiSc/txpool/common/log"
+	"github.com/DSiSc/txpool/log"
 )
 
 type Consensus interface {

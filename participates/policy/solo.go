@@ -2,7 +2,7 @@ package policy
 
 import (
 	"github.com/DSiSc/craft/types"
-	"github.com/DSiSc/txpool/common/log"
+	"github.com/DSiSc/txpool/log"
 )
 
 const (

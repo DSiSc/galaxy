@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/DSiSc/galaxy/consensus/common"
 	"github.com/DSiSc/galaxy/participates"
-	"github.com/DSiSc/txpool/common/log"
+	"github.com/DSiSc/txpool/log"
 )
 
 var version common.Version

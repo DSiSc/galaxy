@@ -5,7 +5,7 @@ import (
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/galaxy/participates"
 	"github.com/DSiSc/galaxy/role/common"
-	"github.com/DSiSc/txpool/common/log"
+	"github.com/DSiSc/txpool/log"
 )
 
 const (

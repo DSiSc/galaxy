@@ -4,7 +4,7 @@ import (
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/galaxy/participates/config"
 	"github.com/DSiSc/galaxy/participates/policy"
-	"github.com/DSiSc/txpool/common/log"
+	"github.com/DSiSc/txpool/log"
 )
 
 type Participates interface {
