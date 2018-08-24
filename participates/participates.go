@@ -1,6 +1,7 @@
 package participates
 
 import (
+	"fmt"
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/galaxy/participates/config"
 	"github.com/DSiSc/galaxy/participates/policy"
@@ -30,6 +31,7 @@ func NewParticipates(conf config.ParticipateConfig) (Participates, error) {
 		participates, err = policy.NewSoloPolicy()
 	default:
 		log.Error("Now, we only support solo policy participates.")
+		err = fmt.Errorf("Not support type.")
 	}
 	return participates, err
 }
