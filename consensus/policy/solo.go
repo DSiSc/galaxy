@@ -10,7 +10,7 @@ import (
 var version common.Version
 
 const (
-	POLICY_NAME = "solo"
+	SOLO_POLICY = "solo"
 )
 
 type SoloPolicy struct {
@@ -27,7 +27,7 @@ type SoloProposal struct {
 
 func NewSoloPolicy(participates participates.Participates) (*SoloPolicy, error) {
 	policy := &SoloPolicy{
-		name:         POLICY_NAME,
+		name:         SOLO_POLICY,
 		participates: participates,
 	}
 	version = 0

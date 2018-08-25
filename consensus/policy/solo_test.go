@@ -12,9 +12,9 @@ func Test_NewSoloPolicy(t *testing.T) {
 	sp, err := NewSoloPolicy(nil)
 	assert.Nil(err)
 	assert.NotNil(sp)
-	assert.Equal(POLICY_NAME, sp.name)
+	assert.Equal(SOLO_POLICY, sp.name)
 	assert.Nil(sp.participates)
-	assert.Equal(POLICY_NAME, sp.PolicyName())
+	assert.Equal(SOLO_POLICY, sp.PolicyName())
 }
 
 func mock_proposal() *common.Proposal {

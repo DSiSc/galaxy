@@ -13,16 +13,12 @@ type Consensus interface {
 	ToConsensus(p *common.Proposal) (bool, error)
 }
 
-const (
-	CONSENSUS_SOLO = "solo"
-)
-
 func NewConsensus(participates participates.Participates, conf config.ConsensusConfig) (Consensus, error) {
 	var err error
 	var consensus Consensus
 	consensusPolicy := conf.PolicyName
 	switch consensusPolicy {
-	case CONSENSUS_SOLO:
+	case policy.SOLO_POLICY:
 		log.Info("Get consensus policy is solo.")
 		consensus, err = policy.NewSoloPolicy(participates)
 	default:
