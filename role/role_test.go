@@ -25,24 +25,24 @@ func mock_conf() config.RoleConfig {
 }
 
 func Test_NewRole(t *testing.T) {
-	assert := assert.New(t)
+	asserts := assert.New(t)
 	address := mock_address(1)[0]
-	assert.NotNil(address)
+	asserts.NotNil(address)
 	conf := mock_conf()
 	role, err := NewRole(nil, address, conf)
-	assert.Nil(err)
-	assert.NotNil(role)
+	asserts.Nil(err)
+	asserts.NotNil(role)
 
 	p := reflect.TypeOf(role)
 	method, exist := p.MethodByName("PolicyName")
-	assert.NotNil(method)
-	assert.True(exist)
+	asserts.NotNil(method)
+	asserts.True(exist)
 
 	method, exist = p.MethodByName("RoleAssignments")
-	assert.NotNil(method)
-	assert.True(exist)
+	asserts.NotNil(method)
+	asserts.True(exist)
 
 	method, exist = p.MethodByName("GetRoles")
-	assert.NotNil(method)
-	assert.True(exist)
+	asserts.NotNil(method)
+	asserts.True(exist)
 }

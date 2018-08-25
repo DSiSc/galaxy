@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	POLICY_NAME = "solo"
+	SOLO_POLICY = "solo"
 )
 
 type SoloPolicy struct {
@@ -20,7 +20,7 @@ type SoloPolicy struct {
 
 func NewSoloPolicy(p participates.Participates, address types.Address) (*SoloPolicy, error) {
 	soloPolicy := &SoloPolicy{
-		name:        POLICY_NAME,
+		name:        SOLO_POLICY,
 		local:       address,
 		participate: p,
 	}
@@ -28,13 +28,13 @@ func NewSoloPolicy(p participates.Participates, address types.Address) (*SoloPol
 }
 
 func (self *SoloPolicy) RoleAssignments() (map[types.Address]common.Roler, error) {
-	participates, err := self.participate.GetParticipates()
+	members, err := self.participate.GetParticipates()
 	if err != nil {
 		log.Error("Error to get participates.")
-		return nil, fmt.Errorf("Get participates with error:%s", err)
+		return nil, fmt.Errorf("Get participates with error:%s.", err)
 	}
 
-	if len(participates) != 0 {
+	if len(members) != 0 {
 		log.Error("Solo role policy must match solo participates policy.")
 		return nil, fmt.Errorf("Participates policy not match solo role policy.")
 	}

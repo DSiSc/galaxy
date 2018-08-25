@@ -26,32 +26,32 @@ func mock_conf() config.ParticipateConfig {
 }
 
 func Test_NewSoloPolicy(t *testing.T) {
-	assert := assert.New(t)
+	asserts := assert.New(t)
 	address := mock_address(1)[0]
 	policy, err := NewSoloPolicy(nil, address)
-	assert.Nil(err)
-	assert.NotNil(policy)
+	asserts.Nil(err)
+	asserts.NotNil(policy)
 	policyName := policy.PolicyName()
-	assert.Equal(POLICY_NAME, policyName, "they should not be equal")
-	assert.Equal(policy.name, policyName, "they should not be equal")
+	asserts.Equal(SOLO_POLICY, policyName, "they should not be equal")
+	asserts.Equal(policy.name, policyName, "they should not be equal")
 }
 
 func Test_RoleAssignments(t *testing.T) {
-	assert := assert.New(t)
+	asserts := assert.New(t)
 	address := mock_address(1)[0]
 	conf := mock_conf()
 	p, err := participates.NewParticipates(conf)
-	assert.Nil(err)
-	assert.NotNil(p)
+	asserts.Nil(err)
+	asserts.NotNil(p)
 
 	policy, err := NewSoloPolicy(p, address)
-	assert.Nil(err)
-	assert.NotNil(policy)
+	asserts.Nil(err)
+	asserts.NotNil(policy)
 
 	roles, errs := policy.RoleAssignments()
-	assert.Nil(errs)
-	assert.Nil(roles)
+	asserts.Nil(errs)
+	asserts.Nil(roles)
 
 	roler := policy.GetRoles(address)
-	assert.Equal(common.Master, roler)
+	asserts.Equal(common.Master, roler)
 }

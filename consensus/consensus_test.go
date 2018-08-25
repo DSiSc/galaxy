@@ -14,18 +14,18 @@ func mock_conf() config.ConsensusConfig {
 }
 
 func Test_NewConsensus(t *testing.T) {
-	assert := assert.New(t)
+	asserts := assert.New(t)
 	conf := mock_conf()
 	consensus, err := NewConsensus(nil, conf)
-	assert.Nil(err)
-	assert.NotNil(consensus)
+	asserts.Nil(err)
+	asserts.NotNil(consensus)
 
 	p := reflect.TypeOf(consensus)
 	method, exist := p.MethodByName("PolicyName")
-	assert.NotNil(method)
-	assert.True(exist)
+	asserts.NotNil(method)
+	asserts.True(exist)
 
 	method, exist = p.MethodByName("ToConsensus")
-	assert.NotNil(method)
-	assert.True(exist)
+	asserts.NotNil(method)
+	asserts.True(exist)
 }

@@ -67,9 +67,9 @@ func (self *SoloPolicy) ToConsensus(p *common.Proposal) (bool, error) {
 		return false, fmt.Errorf("Sunmit proposal failed.")
 	}
 
-	if proposal.status != common.Commited {
+	if proposal.status != common.Committed {
 		log.Error("Not to consensus.")
-		return false, fmt.Errorf("Not to consensus..")
+		return false, fmt.Errorf("Not to consensus.")
 	}
 	version = proposal.version
 	return state, nil
@@ -95,6 +95,6 @@ func (self *SoloPolicy) submitConsensus(p *SoloProposal) (bool, error) {
 		return false, fmt.Errorf("Proposal status must be Proposaling.")
 	}
 	// TODO: collect result of every participates
-	p.status = common.Commited
+	p.status = common.Committed
 	return true, nil
 }

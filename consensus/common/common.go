@@ -18,5 +18,5 @@ const (
 	Propose                          // Propose --> 1 propose for a proposal
 	Approve                          // Approve --> 2 response of participate which accept the proposal
 	Reject                           // Reject --> 3 response of participate which reject the proposal
-	Commited                         // Commited --> 4 the proposal has be accepted by all participate for some consensus policy
+	Committed                        // Committed --> 4 proposal has been accepted by participates with consensus policy
 )

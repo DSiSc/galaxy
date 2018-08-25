@@ -15,16 +15,12 @@ type Role interface {
 	GetRoles(address types.Address) common.Roler
 }
 
-const (
-	ROLE_SOLO = "solo"
-)
-
 func NewRole(p participates.Participates, address types.Address, conf config.RoleConfig) (Role, error) {
 	var err error
 	var role Role
 	rolePolicy := conf.PolicyName
 	switch rolePolicy {
-	case ROLE_SOLO:
+	case policy.SOLO_POLICY:
 		log.Info("Get role policy is solo.")
 		role, err = policy.NewSoloPolicy(p, address)
 	default:
