@@ -17,9 +17,6 @@ type Role interface {
 
 const (
 	ROLE_SOLO = "solo"
-	// Structure must matching with defination of config/config.json
-	Symbol = "role"
-	Policy = "role.policy"
 )
 
 func NewRole(p participates.Participates, address types.Address, conf config.RoleConfig) (Role, error) {
