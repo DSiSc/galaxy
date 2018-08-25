@@ -14,16 +14,12 @@ type Participates interface {
 	ChangeParticipates() error
 }
 
-const (
-	PARTICIPATES_SOLO = "solo"
-)
-
 func NewParticipates(conf config.ParticipateConfig) (Participates, error) {
 	var err error
 	var participates Participates
 	participatesPolicy := conf.PolicyName
 	switch participatesPolicy {
-	case PARTICIPATES_SOLO:
+	case policy.SOLO_POLICY:
 		log.Info("Get participates policy is solo.")
 		participates, err = policy.NewSoloPolicy()
 	default:

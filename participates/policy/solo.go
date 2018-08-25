@@ -6,7 +6,7 @@ import (
 )
 
 const (
-	POLICY_NAME = "solo"
+	SOLO_POLICY = "solo"
 )
 
 type SoloPolicy struct {
@@ -14,7 +14,7 @@ type SoloPolicy struct {
 }
 
 func NewSoloPolicy() (*SoloPolicy, error) {
-	return &SoloPolicy{name: POLICY_NAME}, nil
+	return &SoloPolicy{name: SOLO_POLICY}, nil
 }
 
 func (self *SoloPolicy) PolicyName() string {

@@ -15,14 +15,14 @@ func Test_NewSoloPolicy(t *testing.T) {
 	policy, err := NewSoloPolicy()
 	assert.NotNil(policy)
 	assert.Nil(err)
-	assert.Equal(POLICY_NAME, policy.name, "they should not be equal")
+	assert.Equal(SOLO_POLICY, policy.name, "they should not be equal")
 }
 
 func Test_PolicyName(t *testing.T) {
 	assert := assert.New(t)
 	policy := mock_NewSoloPolicy()
 	policyName := policy.PolicyName()
-	assert.Equal(POLICY_NAME, policyName, "they should not be equal")
+	assert.Equal(SOLO_POLICY, policyName, "they should not be equal")
 }
 
 func Test_GetParticipates(t *testing.T) {
