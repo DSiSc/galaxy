@@ -44,7 +44,7 @@ func (self *SoloPolicy) RoleAssignments() (map[types.Address]common.Roler, error
 func (self *SoloPolicy) GetRoles(address types.Address) common.Roler {
 	if address != self.local {
 		log.Error("Wrong address which nobody knows in solo role policy.")
-		return common.Unnormal
+		return common.UnKnown
 	}
 	return common.Master
 }

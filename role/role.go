@@ -1,6 +1,7 @@
 package role
 
 import (
+	"fmt"
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/galaxy/participates"
 	"github.com/DSiSc/galaxy/role/common"
@@ -25,6 +26,7 @@ func NewRole(p participates.Participates, address types.Address, conf config.Rol
 		role, err = policy.NewSoloPolicy(p, address)
 	default:
 		log.Error("Now, we only support solo role policy.")
+		err = fmt.Errorf("%s", "Unknown policy type.")
 	}
 	return role, err
 }

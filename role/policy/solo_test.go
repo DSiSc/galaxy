@@ -54,4 +54,8 @@ func Test_RoleAssignments(t *testing.T) {
 
 	roler := policy.GetRoles(address)
 	asserts.Equal(common.Master, roler)
+
+	address = mock_address(2)[1]
+	roler = policy.GetRoles(address)
+	asserts.Equal(common.UnKnown, roler)
 }

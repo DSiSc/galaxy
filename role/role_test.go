@@ -45,4 +45,11 @@ func Test_NewRole(t *testing.T) {
 	method, exist = p.MethodByName("GetRoles")
 	asserts.NotNil(method)
 	asserts.True(exist)
+
+	fakeConf := config.RoleConfig{
+		PolicyName: "unknown",
+	}
+	role, err = NewRole(nil, address, fakeConf)
+	asserts.NotNil(err)
+	asserts.Nil(role)
 }

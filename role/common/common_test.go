@@ -10,5 +10,5 @@ func Test_Role(t *testing.T) {
 	assert.Equal(0, int(Master))
 	assert.Equal(1, int(Slave))
 	assert.Equal(2, int(Normal))
-	assert.Equal(3, int(Unnormal))
+	assert.Equal(3, int(UnKnown))
 }
