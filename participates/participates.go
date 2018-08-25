@@ -16,9 +16,6 @@ type Participates interface {
 
 const (
 	PARTICIPATES_SOLO = "solo"
-	// Structure must matching with defination of config/config.json
-	Symbol = "participates"
-	Policy = "participates.policy"
 )
 
 func NewParticipates(conf config.ParticipateConfig) (Participates, error) {
