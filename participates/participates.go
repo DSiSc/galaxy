@@ -10,7 +10,7 @@ import (
 
 type Participates interface {
 	PolicyName() string
-	GetParticipates() ([]types.Address, error)
+	GetParticipates() ([]types.NodeAddress, error)
 	ChangeParticipates() error
 }
 

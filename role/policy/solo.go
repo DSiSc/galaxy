@@ -14,34 +14,38 @@ const (
 
 type SoloPolicy struct {
 	name        string
-	local       types.Address
+	local       types.NodeAddress
 	participate participates.Participates
 }
 
-func NewSoloPolicy(p participates.Participates, address types.Address) (*SoloPolicy, error) {
+func NewSoloPolicy(p participates.Participates, localNode types.NodeAddress) (*SoloPolicy, error) {
 	soloPolicy := &SoloPolicy{
 		name:        SOLO_POLICY,
-		local:       address,
+		local:       localNode,
 		participate: p,
 	}
 	return soloPolicy, nil
 }
 
-func (self *SoloPolicy) RoleAssignments() (map[types.Address]common.Roler, error) {
+func (self *SoloPolicy) RoleAssignments() (map[types.NodeAddress]common.Roler, error) {
 	members, err := self.participate.GetParticipates()
 	if err != nil {
 		log.Error("Error to get participates.")
 		return nil, fmt.Errorf("Get participates with error:%s.", err)
 	}
 
-	if len(members) != 0 {
+	if len(members) != 1 {
 		log.Error("Solo role policy must match solo participates policy.")
 		return nil, fmt.Errorf("Participates policy not match solo role policy.")
 	}
-	return nil, nil
+
+	assigments := map[types.NodeAddress]common.Roler{
+		members[0]: common.Master,
+	}
+	return assigments, nil
 }
 
-func (self *SoloPolicy) GetRoles(address types.Address) common.Roler {
+func (self *SoloPolicy) GetRoles(address types.NodeAddress) common.Roler {
 	if address != self.local {
 		log.Error("Wrong address which nobody knows in solo role policy.")
 		return common.UnKnown

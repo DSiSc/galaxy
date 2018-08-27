@@ -5,6 +5,7 @@ import (
 	"github.com/DSiSc/galaxy/participates"
 	"github.com/DSiSc/galaxy/participates/config"
 	"github.com/DSiSc/galaxy/role/common"
+	justitia_c "github.com/DSiSc/justitia/config"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -27,18 +28,20 @@ func mock_conf() config.ParticipateConfig {
 
 func Test_NewSoloPolicy(t *testing.T) {
 	asserts := assert.New(t)
-	address := mock_address(1)[0]
-	policy, err := NewSoloPolicy(nil, address)
+	mock_node_name := "test"
+	policy, err := NewSoloPolicy(nil, types.NodeAddress(mock_node_name))
 	asserts.Nil(err)
 	asserts.NotNil(policy)
 	policyName := policy.PolicyName()
 	asserts.Equal(SOLO_POLICY, policyName, "they should not be equal")
 	asserts.Equal(policy.name, policyName, "they should not be equal")
+	asserts.Nil(policy.participate)
+	asserts.Equal(policy.local, types.NodeAddress("test"))
 }
 
 func Test_RoleAssignments(t *testing.T) {
 	asserts := assert.New(t)
-	address := mock_address(1)[0]
+	address := types.NodeAddress(justitia_c.SINGLE_NODE_NAME)
 	conf := mock_conf()
 	p, err := participates.NewParticipates(conf)
 	asserts.Nil(err)
@@ -50,12 +53,11 @@ func Test_RoleAssignments(t *testing.T) {
 
 	roles, errs := policy.RoleAssignments()
 	asserts.Nil(errs)
-	asserts.Nil(roles)
+	asserts.NotNil(roles)
 
 	roler := policy.GetRoles(address)
 	asserts.Equal(common.Master, roler)
 
-	address = mock_address(2)[1]
-	roler = policy.GetRoles(address)
+	roler = policy.GetRoles(types.NodeAddress("test"))
 	asserts.Equal(common.UnKnown, roler)
 }

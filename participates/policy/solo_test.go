@@ -1,6 +1,8 @@
 package policy
 
 import (
+	"github.com/DSiSc/craft/types"
+	"github.com/DSiSc/justitia/config"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -31,5 +33,12 @@ func Test_GetParticipates(t *testing.T) {
 	address, err := policy.GetParticipates()
 	asserts.NotNil(address)
 	asserts.Nil(err)
-	asserts.Equal(0, len(address), "they should not be equal")
+	asserts.Equal(1, len(address), "they should not be equal")
+}
+
+func Test_getMembers(t *testing.T) {
+	asserts := assert.New(t)
+	policy := mock_NewSoloPolicy()
+	members := policy.getMembers()
+	asserts.Equal(types.NodeAddress(config.SINGLE_NODE_NAME), members, "they should not be equal")
 }

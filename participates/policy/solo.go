@@ -2,6 +2,7 @@ package policy
 
 import (
 	"github.com/DSiSc/craft/types"
+	"github.com/DSiSc/justitia/config"
 	"github.com/DSiSc/txpool/log"
 )
 
@@ -21,9 +22,15 @@ func (self *SoloPolicy) PolicyName() string {
 	return self.name
 }
 
-func (self *SoloPolicy) GetParticipates() ([]types.Address, error) {
-	participates := make([]types.Address, 0, 0)
-	log.Info("Solo will return nil when getting participates.")
+func (self *SoloPolicy) getMembers() types.NodeAddress {
+	nodeName := config.SINGLE_NODE_NAME
+	return types.NodeAddress(nodeName)
+}
+
+func (self *SoloPolicy) GetParticipates() ([]types.NodeAddress, error) {
+	participates := make([]types.NodeAddress, 0, 1)
+	member := self.getMembers()
+	participates = append(participates, member)
 	return participates, nil
 }
 

@@ -12,11 +12,11 @@ import (
 
 type Role interface {
 	PolicyName() string
-	RoleAssignments() (map[types.Address]common.Roler, error)
-	GetRoles(address types.Address) common.Roler
+	RoleAssignments() (map[types.NodeAddress]common.Roler, error)
+	GetRoles(address types.NodeAddress) common.Roler
 }
 
-func NewRole(p participates.Participates, address types.Address, conf config.RoleConfig) (Role, error) {
+func NewRole(p participates.Participates, address types.NodeAddress, conf config.RoleConfig) (Role, error) {
 	var err error
 	var role Role
 	rolePolicy := conf.PolicyName

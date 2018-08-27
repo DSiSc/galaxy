@@ -3,6 +3,7 @@ package role
 import (
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/galaxy/role/config"
+	justitia_c "github.com/DSiSc/justitia/config"
 	"github.com/stretchr/testify/assert"
 	"reflect"
 	"testing"
@@ -26,7 +27,7 @@ func mock_conf() config.RoleConfig {
 
 func Test_NewRole(t *testing.T) {
 	asserts := assert.New(t)
-	address := mock_address(1)[0]
+	address := types.NodeAddress(justitia_c.SINGLE_NODE_NAME)
 	asserts.NotNil(address)
 	conf := mock_conf()
 	role, err := NewRole(nil, address, conf)
