@@ -1,0 +1,9 @@
+# Imported packages that does not exsit under "vendor" folder.
+# The following lines listed by git repositories(each line for one git repo) 
+# alone with compatible version(branch/tag/commit-id).
+
+github.com/DSiSc/producer:master
+github.com/DSiSc/txpool:master
+github.com/DSiSc/craft:master
+github.com/DSiSc/justitia:master
+github.com/DSiSc/blockstore:master

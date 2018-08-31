@@ -1,0 +1,17 @@
+{
+  "producer":{
+    "policy":"timer",
+    "timer":{
+      "time": "10"
+    },
+    "voter":{
+      "number": "1"
+    }
+  },
+  "block":{
+    "store":"leveldb"
+  },
+  "participates":{
+    "policy":"solo"
+  }
+}

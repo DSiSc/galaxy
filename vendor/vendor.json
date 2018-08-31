@@ -1,0 +1,37 @@
+{
+	"comment": "",
+	"ignore": "test",
+	"package": [
+		{
+			"checksumSHA1": "mY/P/6FmbcxXJEly440xmmuv6EA=",
+			"path": "github.com/DSiSc/producer/config",
+			"revision": "0185acda058eb1b4bddc18b75a7d6d9170f6b983",
+			"revisionTime": "2018-08-20T11:03:59Z"
+		},
+		{
+			"checksumSHA1": "nqqySbxJ7SF9vVHwKfT33nempS8=",
+			"path": "github.com/DSiSc/txpool/common/log",
+			"revision": "89aa97de67a8982cac8881684e92d893dfed9fa1",
+			"revisionTime": "2018-08-20T09:17:10Z"
+		},
+		{
+			"checksumSHA1": "CSPbwbyzqA6sfORicn4HFtIhF/c=",
+			"path": "github.com/davecgh/go-spew/spew",
+			"revision": "8991bc29aa16c548c550c7ff78260e27b9ab7c73",
+			"revisionTime": "2018-02-21T22:46:20Z"
+		},
+		{
+			"checksumSHA1": "LuFv4/jlrmFNnDb/5SCSEPAM9vU=",
+			"path": "github.com/pmezard/go-difflib/difflib",
+			"revision": "792786c7400a136282c1664665ae0a8db921c6c2",
+			"revisionTime": "2016-01-10T10:55:54Z"
+		},
+		{
+			"checksumSHA1": "c6pbpF7eowwO59phRTpF8cQ80Z0=",
+			"path": "github.com/stretchr/testify/assert",
+			"revision": "f35b8ab0b5a2cef36673838d662e249dd9c94686",
+			"revisionTime": "2018-05-06T18:05:49Z"
+		}
+	],
+	"rootPath": "github.com/DSiSc/galaxy"
+}
