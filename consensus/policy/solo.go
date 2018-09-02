@@ -5,12 +5,14 @@ import (
 	"github.com/DSiSc/galaxy/consensus/common"
 	"github.com/DSiSc/galaxy/participates"
 	"github.com/DSiSc/txpool/log"
+	"github.com/DSiSc/validator"
 )
 
 var version common.Version
 
 const (
-	SOLO_POLICY = "solo"
+	SOLO_POLICY   = "solo"
+	CONSENSUS_NUM = 1
 )
 
 type SoloPolicy struct {
@@ -52,7 +54,7 @@ func (self *SoloPolicy) ToConsensus(p *common.Proposal) error {
 		log.Error("Block segment cant not be nil in proposal.")
 		return fmt.Errorf("Proposal segment fault.")
 	}
-
+	// to issue proposal
 	proposal := toSoloProposal(p)
 	// prepare
 	err := self.prepareConsensus(proposal)
@@ -60,15 +62,25 @@ func (self *SoloPolicy) ToConsensus(p *common.Proposal) error {
 		log.Error("Prepare proposal failed.")
 		return fmt.Errorf("Prepare proposal failed.")
 	}
-	// TODO: broadcast proposal among participates
-	// TODO: collect consensus result
+	// get consensus
+	ok := self.toConsensus(proposal)
+	if ok == false {
+		log.Error("Local verify failed.")
+		return fmt.Errorf("Local verify failed.")
+	}
+	// verify consensus result
+	signData := proposal.propoasl.Block.Header.SigData
+	if len(signData) >= CONSENSUS_NUM {
+		log.Error("Not enough signature.")
+		return fmt.Errorf("Not enough signature.")
+	}
 	// committed
 	err = self.submitConsensus(proposal)
 	if err != nil {
 		log.Error("Sunmit proposal failed.")
 		return fmt.Errorf("Sunmit proposal failed.")
 	}
-
+	// just a check
 	if proposal.status != common.Committed {
 		log.Error("Not to consensus.")
 		return fmt.Errorf("Not to consensus.")
@@ -77,7 +89,6 @@ func (self *SoloPolicy) ToConsensus(p *common.Proposal) error {
 	return nil
 }
 
-// check proposal param and set consensus status
 func (self *SoloPolicy) prepareConsensus(p *SoloProposal) error {
 	if p.version <= version {
 		log.Error("Proposal version segment less than version which has configmed.")
@@ -96,13 +107,11 @@ func (self *SoloPolicy) submitConsensus(p *SoloProposal) error {
 		log.Error("Proposal status must be Proposaling to submit consensus.")
 		return fmt.Errorf("Proposal status must be Proposaling.")
 	}
-	// TODO: collect result of every participates
 	p.status = common.Committed
 	return nil
 }
 
 func (self *SoloPolicy) toConsensus(p *SoloProposal) bool {
-
 	if nil != p {
 		log.Error("Proposal invalid.")
 		return false
@@ -113,8 +122,14 @@ func (self *SoloPolicy) toConsensus(p *SoloProposal) bool {
 		log.Error("Solo participates invalid.")
 		return false
 	}
-
-	// TODO: new a validator and verify the block
-	//validator := validator.NewValidator()
+	// SOLO, so we just verify it local
+	local := member[0]
+	validators := validator.NewValidator(&local)
+	_, ok := validators.ValidateBlock(p.propoasl.Block)
+	if nil != ok {
+		log.Error("Validator verify failed.")
+		return false
+	}
+	log.Info("Validator verify success in consensus.")
 	return true
 }
