@@ -2,7 +2,7 @@ package policy
 
 import (
 	"github.com/DSiSc/craft/types"
-	"github.com/DSiSc/justitia/config"
+	"github.com/DSiSc/validator/tools/account"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -10,6 +10,13 @@ import (
 func mock_NewSoloPolicy() *SoloPolicy {
 	policy, _ := NewSoloPolicy()
 	return policy
+}
+
+var MockAccount = account.Account{
+	Address: types.Address{
+		0x33, 0x3c, 0x33, 0x10, 0x82, 0x4b, 0x7c, 0x68, 0x51, 0x33,
+		0xf2, 0xbe, 0xdb, 0x2c, 0xa4, 0xb8, 0xb4, 0xdf, 0x63, 0x3d,
+	},
 }
 
 func Test_NewSoloPolicy(t *testing.T) {
@@ -40,5 +47,5 @@ func Test_getMembers(t *testing.T) {
 	asserts := assert.New(t)
 	policy := mock_NewSoloPolicy()
 	members := policy.getMembers()
-	asserts.Equal(types.NodeAddress(config.SINGLE_NODE_NAME), members, "they should not be equal")
+	asserts.Equal(MockAccount, members, "they should not be equal")
 }

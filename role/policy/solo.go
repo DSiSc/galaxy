@@ -2,10 +2,10 @@ package policy
 
 import (
 	"fmt"
-	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/galaxy/participates"
 	"github.com/DSiSc/galaxy/role/common"
 	"github.com/DSiSc/txpool/log"
+	"github.com/DSiSc/validator/tools/account"
 )
 
 const (
@@ -14,11 +14,11 @@ const (
 
 type SoloPolicy struct {
 	name        string
-	local       types.NodeAddress
+	local       account.Account
 	participate participates.Participates
 }
 
-func NewSoloPolicy(p participates.Participates, localNode types.NodeAddress) (*SoloPolicy, error) {
+func NewSoloPolicy(p participates.Participates, localNode account.Account) (*SoloPolicy, error) {
 	soloPolicy := &SoloPolicy{
 		name:        SOLO_POLICY,
 		local:       localNode,
@@ -27,7 +27,8 @@ func NewSoloPolicy(p participates.Participates, localNode types.NodeAddress) (*S
 	return soloPolicy, nil
 }
 
-func (self *SoloPolicy) RoleAssignments() (map[types.NodeAddress]common.Roler, error) {
+func (self *SoloPolicy) RoleAssignments() (map[account.Account]common.Roler, error) {
+	assignment := make(map[account.Account]common.Roler, 1)
 	members, err := self.participate.GetParticipates()
 	if err != nil {
 		log.Error("Error to get participates.")
@@ -39,13 +40,16 @@ func (self *SoloPolicy) RoleAssignments() (map[types.NodeAddress]common.Roler, e
 		return nil, fmt.Errorf("Participates policy not match solo role policy.")
 	}
 
-	assigments := map[types.NodeAddress]common.Roler{
-		members[0]: common.Master,
+	if members[0].Address != self.local.Address {
+		log.Error("Solo role policy only support local account.")
+		return nil, fmt.Errorf("Solo role policy only support local account.")
 	}
-	return assigments, nil
+
+	assignment[self.local] = common.Master
+	return assignment, nil
 }
 
-func (self *SoloPolicy) GetRoles(address types.NodeAddress) common.Roler {
+func (self *SoloPolicy) GetRoles(address account.Account) common.Roler {
 	if address != self.local {
 		log.Error("Wrong address which nobody knows in solo role policy.")
 		return common.UnKnown

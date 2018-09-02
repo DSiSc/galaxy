@@ -10,7 +10,7 @@ import (
 
 type Consensus interface {
 	PolicyName() string
-	ToConsensus(p *common.Proposal) (bool, error)
+	ToConsensus(p *common.Proposal) error
 }
 
 func NewConsensus(participates participates.Participates, conf config.ConsensusConfig) (Consensus, error) {

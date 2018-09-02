@@ -3,7 +3,7 @@ package role
 import (
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/galaxy/role/config"
-	justitia_c "github.com/DSiSc/justitia/config"
+	"github.com/DSiSc/validator/tools/account"
 	"github.com/stretchr/testify/assert"
 	"reflect"
 	"testing"
@@ -25,12 +25,17 @@ func mock_conf() config.RoleConfig {
 	}
 }
 
+var MockAccount = account.Account{
+	Address: types.Address{
+		0x33, 0x3c, 0x33, 0x10, 0x82, 0x4b, 0x7c, 0x68, 0x51, 0x33,
+		0xf2, 0xbe, 0xdb, 0x2c, 0xa4, 0xb8, 0xb4, 0xdf, 0x63, 0x3d,
+	},
+}
+
 func Test_NewRole(t *testing.T) {
 	asserts := assert.New(t)
-	address := types.NodeAddress(justitia_c.SINGLE_NODE_NAME)
-	asserts.NotNil(address)
 	conf := mock_conf()
-	role, err := NewRole(nil, address, conf)
+	role, err := NewRole(nil, MockAccount, conf)
 	asserts.Nil(err)
 	asserts.NotNil(role)
 
@@ -50,7 +55,7 @@ func Test_NewRole(t *testing.T) {
 	fakeConf := config.RoleConfig{
 		PolicyName: "unknown",
 	}
-	role, err = NewRole(nil, address, fakeConf)
+	role, err = NewRole(nil, MockAccount, fakeConf)
 	asserts.NotNil(err)
 	asserts.Nil(role)
 }

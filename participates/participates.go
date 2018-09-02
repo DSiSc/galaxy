@@ -2,15 +2,15 @@ package participates
 
 import (
 	"fmt"
-	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/galaxy/participates/config"
 	"github.com/DSiSc/galaxy/participates/policy"
 	"github.com/DSiSc/txpool/log"
+	"github.com/DSiSc/validator/tools/account"
 )
 
 type Participates interface {
 	PolicyName() string
-	GetParticipates() ([]types.NodeAddress, error)
+	GetParticipates() ([]account.Account, error)
 	ChangeParticipates() error
 }
 

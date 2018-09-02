@@ -5,7 +5,7 @@ import (
 	"github.com/DSiSc/galaxy/participates"
 	"github.com/DSiSc/galaxy/participates/config"
 	"github.com/DSiSc/galaxy/role/common"
-	justitia_c "github.com/DSiSc/justitia/config"
+	"github.com/DSiSc/validator/tools/account"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -26,28 +26,42 @@ func mock_conf() config.ParticipateConfig {
 	}
 }
 
+var MockAccount = account.Account{
+	Address: types.Address{
+		0x33, 0x3c, 0x33, 0x10, 0x82, 0x4b, 0x7c, 0x68, 0x51, 0x33,
+		0xf2, 0xbe, 0xdb, 0x2c, 0xa4, 0xb8, 0xb4, 0xdf, 0x63, 0x3d,
+	},
+}
+
 func Test_NewSoloPolicy(t *testing.T) {
 	asserts := assert.New(t)
-	mock_node_name := "test"
-	policy, err := NewSoloPolicy(nil, types.NodeAddress(mock_node_name))
+
+	policy, err := NewSoloPolicy(nil, MockAccount)
 	asserts.Nil(err)
 	asserts.NotNil(policy)
 	policyName := policy.PolicyName()
 	asserts.Equal(SOLO_POLICY, policyName, "they should not be equal")
 	asserts.Equal(policy.name, policyName, "they should not be equal")
 	asserts.Nil(policy.participate)
-	asserts.Equal(policy.local, types.NodeAddress("test"))
+	asserts.Equal(policy.local, MockAccount)
 }
 
 func Test_RoleAssignments(t *testing.T) {
 	asserts := assert.New(t)
-	address := types.NodeAddress(justitia_c.SINGLE_NODE_NAME)
+
+	var NotLocalAccount = account.Account{
+		Address: types.Address{
+			0x30, 0x3c, 0x33, 0x10, 0x82, 0x4b, 0x7c, 0x68, 0x51, 0x33,
+			0xf2, 0xbe, 0xdb, 0x2c, 0xa4, 0xb8, 0xb4, 0xdf, 0x63, 0x3d,
+		},
+	}
+
 	conf := mock_conf()
 	p, err := participates.NewParticipates(conf)
 	asserts.Nil(err)
 	asserts.NotNil(p)
 
-	policy, err := NewSoloPolicy(p, address)
+	policy, err := NewSoloPolicy(p, MockAccount)
 	asserts.Nil(err)
 	asserts.NotNil(policy)
 
@@ -55,9 +69,9 @@ func Test_RoleAssignments(t *testing.T) {
 	asserts.Nil(errs)
 	asserts.NotNil(roles)
 
-	roler := policy.GetRoles(address)
+	roler := policy.GetRoles(MockAccount)
 	asserts.Equal(common.Master, roler)
 
-	roler = policy.GetRoles(types.NodeAddress("test"))
+	roler = policy.GetRoles(NotLocalAccount)
 	asserts.Equal(common.UnKnown, roler)
 }

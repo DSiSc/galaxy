@@ -47,10 +47,10 @@ func toSoloProposal(p *common.Proposal) *SoloProposal {
 }
 
 // to get consensus
-func (self *SoloPolicy) ToConsensus(p *common.Proposal) (bool, error) {
+func (self *SoloPolicy) ToConsensus(p *common.Proposal) error {
 	if p.Block == nil {
 		log.Error("Block segment cant not be nil in proposal.")
-		return false, fmt.Errorf("Proposal segment fault.")
+		return fmt.Errorf("Proposal segment fault.")
 	}
 
 	proposal := toSoloProposal(p)
@@ -58,21 +58,23 @@ func (self *SoloPolicy) ToConsensus(p *common.Proposal) (bool, error) {
 	err := self.prepareConsensus(proposal)
 	if err != nil {
 		log.Error("Prepare proposal failed.")
-		return false, fmt.Errorf("Prepare proposal failed.")
+		return fmt.Errorf("Prepare proposal failed.")
 	}
-	// proposal
-	state, err := self.submitConsensus(proposal)
+	// TODO: broadcast proposal among participates
+	// TODO: collect consensus result
+	// committed
+	err = self.submitConsensus(proposal)
 	if err != nil {
 		log.Error("Sunmit proposal failed.")
-		return false, fmt.Errorf("Sunmit proposal failed.")
+		return fmt.Errorf("Sunmit proposal failed.")
 	}
 
 	if proposal.status != common.Committed {
 		log.Error("Not to consensus.")
-		return false, fmt.Errorf("Not to consensus.")
+		return fmt.Errorf("Not to consensus.")
 	}
 	version = proposal.version
-	return state, nil
+	return nil
 }
 
 // check proposal param and set consensus status
@@ -89,12 +91,30 @@ func (self *SoloPolicy) prepareConsensus(p *SoloProposal) error {
 	return nil
 }
 
-func (self *SoloPolicy) submitConsensus(p *SoloProposal) (bool, error) {
+func (self *SoloPolicy) submitConsensus(p *SoloProposal) error {
 	if p.status != common.Propose {
 		log.Error("Proposal status must be Proposaling to submit consensus.")
-		return false, fmt.Errorf("Proposal status must be Proposaling.")
+		return fmt.Errorf("Proposal status must be Proposaling.")
 	}
 	// TODO: collect result of every participates
 	p.status = common.Committed
-	return true, nil
+	return nil
+}
+
+func (self *SoloPolicy) toConsensus(p *SoloProposal) bool {
+
+	if nil != p {
+		log.Error("Proposal invalid.")
+		return false
+	}
+
+	member, err := self.participates.GetParticipates()
+	if len(member) != 1 || err != nil {
+		log.Error("Solo participates invalid.")
+		return false
+	}
+
+	// TODO: new a validator and verify the block
+	//validator := validator.NewValidator()
+	return true
 }

@@ -60,13 +60,11 @@ func Test_submitConsensus(t *testing.T) {
 	asserts := assert.New(t)
 	proposal := mock_solo_proposal()
 	sp, _ := NewSoloPolicy(nil)
-	ok, err := sp.submitConsensus(proposal)
-	asserts.False(ok)
+	err := sp.submitConsensus(proposal)
 	asserts.NotNil(err)
 
 	proposal.status = common.Propose
-	ok, err = sp.submitConsensus(proposal)
-	asserts.True(ok)
+	err = sp.submitConsensus(proposal)
 	asserts.Nil(err)
 	asserts.Equal(common.Committed, proposal.status)
 }
@@ -75,8 +73,7 @@ func Test_ToConsensus(t *testing.T) {
 	asserts := assert.New(t)
 	proposal := mock_proposal()
 	sp, _ := NewSoloPolicy(nil)
-	ok, err := sp.ToConsensus(proposal)
-	asserts.True(ok)
+	err := sp.ToConsensus(proposal)
 	asserts.Nil(err)
 	asserts.Equal(common.Version(1), version)
 }

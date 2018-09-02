@@ -2,21 +2,21 @@ package role
 
 import (
 	"fmt"
-	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/galaxy/participates"
 	"github.com/DSiSc/galaxy/role/common"
 	"github.com/DSiSc/galaxy/role/config"
 	"github.com/DSiSc/galaxy/role/policy"
 	"github.com/DSiSc/txpool/log"
+	"github.com/DSiSc/validator/tools/account"
 )
 
 type Role interface {
 	PolicyName() string
-	RoleAssignments() (map[types.NodeAddress]common.Roler, error)
-	GetRoles(address types.NodeAddress) common.Roler
+	RoleAssignments() (map[account.Account]common.Roler, error)
+	GetRoles(address account.Account) common.Roler
 }
 
-func NewRole(p participates.Participates, address types.NodeAddress, conf config.RoleConfig) (Role, error) {
+func NewRole(p participates.Participates, address account.Account, conf config.RoleConfig) (Role, error) {
 	var err error
 	var role Role
 	rolePolicy := conf.PolicyName
