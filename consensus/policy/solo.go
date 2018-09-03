@@ -70,7 +70,7 @@ func (self *SoloPolicy) ToConsensus(p *common.Proposal) error {
 	}
 	// verify consensus result
 	signData := proposal.propoasl.Block.Header.SigData
-	if len(signData) >= CONSENSUS_NUM {
+	if len(signData) < CONSENSUS_NUM {
 		log.Error("Not enough signature.")
 		return fmt.Errorf("Not enough signature.")
 	}
@@ -112,7 +112,7 @@ func (self *SoloPolicy) submitConsensus(p *SoloProposal) error {
 }
 
 func (self *SoloPolicy) toConsensus(p *SoloProposal) bool {
-	if nil != p {
+	if nil == p {
 		log.Error("Proposal invalid.")
 		return false
 	}
