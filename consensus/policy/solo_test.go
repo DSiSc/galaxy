@@ -3,6 +3,8 @@ package policy
 import (
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/galaxy/consensus/common"
+	"github.com/DSiSc/galaxy/participates"
+	"github.com/DSiSc/galaxy/participates/config"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -32,6 +34,10 @@ func mock_solo_proposal() *SoloProposal {
 	}
 }
 
+var MockParticipate, _ = participates.NewParticipates(config.ParticipateConfig{
+	PolicyName: SOLO_POLICY,
+})
+
 func Test_toSoloProposal(t *testing.T) {
 	asserts := assert.New(t)
 	p := mock_proposal()
@@ -44,7 +50,7 @@ func Test_toSoloProposal(t *testing.T) {
 
 func Test_prepareConsensus(t *testing.T) {
 	asserts := assert.New(t)
-	sp, _ := NewSoloPolicy(nil)
+	sp, _ := NewSoloPolicy(MockParticipate)
 	proposal := mock_solo_proposal()
 
 	err := sp.prepareConsensus(proposal)
@@ -59,7 +65,7 @@ func Test_prepareConsensus(t *testing.T) {
 func Test_submitConsensus(t *testing.T) {
 	asserts := assert.New(t)
 	proposal := mock_solo_proposal()
-	sp, _ := NewSoloPolicy(nil)
+	sp, _ := NewSoloPolicy(MockParticipate)
 	err := sp.submitConsensus(proposal)
 	asserts.NotNil(err)
 
@@ -72,7 +78,7 @@ func Test_submitConsensus(t *testing.T) {
 func Test_ToConsensus(t *testing.T) {
 	asserts := assert.New(t)
 	proposal := mock_proposal()
-	sp, _ := NewSoloPolicy(nil)
+	sp, _ := NewSoloPolicy(MockParticipate)
 	err := sp.ToConsensus(proposal)
 	// TODO: mock validator
 	asserts.NotNil(err)
