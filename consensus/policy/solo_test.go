@@ -6,6 +6,7 @@ import (
 	"github.com/DSiSc/galaxy/participates"
 	"github.com/DSiSc/galaxy/participates/config"
 	"github.com/stretchr/testify/assert"
+	"math"
 	"testing"
 )
 
@@ -83,4 +84,13 @@ func Test_ToConsensus(t *testing.T) {
 	// TODO: mock validator
 	asserts.NotNil(err)
 	asserts.Equal(common.Version(0), version)
+}
+
+func TestprepareConsensus(t *testing.T) {
+	asserts := assert.New(t)
+	sp, _ := NewSoloPolicy(MockParticipate)
+	version = math.MaxUint64
+	proposal := toSoloProposal(nil)
+	err := sp.prepareConsensus(proposal)
+	asserts.Nil(err)
 }

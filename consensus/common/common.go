@@ -6,7 +6,7 @@ import (
 	"github.com/DSiSc/craft/types"
 )
 
-type Version uint8
+type Version uint64
 
 // Base proposal
 type Proposal struct {

@@ -8,6 +8,7 @@ import (
 	"github.com/DSiSc/txpool/log"
 	"github.com/DSiSc/validator"
 	"github.com/DSiSc/validator/tools/signature"
+	"math"
 )
 
 var version common.Version
@@ -43,6 +44,9 @@ func (self *SoloPolicy) PolicyName() string {
 }
 
 func toSoloProposal(p *common.Proposal) *SoloProposal {
+	if version == math.MaxUint64 {
+		version = 0
+	}
 	return &SoloProposal{
 		propoasl: p,
 		version:  version + 1,
@@ -108,7 +112,7 @@ func (self *SoloPolicy) ToConsensus(p *common.Proposal) error {
 
 func (self *SoloPolicy) prepareConsensus(p *SoloProposal) error {
 	if p.version <= version {
-		log.Error("Proposal version segment less than version which has configmed.")
+		log.Error("Proposal version segment less than version which has confirmed.")
 		return fmt.Errorf("Proposal version less than confirmed.")
 	}
 	if p.status != common.Proposing {
