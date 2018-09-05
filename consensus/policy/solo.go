@@ -2,10 +2,12 @@ package policy
 
 import (
 	"fmt"
+	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/galaxy/consensus/common"
 	"github.com/DSiSc/galaxy/participates"
 	"github.com/DSiSc/txpool/log"
 	"github.com/DSiSc/validator"
+	"github.com/DSiSc/validator/tools/signature"
 )
 
 var version common.Version
@@ -73,12 +75,27 @@ func (self *SoloPolicy) ToConsensus(p *common.Proposal) error {
 	if len(signData) < CONSENSUS_NUM {
 		log.Error("Not enough signature.")
 		return fmt.Errorf("Not enough signature.")
+	} else {
+		var headerHash = common.HeaderHash(p.Block)
+		var validSign = make(map[types.Address][]byte)
+		var signAddress types.Address
+		for _, value := range signData {
+			signAddress, err = signature.Verify(headerHash, value)
+			if err != nil {
+				log.Error("Invalid signature.")
+			}
+			validSign[signAddress] = value
+		}
+		if len(validSign) < CONSENSUS_NUM {
+			log.Error("Not enough valid signature.")
+			return fmt.Errorf("Not enough valid signature.")
+		}
 	}
 	// committed
 	err = self.submitConsensus(proposal)
 	if err != nil {
-		log.Error("Sunmit proposal failed.")
-		return fmt.Errorf("Sunmit proposal failed.")
+		log.Error("Submit proposal failed.")
+		return fmt.Errorf("Submit proposal failed.")
 	}
 	// just a check
 	if proposal.status != common.Committed {
