@@ -61,6 +61,11 @@ func Test_prepareConsensus(t *testing.T) {
 	err = sp.prepareConsensus(proposal)
 	asserts.Nil(err)
 	asserts.Equal(common.Propose, proposal.status)
+
+	version = math.MaxUint64
+	proposal = toSoloProposal(nil)
+	err = sp.prepareConsensus(proposal)
+	asserts.Nil(err)
 }
 
 func Test_submitConsensus(t *testing.T) {
@@ -76,7 +81,7 @@ func Test_submitConsensus(t *testing.T) {
 	asserts.Equal(common.Committed, proposal.status)
 }
 
-func Test_ToConsensus(t *testing.T) {
+func TestSoloPolicy_ToConsensus(t *testing.T) {
 	asserts := assert.New(t)
 	proposal := mock_proposal()
 	sp, _ := NewSoloPolicy(MockParticipate)
@@ -93,4 +98,19 @@ func TestPrepareConsensus(t *testing.T) {
 	proposal := toSoloProposal(nil)
 	err := sp.prepareConsensus(proposal)
 	asserts.Nil(err)
+}
+
+func TestNewSoloPolicy(t *testing.T) {
+	sp, err := NewSoloPolicy(MockParticipate)
+	assert.Nil(t, err)
+	assert.NotNil(t, sp)
+	assert.Equal(t, SOLO_POLICY, sp.name)
+	assert.Equal(t, common.Version(0), version)
+}
+
+func TestSoloPolicy_PolicyName(t *testing.T) {
+	sp, err := NewSoloPolicy(MockParticipate)
+	assert.Nil(t, err)
+	assert.NotNil(t, sp)
+	assert.Equal(t, SOLO_POLICY, sp.PolicyName())
 }
