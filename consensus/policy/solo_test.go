@@ -1,6 +1,7 @@
 package policy
 
 import (
+	"fmt"
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/galaxy/consensus/common"
 	"github.com/DSiSc/galaxy/participates"
@@ -62,6 +63,10 @@ func Test_prepareConsensus(t *testing.T) {
 	asserts.Nil(err)
 	asserts.Equal(common.Propose, proposal.status)
 
+	proposal.status = common.Propose
+	err = sp.prepareConsensus(proposal)
+	asserts.NotNil(err)
+
 	version = math.MaxUint64
 	proposal = toSoloProposal(nil)
 	err = sp.prepareConsensus(proposal)
@@ -85,10 +90,16 @@ func TestSoloPolicy_ToConsensus(t *testing.T) {
 	asserts := assert.New(t)
 	proposal := mock_proposal()
 	sp, _ := NewSoloPolicy(MockParticipate)
+
 	err := sp.ToConsensus(proposal)
-	// TODO: mock validator
 	asserts.NotNil(err)
 	asserts.Equal(common.Version(0), version)
+
+	proposal.Block = nil
+	err = sp.ToConsensus(proposal)
+	asserts.NotNil(err)
+	excErr := fmt.Errorf("Proposal segment fault.")
+	asserts.Equal(excErr, err)
 }
 
 func TestPrepareConsensus(t *testing.T) {
@@ -113,4 +124,10 @@ func TestSoloPolicy_PolicyName(t *testing.T) {
 	assert.Nil(t, err)
 	assert.NotNil(t, sp)
 	assert.Equal(t, SOLO_POLICY, sp.PolicyName())
+}
+
+func Test_toConsensus(t *testing.T) {
+	sp, _ := NewSoloPolicy(MockParticipate)
+	err := sp.toConsensus(nil)
+	assert.Equal(t, false, err)
 }
