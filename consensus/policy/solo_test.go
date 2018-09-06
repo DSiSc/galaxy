@@ -86,7 +86,7 @@ func Test_ToConsensus(t *testing.T) {
 	asserts.Equal(common.Version(0), version)
 }
 
-func TestprepareConsensus(t *testing.T) {
+func TestPrepareConsensus(t *testing.T) {
 	asserts := assert.New(t)
 	sp, _ := NewSoloPolicy(MockParticipate)
 	version = math.MaxUint64

@@ -2,10 +2,10 @@ package policy
 
 import (
 	"fmt"
+	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/galaxy/consensus/common"
 	"github.com/DSiSc/galaxy/participates"
-	"github.com/DSiSc/txpool/log"
 	"github.com/DSiSc/validator"
 	"github.com/DSiSc/validator/tools/signature"
 	"math"

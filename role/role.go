@@ -2,11 +2,11 @@ package role
 
 import (
 	"fmt"
+	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/galaxy/participates"
 	"github.com/DSiSc/galaxy/role/common"
 	"github.com/DSiSc/galaxy/role/config"
 	"github.com/DSiSc/galaxy/role/policy"
-	"github.com/DSiSc/txpool/log"
 	"github.com/DSiSc/validator/tools/account"
 )
 

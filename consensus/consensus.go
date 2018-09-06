@@ -1,11 +1,11 @@
 package consensus
 
 import (
+	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/galaxy/consensus/common"
 	"github.com/DSiSc/galaxy/consensus/config"
 	"github.com/DSiSc/galaxy/consensus/policy"
 	"github.com/DSiSc/galaxy/participates"
-	"github.com/DSiSc/txpool/log"
 )
 
 type Consensus interface {
