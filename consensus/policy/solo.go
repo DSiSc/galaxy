@@ -11,7 +11,7 @@ import (
 	"math"
 )
 
-var version common.Version
+//var version common.Version
 
 const (
 	SOLO_POLICY   = "solo"
@@ -20,6 +20,7 @@ const (
 
 type SoloPolicy struct {
 	name         string
+	version      common.Version
 	participates participates.Participates
 }
 
@@ -34,8 +35,8 @@ func NewSoloPolicy(participates participates.Participates) (*SoloPolicy, error) 
 	policy := &SoloPolicy{
 		name:         SOLO_POLICY,
 		participates: participates,
+		version:      0,
 	}
-	version = 0
 	return policy, nil
 }
 
@@ -43,13 +44,13 @@ func (self *SoloPolicy) PolicyName() string {
 	return self.name
 }
 
-func toSoloProposal(p *common.Proposal) *SoloProposal {
-	if version == math.MaxUint64 {
-		version = 0
+func (self *SoloPolicy) toSoloProposal(p *common.Proposal) *SoloProposal {
+	if self.version == math.MaxUint64 {
+		self.version = 0
 	}
 	return &SoloProposal{
 		propoasl: p,
-		version:  version + 1,
+		version:  self.version + 1,
 		status:   common.Proposing,
 	}
 }
@@ -61,7 +62,7 @@ func (self *SoloPolicy) ToConsensus(p *common.Proposal) error {
 		return fmt.Errorf("Proposal segment fault.")
 	}
 	// to issue proposal
-	proposal := toSoloProposal(p)
+	proposal := self.toSoloProposal(p)
 	// prepare
 	err := self.prepareConsensus(proposal)
 	if err != nil {
@@ -106,12 +107,12 @@ func (self *SoloPolicy) ToConsensus(p *common.Proposal) error {
 		log.Error("Not to consensus.")
 		return fmt.Errorf("Not to consensus.")
 	}
-	version = proposal.version
+	self.version = proposal.version
 	return nil
 }
 
 func (self *SoloPolicy) prepareConsensus(p *SoloProposal) error {
-	if p.version <= version {
+	if p.version <= self.version {
 		log.Error("Proposal version segment less than version which has confirmed.")
 		return fmt.Errorf("Proposal version less than confirmed.")
 	}

@@ -43,7 +43,8 @@ var MockParticipate, _ = participates.NewParticipates(config.ParticipateConfig{
 func Test_toSoloProposal(t *testing.T) {
 	asserts := assert.New(t)
 	p := mock_proposal()
-	proposal := toSoloProposal(p)
+	sp, _ := NewSoloPolicy(MockParticipate)
+	proposal := sp.toSoloProposal(p)
 	asserts.NotNil(proposal)
 	asserts.Equal(common.Proposing, proposal.status)
 	asserts.Equal(common.Version(1), proposal.version)
@@ -67,8 +68,8 @@ func Test_prepareConsensus(t *testing.T) {
 	err = sp.prepareConsensus(proposal)
 	asserts.NotNil(err)
 
-	version = math.MaxUint64
-	proposal = toSoloProposal(nil)
+	sp.version = math.MaxUint64
+	proposal = sp.toSoloProposal(nil)
 	err = sp.prepareConsensus(proposal)
 	asserts.Nil(err)
 }
@@ -93,7 +94,7 @@ func TestSoloPolicy_ToConsensus(t *testing.T) {
 
 	err := sp.ToConsensus(proposal)
 	asserts.NotNil(err)
-	asserts.Equal(common.Version(0), version)
+	asserts.Equal(common.Version(0), sp.version)
 
 	proposal.Block = nil
 	err = sp.ToConsensus(proposal)
@@ -105,8 +106,8 @@ func TestSoloPolicy_ToConsensus(t *testing.T) {
 func TestPrepareConsensus(t *testing.T) {
 	asserts := assert.New(t)
 	sp, _ := NewSoloPolicy(MockParticipate)
-	version = math.MaxUint64
-	proposal := toSoloProposal(nil)
+	sp.version = math.MaxUint64
+	proposal := sp.toSoloProposal(nil)
 	err := sp.prepareConsensus(proposal)
 	asserts.Nil(err)
 }
@@ -116,7 +117,7 @@ func TestNewSoloPolicy(t *testing.T) {
 	assert.Nil(t, err)
 	assert.NotNil(t, sp)
 	assert.Equal(t, SOLO_POLICY, sp.name)
-	assert.Equal(t, common.Version(0), version)
+	assert.Equal(t, common.Version(0), sp.version)
 }
 
 func TestSoloPolicy_PolicyName(t *testing.T) {
