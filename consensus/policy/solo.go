@@ -84,16 +84,17 @@ func (self *SoloPolicy) ToConsensus(p *common.Proposal) error {
 		var headerHash = common.HeaderHash(p.Block)
 		var validSign = make(map[types.Address][]byte)
 		var signAddress types.Address
+		log.Info("Sign data is %x.", signData)
 		for _, value := range signData {
 			signAddress, err = signature.Verify(headerHash, value)
 			if err != nil {
-				log.Error("Invalid signature.")
+				log.Error("Invalid signature is %x.", value)
 				continue
 			}
 			validSign[signAddress] = value
 		}
 		if len(validSign) < CONSENSUS_NUM {
-			log.Error("Not enough valid signature.")
+			log.Error("Not enough valid signature which is %d.", len(validSign))
 			return fmt.Errorf("not enough valid signature")
 		}
 	}
