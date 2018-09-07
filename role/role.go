@@ -26,7 +26,7 @@ func NewRole(p participates.Participates, address account.Account, conf config.R
 		role, err = policy.NewSoloPolicy(p, address)
 	default:
 		log.Error("Now, we only support solo role policy.")
-		err = fmt.Errorf("%s", "Unknown policy type.")
+		err = fmt.Errorf("unkonwn policy type")
 	}
 	return role, err
 }

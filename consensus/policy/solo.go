@@ -59,7 +59,7 @@ func (self *SoloPolicy) toSoloProposal(p *common.Proposal) *SoloProposal {
 func (self *SoloPolicy) ToConsensus(p *common.Proposal) error {
 	if p.Block == nil {
 		log.Error("Block segment cant not be nil in proposal.")
-		return fmt.Errorf("Proposal segment fault.")
+		return fmt.Errorf("proposal block is nil")
 	}
 	// to issue proposal
 	proposal := self.toSoloProposal(p)
@@ -67,19 +67,19 @@ func (self *SoloPolicy) ToConsensus(p *common.Proposal) error {
 	err := self.prepareConsensus(proposal)
 	if err != nil {
 		log.Error("Prepare proposal failed.")
-		return fmt.Errorf("Prepare proposal failed.")
+		return fmt.Errorf("prepare proposal failed")
 	}
 	// get consensus
 	ok := self.toConsensus(proposal)
 	if ok == false {
 		log.Error("Local verify failed.")
-		return fmt.Errorf("Local verify failed.")
+		return fmt.Errorf("local verify failed")
 	}
 	// verify num of sign
 	signData := proposal.propoasl.Block.SigData
 	if len(signData) < CONSENSUS_NUM {
 		log.Error("Not enough signature.")
-		return fmt.Errorf("Not enough signature.")
+		return fmt.Errorf("not enough signature")
 	} else {
 		var headerHash = common.HeaderHash(p.Block)
 		var validSign = make(map[types.Address][]byte)
@@ -88,24 +88,25 @@ func (self *SoloPolicy) ToConsensus(p *common.Proposal) error {
 			signAddress, err = signature.Verify(headerHash, value)
 			if err != nil {
 				log.Error("Invalid signature.")
+				continue
 			}
 			validSign[signAddress] = value
 		}
 		if len(validSign) < CONSENSUS_NUM {
 			log.Error("Not enough valid signature.")
-			return fmt.Errorf("Not enough valid signature.")
+			return fmt.Errorf("not enough valid signature")
 		}
 	}
 	// committed
 	err = self.submitConsensus(proposal)
 	if err != nil {
 		log.Error("Submit proposal failed.")
-		return fmt.Errorf("Submit proposal failed.")
+		return fmt.Errorf("submit proposal failed")
 	}
 	// just a check
 	if proposal.status != common.Committed {
 		log.Error("Not to consensus.")
-		return fmt.Errorf("Not to consensus.")
+		return fmt.Errorf("consensus status fault")
 	}
 	self.version = proposal.version
 	return nil
@@ -114,11 +115,11 @@ func (self *SoloPolicy) ToConsensus(p *common.Proposal) error {
 func (self *SoloPolicy) prepareConsensus(p *SoloProposal) error {
 	if p.version <= self.version {
 		log.Error("Proposal version segment less than version which has confirmed.")
-		return fmt.Errorf("Proposal version less than confirmed.")
+		return fmt.Errorf("proposal version less than confirmed")
 	}
 	if p.status != common.Proposing {
 		log.Error("Proposal status must be Proposal befor submit consensus.")
-		return fmt.Errorf("Proposal status must be Proposal.")
+		return fmt.Errorf("proposal status must be in proposal")
 	}
 	p.status = common.Propose
 	return nil
@@ -127,7 +128,7 @@ func (self *SoloPolicy) prepareConsensus(p *SoloProposal) error {
 func (self *SoloPolicy) submitConsensus(p *SoloProposal) error {
 	if p.status != common.Propose {
 		log.Error("Proposal status must be Proposaling to submit consensus.")
-		return fmt.Errorf("Proposal status must be Proposaling.")
+		return fmt.Errorf("proposal status must be proposaling")
 	}
 	p.status = common.Committed
 	return nil

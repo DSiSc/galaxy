@@ -32,17 +32,17 @@ func (self *SoloPolicy) RoleAssignments() (map[account.Account]common.Roler, err
 	members, err := self.participate.GetParticipates()
 	if err != nil {
 		log.Error("Error to get participates.")
-		return nil, fmt.Errorf("Get participates with error:%s.", err)
+		return nil, fmt.Errorf("get participates with error:%s", err)
 	}
 
 	if len(members) != 1 {
 		log.Error("Solo role policy must match solo participates policy.")
-		return nil, fmt.Errorf("Participates policy not match solo role policy.")
+		return nil, fmt.Errorf("participates policy not match solo role policy")
 	}
 
 	if members[0].Address != self.local.Address {
 		log.Error("Solo role policy only support local account.")
-		return nil, fmt.Errorf("Solo role policy only support local account.")
+		return nil, fmt.Errorf("solo role policy only support local account")
 	}
 
 	assignment[self.local] = common.Master
@@ -51,7 +51,7 @@ func (self *SoloPolicy) RoleAssignments() (map[account.Account]common.Roler, err
 
 func (self *SoloPolicy) GetRoles(address account.Account) common.Roler {
 	if address != self.local {
-		log.Error("Wrong address which nobody knows in solo role policy.")
+		log.Error("wrong address which nobody knows in solo role policy")
 		return common.UnKnown
 	}
 	return common.Master

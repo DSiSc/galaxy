@@ -24,7 +24,7 @@ func NewParticipates(conf config.ParticipateConfig) (Participates, error) {
 		participates, err = policy.NewSoloPolicy()
 	default:
 		log.Error("Now, we only support solo policy participates.")
-		err = fmt.Errorf("Not support type.")
+		err = fmt.Errorf("not supported type")
 	}
 	return participates, err
 }

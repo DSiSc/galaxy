@@ -99,7 +99,7 @@ func TestSoloPolicy_ToConsensus(t *testing.T) {
 	proposal.Block = nil
 	err = sp.ToConsensus(proposal)
 	asserts.NotNil(err)
-	excErr := fmt.Errorf("Proposal segment fault.")
+	excErr := fmt.Errorf("proposal block is nil")
 	asserts.Equal(excErr, err)
 }
 
