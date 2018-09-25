@@ -76,7 +76,7 @@ func (self *SoloPolicy) ToConsensus(p *common.Proposal) error {
 		return fmt.Errorf("local verify failed")
 	}
 	// verify num of sign
-	signData := proposal.propoasl.Block.SigData
+	signData := proposal.propoasl.Block.Header.SigData
 	if len(signData) < CONSENSUS_NUM {
 		log.Error("Not enough signature.")
 		return fmt.Errorf("not enough signature")
