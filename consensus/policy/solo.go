@@ -81,12 +81,11 @@ func (self *SoloPolicy) ToConsensus(p *common.Proposal) error {
 		log.Error("Not enough signature.")
 		return fmt.Errorf("not enough signature")
 	} else {
-		var headerHash = common.HeaderHash(p.Block)
 		var validSign = make(map[types.Address][]byte)
 		var signAddress types.Address
 		log.Info("Sign data is %x.", signData)
 		for _, value := range signData {
-			signAddress, err = signature.Verify(headerHash, value)
+			signAddress, err = signature.Verify(p.Block.Header.MixDigest, value)
 			if err != nil {
 				log.Error("Invalid signature is %x.", value)
 				continue
