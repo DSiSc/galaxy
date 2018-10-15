@@ -41,6 +41,6 @@ func (self *SoloPolicy) GetParticipates() ([]account.Account, error) {
 }
 
 func (self *SoloPolicy) ChangeParticipates() error {
-	log.Info("Solo will not change participate.")
+	log.Warn("Solo will not change participate.")
 	return nil
 }

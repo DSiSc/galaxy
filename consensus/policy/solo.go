@@ -83,7 +83,6 @@ func (self *SoloPolicy) ToConsensus(p *common.Proposal) error {
 	} else {
 		var validSign = make(map[types.Address][]byte)
 		var signAddress types.Address
-		log.Info("Sign data is %x.", signData)
 		for _, value := range signData {
 			signAddress, err = signature.Verify(p.Block.Header.MixDigest, value)
 			if err != nil {
@@ -153,6 +152,6 @@ func (self *SoloPolicy) toConsensus(p *SoloProposal) bool {
 		log.Error("Validator verify failed.")
 		return false
 	}
-	log.Info("Validator verify success in consensus.")
+	log.Info("Consensus reached for block %d.", p.propoasl.Block.Header.Height)
 	return true
 }
