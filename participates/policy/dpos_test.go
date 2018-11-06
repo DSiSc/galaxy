@@ -5,17 +5,21 @@ import (
 	"testing"
 )
 
+var delegates uint64 = 4
+
 func TestDPOSPolicy_PolicyName(t *testing.T) {
 	asserts := assert.New(t)
-	dpos, err := NewDPOSPolicy()
+	dpos, err := NewDPOSPolicy(delegates)
 	asserts.Nil(err)
 	asserts.NotNil(dpos)
-	asserts.Equal(dpos.PolicyName(), DPOS_POLICY)
+	asserts.Equal(DPOS_POLICY, dpos.PolicyName())
+	asserts.Equal(delegates, dpos.members)
+	asserts.Equal(0, len(dpos.participates))
 }
 
 func TestNewDPOSPolicy(t *testing.T) {
 	asserts := assert.New(t)
-	dpos, err := NewDPOSPolicy()
+	dpos, err := NewDPOSPolicy(delegates)
 	asserts.Nil(err)
 	asserts.NotNil(dpos)
 	asserts.Equal(dpos.name, DPOS_POLICY)
@@ -23,7 +27,7 @@ func TestNewDPOSPolicy(t *testing.T) {
 
 func TestDPOSPolicy_ChangeParticipates(t *testing.T) {
 	asserts := assert.New(t)
-	dpos, err := NewDPOSPolicy()
+	dpos, err := NewDPOSPolicy(delegates)
 	asserts.Nil(err)
 	asserts.NotNil(dpos)
 	err = dpos.ChangeParticipates()
@@ -32,10 +36,12 @@ func TestDPOSPolicy_ChangeParticipates(t *testing.T) {
 
 func TestDPOSPolicy_GetParticipates(t *testing.T) {
 	asserts := assert.New(t)
-	dpos, err := NewDPOSPolicy()
+	dpos, err := NewDPOSPolicy(delegates)
 	asserts.Nil(err)
 	asserts.NotNil(dpos)
 	participates, err := dpos.GetParticipates()
 	asserts.Nil(err)
-	asserts.NotEqual(0, len(participates))
+	asserts.Equal(delegates, dpos.members)
+	asserts.Equal(dpos.members, uint64(len(dpos.participates)))
+	asserts.Equal(participates, dpos.participates)
 }

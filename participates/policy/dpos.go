@@ -11,12 +11,17 @@ const (
 )
 
 type DPOSPolicy struct {
-	name   string
-	number uint64
+	name string
+	// number of delegates
+	members      uint64
+	participates []account.Account
 }
 
-func NewDPOSPolicy() (*DPOSPolicy, error) {
-	return &DPOSPolicy{name: DPOS_POLICY}, nil
+func NewDPOSPolicy(number uint64) (*DPOSPolicy, error) {
+	return &DPOSPolicy{
+		name:    DPOS_POLICY,
+		members: number,
+	}, nil
 }
 
 func (self *DPOSPolicy) PolicyName() string {
@@ -34,8 +39,9 @@ func (self *DPOSPolicy) getMembers() account.Account {
 	}
 }
 
-func (self *DPOSPolicy) getDelegates() ([]account.Account, error) {
-	// TODO: Get Delegate Members by config or vote result
+// Get the top ranking of count from voting result.
+func (self *DPOSPolicy) getDelegatesByCount(count uint64) ([]account.Account, error) {
+	// TODO: Get accounts by voting result
 	account_0 := account.Account{
 		Address: types.Address{0x33, 0x3c, 0x33, 0x10, 0x82, 0x4b, 0x7c, 0x68, 0x51, 0x33, 0xf2, 0xbe, 0xdb, 0x2c, 0xa4, 0xb8, 0xb4, 0xdf, 0x63, 0x3d},
 		Extension: account.AccountExtension{
@@ -72,12 +78,18 @@ func (self *DPOSPolicy) getDelegates() ([]account.Account, error) {
 	return accounts, nil
 }
 
+func (self *DPOSPolicy) GetDelegates() ([]account.Account, error) {
+	return self.getDelegatesByCount(self.members)
+}
+
 func (self *DPOSPolicy) GetParticipates() ([]account.Account, error) {
-	participate, err := self.getDelegates()
+	participates, err := self.GetDelegates()
 	if nil != err {
 		log.Error("Get delegates failed with error %v.", err)
+	} else {
+		self.participates = participates
 	}
-	return participate, err
+	return participates, err
 }
 
 func (self *DPOSPolicy) ChangeParticipates() error {
