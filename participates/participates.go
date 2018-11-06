@@ -22,6 +22,9 @@ func NewParticipates(conf config.ParticipateConfig) (Participates, error) {
 	case policy.SOLO_POLICY:
 		log.Info("Get participates policy is solo.")
 		participates, err = policy.NewSoloPolicy()
+	case policy.DPOS_POLICY:
+		log.Info("Get participates policy is dpos.")
+		participates, err = policy.NewDPOSPolicy()
 	default:
 		log.Error("Now, we only support solo policy participates.")
 		err = fmt.Errorf("not supported type")
