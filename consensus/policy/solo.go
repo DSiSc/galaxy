@@ -11,13 +11,6 @@ import (
 	"math"
 )
 
-//var version common.Version
-
-const (
-	SOLO_POLICY   = "solo"
-	CONSENSUS_NUM = 1
-)
-
 type SoloPolicy struct {
 	name         string
 	version      common.Version
@@ -33,7 +26,7 @@ type SoloProposal struct {
 
 func NewSoloPolicy(participates participates.Participates) (*SoloPolicy, error) {
 	policy := &SoloPolicy{
-		name:         SOLO_POLICY,
+		name:         common.SOLO_POLICY,
 		participates: participates,
 		version:      0,
 	}
@@ -77,7 +70,7 @@ func (self *SoloPolicy) ToConsensus(p *common.Proposal) error {
 	}
 	// verify num of sign
 	signData := proposal.propoasl.Block.Header.SigData
-	if len(signData) < CONSENSUS_NUM {
+	if len(signData) < common.SOLO_CONSENSUS_NUM {
 		log.Error("Not enough signature.")
 		return fmt.Errorf("not enough signature")
 	} else {
@@ -91,7 +84,7 @@ func (self *SoloPolicy) ToConsensus(p *common.Proposal) error {
 			}
 			validSign[signAddress] = value
 		}
-		if len(validSign) < CONSENSUS_NUM {
+		if len(validSign) < common.SOLO_CONSENSUS_NUM {
 			log.Error("Not enough valid signature which is %d.", len(validSign))
 			return fmt.Errorf("not enough valid signature")
 		}
@@ -140,7 +133,7 @@ func (self *SoloPolicy) toConsensus(p *SoloProposal) bool {
 	}
 
 	member, err := self.participates.GetParticipates()
-	if len(member) != 1 || err != nil {
+	if len(member) != common.SOLO_CONSENSUS_NUM || err != nil {
 		log.Error("Solo participates invalid.")
 		return false
 	}

@@ -24,6 +24,11 @@ const (
 	Committed                        // Committed --> 4 proposal has been accepted by participates with consensus policy
 )
 
+const (
+	SOLO_POLICY        = "solo"
+	SOLO_CONSENSUS_NUM = 1
+)
+
 func Sum(bz []byte) []byte {
 	hash := sha256.Sum256(bz)
 	return hash[:types.HashLength]

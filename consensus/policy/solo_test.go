@@ -16,9 +16,9 @@ func Test_NewSoloPolicy(t *testing.T) {
 	sp, err := NewSoloPolicy(nil)
 	asserts.Nil(err)
 	asserts.NotNil(sp)
-	asserts.Equal(SOLO_POLICY, sp.name)
+	asserts.Equal(common.SOLO_POLICY, sp.name)
 	asserts.Nil(sp.participates)
-	asserts.Equal(SOLO_POLICY, sp.PolicyName())
+	asserts.Equal(common.SOLO_POLICY, sp.PolicyName())
 }
 
 func mock_proposal() *common.Proposal {
@@ -37,7 +37,7 @@ func mock_solo_proposal() *SoloProposal {
 }
 
 var MockParticipate, _ = participates.NewParticipates(config.ParticipateConfig{
-	PolicyName: SOLO_POLICY,
+	PolicyName: common.SOLO_POLICY,
 })
 
 func Test_toSoloProposal(t *testing.T) {
@@ -116,7 +116,7 @@ func TestNewSoloPolicy(t *testing.T) {
 	sp, err := NewSoloPolicy(MockParticipate)
 	assert.Nil(t, err)
 	assert.NotNil(t, sp)
-	assert.Equal(t, SOLO_POLICY, sp.name)
+	assert.Equal(t, common.SOLO_POLICY, sp.name)
 	assert.Equal(t, common.Version(0), sp.version)
 }
 
@@ -124,7 +124,7 @@ func TestSoloPolicy_PolicyName(t *testing.T) {
 	sp, err := NewSoloPolicy(MockParticipate)
 	assert.Nil(t, err)
 	assert.NotNil(t, sp)
-	assert.Equal(t, SOLO_POLICY, sp.PolicyName())
+	assert.Equal(t, common.SOLO_POLICY, sp.PolicyName())
 }
 
 func Test_toConsensus(t *testing.T) {

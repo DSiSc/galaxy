@@ -18,7 +18,7 @@ func NewConsensus(participates participates.Participates, conf config.ConsensusC
 	var consensus Consensus
 	consensusPolicy := conf.PolicyName
 	switch consensusPolicy {
-	case policy.SOLO_POLICY:
+	case common.SOLO_POLICY:
 		log.Info("Get consensus policy is solo.")
 		consensus, err = policy.NewSoloPolicy(participates)
 	default:
