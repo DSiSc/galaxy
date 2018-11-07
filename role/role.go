@@ -24,6 +24,9 @@ func NewRole(p participates.Participates, address account.Account, conf config.R
 	case common.SOLO_POLICY:
 		log.Info("Get role policy is solo.")
 		role, err = policy.NewSoloPolicy(p, address)
+	case common.DPOS_POLICY:
+		log.Info("Get role policy is dpos.")
+		role, err = policy.NewDPOSPolicy(p, address)
 	default:
 		log.Error("Now, we only support solo role policy.")
 		err = fmt.Errorf("unkonwn policy type")

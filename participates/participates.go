@@ -3,6 +3,7 @@ package participates
 import (
 	"fmt"
 	"github.com/DSiSc/craft/log"
+	"github.com/DSiSc/galaxy/participates/common"
 	"github.com/DSiSc/galaxy/participates/config"
 	"github.com/DSiSc/galaxy/participates/policy"
 	"github.com/DSiSc/validator/tools/account"
@@ -18,10 +19,10 @@ func NewParticipates(conf config.ParticipateConfig) (Participates, error) {
 	var participates Participates
 	participatesPolicy := conf.PolicyName
 	switch participatesPolicy {
-	case policy.SOLO_POLICY:
+	case common.SOLO_POLICY:
 		log.Info("Get participates policy is solo.")
 		participates, err = policy.NewSoloPolicy()
-	case policy.DPOS_POLICY:
+	case common.DPOS_POLICY:
 		log.Info("Get participates policy is dpos.")
 		participates, err = policy.NewDPOSPolicy(conf.Delegates)
 	default:

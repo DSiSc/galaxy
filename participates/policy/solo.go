@@ -2,11 +2,8 @@ package policy
 
 import (
 	"github.com/DSiSc/craft/types"
+	"github.com/DSiSc/galaxy/participates/common"
 	"github.com/DSiSc/validator/tools/account"
-)
-
-const (
-	SOLO_POLICY = "solo"
 )
 
 type SoloPolicy struct {
@@ -14,7 +11,7 @@ type SoloPolicy struct {
 }
 
 func NewSoloPolicy() (*SoloPolicy, error) {
-	return &SoloPolicy{name: SOLO_POLICY}, nil
+	return &SoloPolicy{name: common.SOLO_POLICY}, nil
 }
 
 func (self *SoloPolicy) PolicyName() string {

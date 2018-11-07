@@ -1,7 +1,9 @@
 package role
 
 import (
+	"fmt"
 	"github.com/DSiSc/craft/types"
+	"github.com/DSiSc/galaxy/role/common"
 	"github.com/DSiSc/galaxy/role/config"
 	"github.com/DSiSc/validator/tools/account"
 	"github.com/stretchr/testify/assert"
@@ -19,9 +21,15 @@ func mock_address(num int) []types.Address {
 	return to
 }
 
-func mock_conf() config.RoleConfig {
+func mock_solo_conf() config.RoleConfig {
 	return config.RoleConfig{
 		PolicyName: "solo",
+	}
+}
+
+func mock_dpos_conf() config.RoleConfig {
+	return config.RoleConfig{
+		PolicyName: "dpos",
 	}
 }
 
@@ -34,10 +42,11 @@ var MockAccount = account.Account{
 
 func Test_NewRole(t *testing.T) {
 	asserts := assert.New(t)
-	conf := mock_conf()
+	conf := mock_solo_conf()
 	role, err := NewRole(nil, MockAccount, conf)
 	asserts.Nil(err)
 	asserts.NotNil(role)
+	asserts.Equal(common.SOLO_POLICY, role.PolicyName())
 
 	p := reflect.TypeOf(role)
 	method, exist := p.MethodByName("PolicyName")
@@ -52,10 +61,16 @@ func Test_NewRole(t *testing.T) {
 	asserts.NotNil(method)
 	asserts.True(exist)
 
+	role, err = NewRole(nil, MockAccount, mock_dpos_conf())
+	asserts.Nil(err)
+	asserts.NotNil(role)
+	asserts.Equal(common.DPOS_POLICY, role.PolicyName())
+
 	fakeConf := config.RoleConfig{
 		PolicyName: "unknown",
 	}
 	role, err = NewRole(nil, MockAccount, fakeConf)
 	asserts.NotNil(err)
+	asserts.Equal(fmt.Errorf("unkonwn policy type"), err)
 	asserts.Nil(role)
 }

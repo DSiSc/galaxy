@@ -1,6 +1,7 @@
 package policy
 
 import (
+	"github.com/DSiSc/galaxy/participates/common"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -12,7 +13,7 @@ func TestDPOSPolicy_PolicyName(t *testing.T) {
 	dpos, err := NewDPOSPolicy(delegates)
 	asserts.Nil(err)
 	asserts.NotNil(dpos)
-	asserts.Equal(DPOS_POLICY, dpos.PolicyName())
+	asserts.Equal(common.DPOS_POLICY, dpos.PolicyName())
 	asserts.Equal(delegates, dpos.members)
 	asserts.Equal(0, len(dpos.participates))
 }
@@ -22,7 +23,7 @@ func TestNewDPOSPolicy(t *testing.T) {
 	dpos, err := NewDPOSPolicy(delegates)
 	asserts.Nil(err)
 	asserts.NotNil(dpos)
-	asserts.Equal(dpos.name, DPOS_POLICY)
+	asserts.Equal(dpos.name, common.DPOS_POLICY)
 }
 
 func TestDPOSPolicy_GetParticipates(t *testing.T) {

@@ -3,11 +3,8 @@ package policy
 import (
 	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/craft/types"
+	"github.com/DSiSc/galaxy/participates/common"
 	"github.com/DSiSc/validator/tools/account"
-)
-
-const (
-	DPOS_POLICY = "dpos"
 )
 
 type DPOSPolicy struct {
@@ -19,7 +16,7 @@ type DPOSPolicy struct {
 
 func NewDPOSPolicy(number uint64) (*DPOSPolicy, error) {
 	return &DPOSPolicy{
-		name:    DPOS_POLICY,
+		name:    common.DPOS_POLICY,
 		members: number,
 	}, nil
 }
