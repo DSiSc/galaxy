@@ -8,10 +8,6 @@ import (
 	"github.com/DSiSc/validator/tools/account"
 )
 
-const (
-	SOLO_POLICY = "solo"
-)
-
 type SoloPolicy struct {
 	name        string
 	local       account.Account
@@ -20,7 +16,7 @@ type SoloPolicy struct {
 
 func NewSoloPolicy(p participates.Participates, localNode account.Account) (*SoloPolicy, error) {
 	soloPolicy := &SoloPolicy{
-		name:        SOLO_POLICY,
+		name:        common.SOLO_POLICY,
 		local:       localNode,
 		participate: p,
 	}

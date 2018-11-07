@@ -21,7 +21,7 @@ func NewRole(p participates.Participates, address account.Account, conf config.R
 	var role Role
 	rolePolicy := conf.PolicyName
 	switch rolePolicy {
-	case policy.SOLO_POLICY:
+	case common.SOLO_POLICY:
 		log.Info("Get role policy is solo.")
 		role, err = policy.NewSoloPolicy(p, address)
 	default:

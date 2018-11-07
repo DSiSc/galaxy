@@ -9,3 +9,8 @@ const (
 	Normal               // Normal --> 2, node that not participation in consensus
 	UnKnown              // UnKnown --> 3, node that nobody knows
 )
+
+const (
+	SOLO_POLICY = "solo"
+	DPOS_POLICY = "dpos"
+)

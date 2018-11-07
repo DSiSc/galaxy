@@ -40,7 +40,7 @@ func Test_NewSoloPolicy(t *testing.T) {
 	asserts.Nil(err)
 	asserts.NotNil(policy)
 	policyName := policy.PolicyName()
-	asserts.Equal(SOLO_POLICY, policyName, "they should not be equal")
+	asserts.Equal(common.SOLO_POLICY, policyName, "they should not be equal")
 	asserts.Equal(policy.name, policyName, "they should not be equal")
 	asserts.Nil(policy.participate)
 	asserts.Equal(policy.local, MockAccount)

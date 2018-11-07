@@ -7,3 +7,4 @@ github.com/DSiSc/txpool:master
 github.com/DSiSc/craft:master
 github.com/DSiSc/justitia:master
 github.com/DSiSc/blockstore:master
+github.com/DSiSc/monkey:master
