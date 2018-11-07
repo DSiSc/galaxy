@@ -11,7 +11,6 @@ import (
 type Participates interface {
 	PolicyName() string
 	GetParticipates() ([]account.Account, error)
-	ChangeParticipates() error
 }
 
 func NewParticipates(conf config.ParticipateConfig) (Participates, error) {

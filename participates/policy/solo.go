@@ -1,7 +1,6 @@
 package policy
 
 import (
-	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/validator/tools/account"
 )
@@ -38,9 +37,4 @@ func (self *SoloPolicy) GetParticipates() ([]account.Account, error) {
 	member := self.getMembers()
 	participates = append(participates, member)
 	return participates, nil
-}
-
-func (self *SoloPolicy) ChangeParticipates() error {
-	log.Warn("Solo will not change participate.")
-	return nil
 }

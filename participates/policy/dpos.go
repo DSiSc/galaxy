@@ -28,17 +28,6 @@ func (self *DPOSPolicy) PolicyName() string {
 	return self.name
 }
 
-func (self *DPOSPolicy) getMembers() account.Account {
-	address := types.Address{
-		0x33, 0x3c, 0x33, 0x10, 0x82, 0x4b, 0x7c, 0x68, 0x51, 0x33,
-		0xf2, 0xbe, 0xdb, 0x2c, 0xa4, 0xb8, 0xb4, 0xdf, 0x63, 0x3d,
-	}
-
-	return account.Account{
-		Address: address,
-	}
-}
-
 // Get the top ranking of count from voting result.
 func (self *DPOSPolicy) getDelegatesByCount(count uint64) ([]account.Account, error) {
 	// TODO: Get accounts by voting result
@@ -90,9 +79,4 @@ func (self *DPOSPolicy) GetParticipates() ([]account.Account, error) {
 		self.participates = participates
 	}
 	return participates, err
-}
-
-func (self *DPOSPolicy) ChangeParticipates() error {
-	// TODO: Maybe not used anymore, we can change participates by getDelegates(), which will return the latest delegates.
-	return nil
 }

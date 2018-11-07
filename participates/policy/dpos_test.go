@@ -25,15 +25,6 @@ func TestNewDPOSPolicy(t *testing.T) {
 	asserts.Equal(dpos.name, DPOS_POLICY)
 }
 
-func TestDPOSPolicy_ChangeParticipates(t *testing.T) {
-	asserts := assert.New(t)
-	dpos, err := NewDPOSPolicy(delegates)
-	asserts.Nil(err)
-	asserts.NotNil(dpos)
-	err = dpos.ChangeParticipates()
-	asserts.Nil(err)
-}
-
 func TestDPOSPolicy_GetParticipates(t *testing.T) {
 	asserts := assert.New(t)
 	dpos, err := NewDPOSPolicy(delegates)
