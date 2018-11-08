@@ -1,4 +1,4 @@
-package bft
+package tools
 
 import (
 	"github.com/stretchr/testify/assert"
