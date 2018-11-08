@@ -11,7 +11,8 @@ type Version uint64
 
 // Base proposal
 type Proposal struct {
-	Block *types.Block
+	Block     *types.Block
+	Timestamp int64
 }
 
 type ConsensusStatus uint8

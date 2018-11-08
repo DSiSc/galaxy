@@ -15,11 +15,12 @@ type SoloPolicy struct {
 	name         string
 	version      common.Version
 	participates participates.Participates
+	tolerance    uint8
 }
 
 // SoloProposal that with solo policy
 type SoloProposal struct {
-	propoasl *common.Proposal
+	proposal *common.Proposal
 	version  common.Version
 	status   common.ConsensusStatus
 }
@@ -29,6 +30,7 @@ func NewSoloPolicy(participates participates.Participates) (*SoloPolicy, error) 
 		name:         common.SOLO_POLICY,
 		participates: participates,
 		version:      0,
+		tolerance:    uint8(1),
 	}
 	return policy, nil
 }
@@ -52,7 +54,7 @@ func (self *SoloPolicy) toSoloProposal(p *common.Proposal) *SoloProposal {
 		self.version = 0
 	}
 	return &SoloProposal{
-		propoasl: p,
+		proposal: p,
 		version:  self.version + 1,
 		status:   common.Proposing,
 	}
@@ -79,8 +81,8 @@ func (self *SoloPolicy) ToConsensus(p *common.Proposal) error {
 		return fmt.Errorf("local verify failed")
 	}
 	// verify num of sign
-	signData := proposal.propoasl.Block.Header.SigData
-	if len(signData) < common.SOLO_CONSENSUS_NUM {
+	signData := proposal.proposal.Block.Header.SigData
+	if uint8(len(signData)) < self.tolerance {
 		log.Error("Not enough signature.")
 		return fmt.Errorf("not enough signature")
 	} else {
@@ -150,11 +152,11 @@ func (self *SoloPolicy) toConsensus(p *SoloProposal) bool {
 	// SOLO, so we just verify it local
 	local := member[0]
 	validators := validator.NewValidator(&local)
-	_, ok := validators.ValidateBlock(p.propoasl.Block)
+	_, ok := validators.ValidateBlock(p.proposal.Block)
 	if nil != ok {
 		log.Error("Validator verify failed.")
 		return false
 	}
-	log.Info("Consensus reached for block %d.", p.propoasl.Block.Header.Height)
+	log.Info("Consensus reached for block %d.", p.proposal.Block.Header.Height)
 	return true
 }

@@ -30,7 +30,7 @@ func mock_proposal() *common.Proposal {
 
 func mock_solo_proposal() *SoloProposal {
 	return &SoloProposal{
-		propoasl: nil,
+		proposal: nil,
 		version:  0,
 		status:   common.Proposing,
 	}
@@ -48,7 +48,7 @@ func Test_toSoloProposal(t *testing.T) {
 	asserts.NotNil(proposal)
 	asserts.Equal(common.Proposing, proposal.status)
 	asserts.Equal(common.Version(1), proposal.version)
-	asserts.NotNil(proposal.propoasl)
+	asserts.NotNil(proposal.proposal)
 }
 
 func Test_prepareConsensus(t *testing.T) {

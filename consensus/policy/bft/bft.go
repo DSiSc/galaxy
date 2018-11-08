@@ -18,13 +18,20 @@ type BFTProposal struct {
 }
 
 func NewBFTPolicy(participates participates.Participates) (*BFTPolicy, error) {
+	participate, _ := participates.GetParticipates()
 	policy := &BFTPolicy{
 		name:         common.BFT_POLICY,
 		participates: participates,
+		tolerance:    uint8((len(participate) - 1) / 3),
 	}
 	return policy, nil
 }
 
 func (self *BFTPolicy) PolicyName() string {
 	return self.name
+}
+
+// to get consensus
+func (self *BFTPolicy) ToConsensus(p *common.Proposal) error {
+	return nil
 }

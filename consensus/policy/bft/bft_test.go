@@ -2,19 +2,35 @@ package bft
 
 import (
 	"github.com/DSiSc/galaxy/consensus/common"
+	"github.com/DSiSc/galaxy/participates"
+	"github.com/DSiSc/galaxy/participates/config"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
+func mock_conf(policy string) config.ParticipateConfig {
+	return config.ParticipateConfig{
+		PolicyName: policy,
+		Delegates:  4,
+	}
+}
+
 func TestNewBFTPolicy(t *testing.T) {
-	bft, err := NewBFTPolicy(nil)
+	conf := mock_conf("dpos")
+	participate, err := participates.NewParticipates(conf)
+	assert.Nil(t, err)
+	bft, err := NewBFTPolicy(participate)
 	assert.NotNil(t, bft)
 	assert.Nil(t, err)
 	assert.Equal(t, common.BFT_POLICY, bft.name)
+	assert.Equal(t, uint8((conf.Delegates-1)/3), bft.tolerance)
 }
 
 func TestBFTPolicy_PolicyName(t *testing.T) {
-	bft, _ := NewBFTPolicy(nil)
+	conf := mock_conf("dpos")
+	participate, err := participates.NewParticipates(conf)
+	assert.Nil(t, err)
+	bft, _ := NewBFTPolicy(participate)
 	assert.Equal(t, common.BFT_POLICY, bft.name)
 	assert.Equal(t, bft.name, bft.PolicyName())
 }
