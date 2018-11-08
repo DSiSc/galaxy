@@ -11,14 +11,14 @@ import (
 var id uint64 = 0
 
 func TestNewBFTCore(t *testing.T) {
-	receive := NewBFTCore(id)
+	receive := NewBFTCore(id, true, nil)
 	assert.NotNil(t, receive)
 	bftcore := receive.(*bftCore)
 	assert.Equal(t, id, bftcore.id)
 }
 
 func TestBftcore_ProcessEvent(t *testing.T) {
-	receive := NewBFTCore(id)
+	receive := NewBFTCore(id, true, nil)
 	assert.NotNil(t, receive)
 	bftcore := receive.(*bftCore)
 	err := bftcore.ProcessEvent(nil)
@@ -41,7 +41,7 @@ func TestBftcore_ProcessEvent(t *testing.T) {
 }
 
 func TestBftcore_Start(t *testing.T) {
-	receive := NewBFTCore(id)
+	receive := NewBFTCore(id, true, nil)
 	assert.NotNil(t, receive)
 	bftcore := receive.(*bftCore)
 	var account = account.Account{
