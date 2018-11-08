@@ -1,14 +1,12 @@
 package bft
 
 import (
-	"fmt"
 	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/galaxy/consensus/policy/bft/messages"
 	"github.com/DSiSc/galaxy/consensus/policy/bft/tools"
 	"github.com/DSiSc/validator/tools/account"
 	"github.com/golang/protobuf/proto"
 	"net"
-	"os"
 )
 
 type bftCore struct {
@@ -25,38 +23,50 @@ func NewBFTCore(id uint64, master bool, peers []account.Account) tools.Receiver 
 	}
 }
 
+func sendMsgByUrl(url string, msgPayload []byte) error {
+	log.Info("send msg to  url %s.\n", url)
+	tcpAddr, err := net.ResolveTCPAddr("tcp4", url)
+	if err != nil {
+		log.Error("resolve tcp address %s occur fatal error: %v", url, err)
+		return err
+	}
+	conn, err := net.DialTCP("tcp", nil, tcpAddr)
+	if err != nil {
+		log.Error("dial tcp with %s occur error: %s", url, err)
+		return err
+	}
+	log.Info("connect success, send to url %s with payload %x.", url, msgPayload)
+	conn.Write(msgPayload)
+	return nil
+}
+
 func (instance *bftCore) broadcast(msgPayload []byte) {
 	peers := instance.peers
 	for id, peer := range peers {
-		log.Info("Broadcast to node %d with url %s.\n", id, peer.Extension.Url)
-		tcpAddr, err := net.ResolveTCPAddr("tcp4", peer.Extension.Url)
-		if err != nil {
-			log.Error("Fatal error: %s", err.Error())
-			continue
+		log.Info("Broadcast to node %d with url %s.", id, peer.Extension.Url)
+		err := sendMsgByUrl(peer.Extension.Url, msgPayload)
+		if nil != err {
+			log.Error("Broadcast to %s error %s.", peer.Extension.Url, err)
 		}
-		conn, err := net.DialTCP("tcp", nil, tcpAddr)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Fatal error: %s", err.Error())
-			continue
-		}
-		log.Info("connect success and  send to url %s and payload %x.\n", peer.Extension.Url, msgPayload)
-		conn.Write(msgPayload)
 	}
 }
 
 func (instance *bftCore) receiveRequest(request *messages.Request) {
 	// send
-	proposal := &messages.Proposal{
-		Id:        instance.id,
-		Timestamp: request.Timestamp,
-		Payload:   request.Payload,
+	if !instance.isMaster {
+		log.Info("only master process request.")
+		return
 	}
-	porposalMsg := &messages.Message{
+	proposal := &messages.Message{
 		Payload: &messages.Message_Proposal{
-			Proposal: proposal,
+			Proposal: &messages.Proposal{
+				Id:        instance.id,
+				Timestamp: request.Timestamp,
+				Payload:   request.Payload,
+			},
 		},
 	}
-	msgRaw, err := proto.Marshal(porposalMsg)
+	msgRaw, err := proto.Marshal(proposal)
 	if nil != err {
 		log.Error("marshal proposal msg failed with %v.", err)
 		return
@@ -79,8 +89,7 @@ func (instance *bftCore) ProcessEvent(e tools.Event) tools.Event {
 	if err != nil {
 		log.Warn(err.Error())
 	}
-
-	return nil
+	return err
 }
 
 func (instance *bftCore) Start(account account.Account) {
