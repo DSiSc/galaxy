@@ -131,3 +131,27 @@ func TestNewBFTCore_broadcast(t *testing.T) {
 	})
 	bftCore.broadcast(nil)
 }
+
+func TestBftCore_unicast(t *testing.T) {
+	receive := NewBFTCore(id, true, nil)
+	assert.NotNil(t, receive)
+	bftCore := receive.(*bftCore)
+	bftCore.peers = mockAccounts()
+	monkey.Patch(net.ResolveTCPAddr, func(string, string) (*net.TCPAddr, error) {
+		return nil, fmt.Errorf("resolve error")
+	})
+	err := bftCore.unicast(bftCore.peers[1], nil)
+	assert.Equal(t, fmt.Errorf("resolve error"), err)
+	monkey.Patch(net.ResolveTCPAddr, func(string, string) (*net.TCPAddr, error) {
+		return nil, nil
+	})
+	var c net.TCPConn
+	monkey.Patch(net.DialTCP, func(string, *net.TCPAddr, *net.TCPAddr) (*net.TCPConn, error) {
+		return &c, nil
+	})
+	monkey.PatchInstanceMethod(reflect.TypeOf(&c), "Write", func(*net.TCPConn, []byte) (int, error) {
+		return 0, nil
+	})
+	err = bftCore.unicast(bftCore.peers[1], nil)
+	assert.Nil(t, err)
+}

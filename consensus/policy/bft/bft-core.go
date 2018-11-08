@@ -43,12 +43,21 @@ func sendMsgByUrl(url string, msgPayload []byte) error {
 func (instance *bftCore) broadcast(msgPayload []byte) {
 	peers := instance.peers
 	for id, peer := range peers {
-		log.Info("Broadcast to node %d with url %s.", id, peer.Extension.Url)
+		log.Info("broadcast to node %d with url %s.", id, peer.Extension.Url)
 		err := sendMsgByUrl(peer.Extension.Url, msgPayload)
 		if nil != err {
-			log.Error("Broadcast to %s error %s.", peer.Extension.Url, err)
+			log.Error("broadcast to %s error %s.", peer.Extension.Url, err)
 		}
 	}
+}
+
+func (instance *bftCore) unicast(account account.Account, msgPayload []byte) error {
+	log.Info("send msg to node %d with url %s.\n", account.Extension.Id, account.Extension.Url)
+	err := sendMsgByUrl(account.Extension.Url, msgPayload)
+	if nil != err {
+		log.Error("send msg to url %s failed with %v.", account.Extension.Url, err)
+	}
+	return err
 }
 
 func (instance *bftCore) receiveRequest(request *messages.Request) {
