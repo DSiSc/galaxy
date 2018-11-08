@@ -27,6 +27,7 @@ const (
 const (
 	SOLO_POLICY        = "solo"
 	SOLO_CONSENSUS_NUM = 1
+	BFT_POLICY         = "bft"
 )
 
 func Sum(bz []byte) []byte {
