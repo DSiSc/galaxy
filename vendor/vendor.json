@@ -21,6 +21,12 @@
 			"revisionTime": "2018-02-21T22:46:20Z"
 		},
 		{
+			"checksumSHA1": "jB0M44UzwxPK+xB31T2M/oKW5us=",
+			"path": "github.com/golang/protobuf/proto",
+			"revision": "93b26e6a70e37abb14f2f88194949312b0592a84",
+			"revisionTime": "2018-07-24T20:30:48Z"
+		},
+		{
 			"checksumSHA1": "LuFv4/jlrmFNnDb/5SCSEPAM9vU=",
 			"path": "github.com/pmezard/go-difflib/difflib",
 			"revision": "792786c7400a136282c1664665ae0a8db921c6c2",
