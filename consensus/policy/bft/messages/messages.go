@@ -49,3 +49,9 @@ type Message_Proposal struct {
 }
 
 func (*Message_Proposal) isMessage_Payload() {}
+
+type Message_Response struct {
+	Proposal *Proposal
+}
+
+func (*Message_Response) isMessage_Payload() {}

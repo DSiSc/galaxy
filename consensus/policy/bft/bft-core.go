@@ -10,16 +10,16 @@ import (
 )
 
 type bftCore struct {
-	id       uint64
-	isMaster bool
-	peers    []account.Account
+	id     uint64
+	master uint64
+	peers  []account.Account
 }
 
-func NewBFTCore(id uint64, master bool, peers []account.Account) tools.Receiver {
+func NewBFTCore(id uint64, masterId uint64, peers []account.Account) tools.Receiver {
 	return &bftCore{
-		id:       id,
-		isMaster: master,
-		peers:    peers,
+		id:     id,
+		peers:  peers,
+		master: masterId,
 	}
 }
 
@@ -62,7 +62,8 @@ func (instance *bftCore) unicast(account account.Account, msgPayload []byte) err
 
 func (instance *bftCore) receiveRequest(request *messages.Request) {
 	// send
-	if !instance.isMaster {
+	isMaster := instance.id == instance.master
+	if !isMaster {
 		log.Info("only master process request.")
 		return
 	}
@@ -83,6 +84,33 @@ func (instance *bftCore) receiveRequest(request *messages.Request) {
 	instance.broadcast(msgRaw)
 }
 
+func (instance *bftCore) receiveProposal(proposal *messages.Proposal) {
+	isMaster := instance.id == instance.master
+	if isMaster {
+		log.Info("master not need to process proposal.")
+		return
+	}
+	response := &messages.Message{
+		Payload: &messages.Message_Response{
+			Proposal: &messages.Proposal{
+				Id:        instance.id,
+				Timestamp: proposal.Timestamp,
+				Payload:   proposal.Payload,
+			},
+		},
+	}
+	msgRaw, err := proto.Marshal(response)
+	if nil != err {
+		log.Error("marshal proposal msg failed with %v.", err)
+		return
+	}
+	masterAccount := instance.peers[instance.master]
+	err = instance.unicast(masterAccount, msgRaw)
+	if err != nil {
+		log.Error("unicast to master %x failed with error %v.", masterAccount.Address, err)
+	}
+}
+
 func (instance *bftCore) ProcessEvent(e tools.Event) tools.Event {
 	var err error
 	log.Debug("replica %d processing event", instance.id)
@@ -92,6 +120,7 @@ func (instance *bftCore) ProcessEvent(e tools.Event) tools.Event {
 		instance.receiveRequest(et)
 	case *messages.Proposal:
 		log.Info("receive proposal from replica %d.", instance.id)
+		instance.receiveProposal(et)
 	default:
 		log.Warn("replica %d received an unknown message type %T", instance.id, et)
 	}
