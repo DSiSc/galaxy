@@ -37,6 +37,16 @@ func (self *SoloPolicy) PolicyName() string {
 	return self.name
 }
 
+func (self *SoloPolicy) Start() {
+	log.Info("Start solo policy service.")
+	return
+}
+
+func (self *SoloPolicy) Halt() {
+	log.Warn("Stop solo policy service.")
+	return
+}
+
 func (self *SoloPolicy) toSoloProposal(p *common.Proposal) *SoloProposal {
 	if self.version == math.MaxUint64 {
 		self.version = 0

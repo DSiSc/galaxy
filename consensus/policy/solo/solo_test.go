@@ -132,3 +132,13 @@ func Test_toConsensus(t *testing.T) {
 	err := sp.toConsensus(nil)
 	assert.Equal(t, false, err)
 }
+
+func TestSoloPolicy_Start(t *testing.T) {
+	sp, _ := NewSoloPolicy(MockParticipate)
+	sp.Start()
+}
+
+func TestSoloPolicy_Halt(t *testing.T) {
+	sp, _ := NewSoloPolicy(MockParticipate)
+	sp.Halt()
+}

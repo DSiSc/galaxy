@@ -11,6 +11,8 @@ import (
 type Consensus interface {
 	PolicyName() string
 	ToConsensus(p *common.Proposal) error
+	Start()
+	Halt()
 }
 
 func NewConsensus(participates participates.Participates, conf config.ConsensusConfig) (Consensus, error) {

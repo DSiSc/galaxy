@@ -1,8 +1,8 @@
 package tools
 
 import (
-	`testing`
-	`time`
+	"testing"
+	"time"
 )
 
 type mockEvent struct {
