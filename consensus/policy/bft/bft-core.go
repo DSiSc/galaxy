@@ -30,16 +30,14 @@ func (s *signData) addSignature(account account.Account, sign []byte) {
 	s.signatures = append(s.signatures, sign)
 }
 
-func NewBFTCore(id uint64, masterId uint64, peers []account.Account) *bftCore {
+func NewBFTCore(id uint64) *bftCore {
 	return &bftCore{
-		id:     id,
-		peers:  peers,
-		master: masterId,
+		id: id,
 		signature: &signData{
 			signatures: make([][]byte, 0),
 			signMap:    make(map[account.Account][]byte),
 		},
-		tolerance: uint8((len(peers) - 1) / 3),
+		result: make(chan *signData),
 	}
 }
 

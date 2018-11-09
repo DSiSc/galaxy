@@ -15,15 +15,25 @@ type BFTPolicy struct {
 	bftCore      *bftCore
 }
 
-func NewBFTPolicy(participate participates.Participates, account account.Account, master account.Account) (*BFTPolicy, error) {
-	members, _ := participate.GetParticipates()
+func NewBFTPolicy(participate participates.Participates, account account.Account) (*BFTPolicy, error) {
 	policy := &BFTPolicy{
 		name:         common.BFT_POLICY,
 		account:      account,
 		participates: participate,
-		bftCore:      NewBFTCore(account.Extension.Id, master.Extension.Id, members),
+		bftCore:      NewBFTCore(account.Extension.Id),
 	}
 	return policy, nil
+}
+
+func (self *BFTPolicy) Prepare(master account.Account, peers []account.Account) {
+	// init bftCore
+	if nil == self.bftCore {
+		log.Error("bft core has not been initial, please confirm.")
+		panic("bftCore not init")
+	}
+	self.bftCore.master = master.Extension.Id
+	self.bftCore.peers = peers
+	self.bftCore.tolerance = uint8((len(peers) - 1) / 3)
 }
 
 func (self *BFTPolicy) PolicyName() string {
