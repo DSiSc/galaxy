@@ -1,4 +1,4 @@
-package policy
+package solo
 
 import (
 	"github.com/DSiSc/craft/types"

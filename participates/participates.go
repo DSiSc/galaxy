@@ -5,7 +5,8 @@ import (
 	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/galaxy/participates/common"
 	"github.com/DSiSc/galaxy/participates/config"
-	"github.com/DSiSc/galaxy/participates/policy"
+	"github.com/DSiSc/galaxy/participates/policy/dpos"
+	"github.com/DSiSc/galaxy/participates/policy/solo"
 	"github.com/DSiSc/validator/tools/account"
 )
 
@@ -21,10 +22,10 @@ func NewParticipates(conf config.ParticipateConfig) (Participates, error) {
 	switch participatesPolicy {
 	case common.SOLO_POLICY:
 		log.Info("Get participates policy is solo.")
-		participates, err = policy.NewSoloPolicy()
+		participates, err = solo.NewSoloPolicy()
 	case common.DPOS_POLICY:
 		log.Info("Get participates policy is dpos.")
-		participates, err = policy.NewDPOSPolicy(conf.Delegates)
+		participates, err = dpos.NewDPOSPolicy(conf.Delegates)
 	default:
 		log.Error("Now, we only support solo policy participates.")
 		err = fmt.Errorf("not supported type")

@@ -1,4 +1,4 @@
-package policy
+package dpos
 
 import (
 	"github.com/DSiSc/craft/log"

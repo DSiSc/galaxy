@@ -1,4 +1,4 @@
-package policy
+package dpos
 
 import (
 	"fmt"
@@ -13,6 +13,13 @@ import (
 	"reflect"
 	"testing"
 )
+
+var MockAccount = account.Account{
+	Address: types.Address{
+		0x33, 0x3c, 0x33, 0x10, 0x82, 0x4b, 0x7c, 0x68, 0x51, 0x33,
+		0xf2, 0xbe, 0xdb, 0x2c, 0xa4, 0xb8, 0xb4, 0xdf, 0x63, 0x3d,
+	},
+}
 
 func TestNewDPOSPolicy(t *testing.T) {
 	policy, err := NewDPOSPolicy(nil, MockAccount)
