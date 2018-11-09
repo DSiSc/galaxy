@@ -64,12 +64,17 @@ func (self *DPOSPolicy) getDelegatesByCount(count uint64) ([]account.Account, er
 	return accounts, nil
 }
 
-func (self *DPOSPolicy) GetDelegates() ([]account.Account, error) {
-	return self.getDelegatesByCount(self.members)
+func (self *DPOSPolicy) getDelegates() ([]account.Account, error) {
+	delegates, err := self.getDelegatesByCount(self.members)
+	if nil != err {
+		log.Error("get delegates failed with err %s.", err)
+		return nil, err
+	}
+	return delegates, nil
 }
 
 func (self *DPOSPolicy) GetParticipates() ([]account.Account, error) {
-	participates, err := self.GetDelegates()
+	participates, err := self.getDelegates()
 	if nil != err {
 		log.Error("Get delegates failed with error %v.", err)
 	} else {

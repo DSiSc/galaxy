@@ -4,69 +4,50 @@ import (
 	"fmt"
 	"github.com/DSiSc/blockchain"
 	"github.com/DSiSc/craft/log"
-	"github.com/DSiSc/galaxy/participates"
 	"github.com/DSiSc/galaxy/role/common"
 	"github.com/DSiSc/validator/tools/account"
 )
 
-type rolesAssignment struct {
-	delegates []account.Account
-	roles     map[account.Account]common.Roler
-}
-
 type DPOSPolicy struct {
-	name        string
-	local       account.Account
-	participate participates.Participates
-	roles       rolesAssignment
+	name         string
+	participates []account.Account
+	assignments  map[account.Account]common.Roler
 }
 
-func NewDPOSPolicy(p participates.Participates, localNode account.Account) (*DPOSPolicy, error) {
+func NewDPOSPolicy(accounts []account.Account) (*DPOSPolicy, error) {
 	policy := &DPOSPolicy{
-		name:        common.DPOS_POLICY,
-		local:       localNode,
-		participate: p,
+		name:         common.DPOS_POLICY,
+		participates: accounts,
 	}
 	return policy, nil
 }
 
 func (self *DPOSPolicy) RoleAssignments() (map[account.Account]common.Roler, error) {
-	// TODO: simply we decide master by block height, while it will support appoint by external
-	delegates, err := self.participate.GetParticipates()
-	if err != nil {
-		log.Error("Error to get participates.")
-		return nil, fmt.Errorf("get participates with error: %s", err)
-	}
-
+	// TODO: simply we decide master by block height, while it will support appoint external
 	block, ok := blockchain.NewLatestStateBlockChain()
 	if nil != ok {
 		log.Error("Get NewLatestStateBlockChain failed.")
 		return nil, fmt.Errorf("get NewLatestStateBlockChain failed")
 	}
 
-	numberOfDelegates := len(delegates)
-	assignment := make(map[account.Account]common.Roler, numberOfDelegates)
+	numberOfDelegates := len(self.participates)
+	self.assignments = make(map[account.Account]common.Roler, numberOfDelegates)
 
 	currentBlockHeight := block.GetCurrentBlock().Header.Height
 	masterIndex := (currentBlockHeight + 1) % uint64(numberOfDelegates)
 
-	for index, delegate := range delegates {
+	for index, delegate := range self.participates {
 		if index == int(masterIndex) {
-			assignment[delegate] = common.Master
+			self.assignments[delegate] = common.Master
 		} else {
-			assignment[delegate] = common.Slave
+			self.assignments[delegate] = common.Slave
 		}
 	}
-	self.roles = rolesAssignment{
-		delegates: delegates,
-		roles:     assignment,
-	}
-
-	return assignment, nil
+	return self.assignments, nil
 }
 
 func (self *DPOSPolicy) GetRoles(address account.Account) common.Roler {
-	if role, ok := self.roles.roles[address]; !ok {
+	if role, ok := self.assignments[address]; !ok {
 		log.Error("account %x is not a delegate, please confirm.", address)
 		// TODO: verify normal node or unknown
 		return common.UnKnown
@@ -81,27 +62,27 @@ func (self *DPOSPolicy) PolicyName() string {
 }
 
 func (self *DPOSPolicy) AppointRole(master int) {
-	if master > len(self.roles.delegates) {
-		log.Error("master index %d exceed delegates span %d.", master, len(self.roles.delegates))
+	if master > len(self.participates) {
+		log.Error("master index %d exceed delegates span %d.", master, len(self.participates))
 		return
 	}
 
-	masterAccount := self.roles.delegates[master]
-	if _, ok := self.roles.roles[masterAccount]; !ok {
+	masterAccount := self.participates[master]
+	if _, ok := self.assignments[masterAccount]; !ok {
 		log.Error("account %x has not assign role, please confirm.", masterAccount.Address)
 		return
 	}
 
-	for delegate, role := range self.roles.roles {
+	for delegate, role := range self.assignments {
 		if delegate == masterAccount {
 			if common.Master == role {
 				log.Warn("Account %x has been master already.", masterAccount.Address)
 				return
 			} else {
-				self.roles.roles[masterAccount] = common.Master
+				self.assignments[masterAccount] = common.Master
 			}
 		} else {
-			self.roles.roles[delegate] = common.Slave
+			self.assignments[delegate] = common.Slave
 		}
 	}
 }
