@@ -15,6 +15,15 @@ type Proposal struct {
 	Timestamp int64
 	Payload   *types.Block
 	Id        uint64
+	Signature []byte
+}
+
+type Response struct {
+	Id        uint64
+	Timestamp int64
+	// TODO: used sig to replace Payload
+	Payload   *types.Block
+	Signature []byte
 }
 
 // message of nodes
@@ -51,7 +60,7 @@ type Message_Proposal struct {
 func (*Message_Proposal) isMessage_Payload() {}
 
 type Message_Response struct {
-	Proposal *Proposal
+	Response *Response
 }
 
 func (*Message_Response) isMessage_Payload() {}

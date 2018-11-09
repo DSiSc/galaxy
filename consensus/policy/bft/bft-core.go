@@ -1,6 +1,7 @@
 package bft
 
 import (
+	"bytes"
 	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/galaxy/consensus/policy/bft/messages"
 	"github.com/DSiSc/galaxy/consensus/policy/bft/tools"
@@ -10,9 +11,22 @@ import (
 )
 
 type bftCore struct {
-	id     uint64
-	master uint64
-	peers  []account.Account
+	id        uint64
+	master    uint64
+	peers     []account.Account
+	signature *signData
+	tolerance uint8
+}
+
+type signData struct {
+	signatures [][]byte
+	signMap    map[account.Account][]byte
+}
+
+func (s *signData) addSignature(account account.Account, sign []byte) {
+	log.Info("add %x signature.", account.Address)
+	s.signMap[account] = sign
+	s.signatures = append(s.signatures, sign)
 }
 
 func NewBFTCore(id uint64, masterId uint64, peers []account.Account) tools.Receiver {
@@ -20,6 +34,10 @@ func NewBFTCore(id uint64, masterId uint64, peers []account.Account) tools.Recei
 		id:     id,
 		peers:  peers,
 		master: masterId,
+		signature: &signData{
+			signatures: make([][]byte, 0),
+			signMap:    make(map[account.Account][]byte),
+		},
 	}
 }
 
@@ -67,12 +85,22 @@ func (instance *bftCore) receiveRequest(request *messages.Request) {
 		log.Info("only master process request.")
 		return
 	}
+	signature := request.Payload.Header.SigData
+	if 1 != len(signature) {
+		log.Error("request must have signature from client.")
+		return
+	}
+	// TODO: Add master signature to proposal
+	// now, client is master, so we just used client's signature
+	master := instance.peers[instance.master]
+	instance.signature.addSignature(master, signature[0])
 	proposal := &messages.Message{
 		Payload: &messages.Message_Proposal{
 			Proposal: &messages.Proposal{
 				Id:        instance.id,
 				Timestamp: request.Timestamp,
 				Payload:   request.Payload,
+				Signature: signature[0],
 			},
 		},
 	}
@@ -90,12 +118,14 @@ func (instance *bftCore) receiveProposal(proposal *messages.Proposal) {
 		log.Info("master not need to process proposal.")
 		return
 	}
+	// TODO: Add signature
 	response := &messages.Message{
 		Payload: &messages.Message_Response{
-			Proposal: &messages.Proposal{
+			Response: &messages.Response{
 				Id:        instance.id,
 				Timestamp: proposal.Timestamp,
-				Payload:   proposal.Payload,
+				// TODO: add sign to the block
+				Payload: proposal.Payload,
 			},
 		},
 	}
@@ -111,6 +141,37 @@ func (instance *bftCore) receiveProposal(proposal *messages.Proposal) {
 	}
 }
 
+func (instance *bftCore) maybeCommit() {
+	signatures := len(instance.signature.signatures)
+	if uint8(signatures) < instance.tolerance {
+		log.Info("commit need %d signature, while now is %d.", instance.tolerance, signatures)
+		return
+	}
+	log.Info("commit it.")
+	// TODO: send message to ToConsensus
+}
+
+func (instance *bftCore) receiveResponse(response *messages.Response) {
+	isMaster := instance.id == instance.master
+	if !isMaster {
+		log.Info("only master need to process response.")
+		return
+	}
+	peer := instance.peers[response.Id]
+	if sign, ok := instance.signature.signMap[peer]; !ok {
+		instance.signature.addSignature(peer, response.Signature)
+	} else {
+		// check signature
+		if !bytes.Equal(sign, response.Signature) {
+			log.Error("receive a different signature from the same validator %x, which exists is %x, while response is %x.",
+				peer.Address, sign, response.Signature)
+			return
+		}
+		log.Warn("receive duplicate signature from the same validator, ignore it.")
+	}
+	instance.maybeCommit()
+}
+
 func (instance *bftCore) ProcessEvent(e tools.Event) tools.Event {
 	var err error
 	log.Debug("replica %d processing event", instance.id)
@@ -119,8 +180,11 @@ func (instance *bftCore) ProcessEvent(e tools.Event) tools.Event {
 		log.Info("receive request from replica %d.", instance.id)
 		instance.receiveRequest(et)
 	case *messages.Proposal:
-		log.Info("receive proposal from replica %d.", instance.id)
+		log.Info("receive proposal from replica %d.", et.Id)
 		instance.receiveProposal(et)
+	case *messages.Response:
+		log.Info("receive proposal from replica %d.", et.Id)
+		instance.receiveResponse(et)
 	default:
 		log.Warn("replica %d received an unknown message type %T", instance.id, et)
 	}
@@ -161,11 +225,17 @@ func handleConnection(tcpListener *net.TCPListener, bft *bftCore) {
 		payload := msg.GetPayload()
 		switch payload.(type) {
 		case *messages.Message_Request:
+			log.Info("receive request message.")
 			request := payload.(*messages.Message_Request).Request
 			tools.SendEvent(bft, request)
 		case *messages.Message_Proposal:
+			log.Info("receive proposal message.")
 			proposal := payload.(*messages.Message_Proposal).Proposal
 			tools.SendEvent(bft, proposal)
+		case *messages.Message_Response:
+			log.Info("receive response message.")
+			response := payload.(*messages.Message_Response).Response
+			tools.SendEvent(bft, response)
 		default:
 			log.Error("not support type for handleConnection.")
 			continue
