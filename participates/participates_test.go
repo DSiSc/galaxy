@@ -9,6 +9,7 @@ import (
 func mock_conf(policy string) config.ParticipateConfig {
 	return config.ParticipateConfig{
 		PolicyName: policy,
+		Delegates:  4,
 	}
 }
 
@@ -23,4 +24,10 @@ func Test_NewParticipates(t *testing.T) {
 	participate, err = NewParticipates(conf)
 	asserts.NotNil(err)
 	asserts.Nil(participate)
+
+	conf = mock_conf("dpos")
+	participate, err = NewParticipates(conf)
+	asserts.Nil(err)
+	asserts.NotNil(participate)
+	asserts.Equal("dpos", participate.PolicyName())
 }

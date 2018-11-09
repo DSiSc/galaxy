@@ -43,10 +43,3 @@ func Test_GetParticipates(t *testing.T) {
 	asserts.Nil(err)
 	asserts.Equal(1, len(address), "they should not be equal")
 }
-
-func Test_getMembers(t *testing.T) {
-	asserts := assert.New(t)
-	policy := mock_NewSoloPolicy()
-	members := policy.getMembers()
-	asserts.Equal(MockAccount, members, "they should not be equal")
-}
