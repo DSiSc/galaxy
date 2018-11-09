@@ -17,16 +17,14 @@ import (
 var id uint64 = 0
 
 func TestNewBFTCore(t *testing.T) {
-	receive := NewBFTCore(id, id, nil)
-	assert.NotNil(t, receive)
-	bftcore := receive.(*bftCore)
-	assert.Equal(t, id, bftcore.id)
+	bft := NewBFTCore(id, id, nil)
+	assert.NotNil(t, bft)
+	assert.Equal(t, id, bft.id)
 }
 
 func TestBftCore_ProcessEvent(t *testing.T) {
-	receive := NewBFTCore(id, id, nil)
-	assert.NotNil(t, receive)
-	bft := receive.(*bftCore)
+	bft := NewBFTCore(id, id, nil)
+	assert.NotNil(t, bft)
 	err := bft.ProcessEvent(nil)
 	assert.Nil(t, err)
 
@@ -47,9 +45,8 @@ func TestBftCore_ProcessEvent(t *testing.T) {
 }
 
 func TestBftCore_Start(t *testing.T) {
-	receive := NewBFTCore(id, id, nil)
-	assert.NotNil(t, receive)
-	bft := receive.(*bftCore)
+	bft := NewBFTCore(id, id, nil)
+	assert.NotNil(t, bft)
 	var account = account.Account{
 		Extension: account.AccountExtension{
 			Url: "127.0.0.1:8080",
@@ -60,9 +57,8 @@ func TestBftCore_Start(t *testing.T) {
 }
 
 func TestBftCore_receiveRequest(t *testing.T) {
-	receive := NewBFTCore(id, 1, mockAccounts())
-	assert.NotNil(t, receive)
-	bft := receive.(*bftCore)
+	bft := NewBFTCore(id, 1, mockAccounts)
+	assert.NotNil(t, bft)
 	request := &messages.Request{
 		Timestamp: 1535414400,
 		Payload: &types.Block{
@@ -104,36 +100,31 @@ func TestBftCore_receiveRequest(t *testing.T) {
 	bft.receiveRequest(request)
 }
 
-func mockAccounts() []account.Account {
-	account0 := account.Account{
+var mockAccounts = []account.Account{
+	account.Account{
 		Address: types.Address{0x33, 0x3c, 0x33, 0x10, 0x82, 0x4b, 0x7c, 0x68,
 			0x51, 0x33, 0xf2, 0xbe, 0xdb, 0x2c, 0xa4, 0xb8, 0xb4, 0xdf, 0x63, 0x3d},
 		Extension: account.AccountExtension{
 			Id:  0,
 			Url: "172.0.0.1:8080",
 		},
-	}
-
-	account1 := account.Account{
+	},
+	account.Account{
 		Address: types.Address{0x34, 0x3c, 0x33, 0x10, 0x82, 0x4b, 0x7c, 0x68,
 			0x51, 0x33, 0xf2, 0xbe, 0xdb, 0x2c, 0xa4, 0xb8, 0xb4, 0xdf, 0x63, 0x3d},
 		Extension: account.AccountExtension{
 			Id:  1,
-			Url: "172.0.0.1:8081",
-		},
-	}
-	return []account.Account{account0, account1}
+			Url: "172.0.0.1:8081"},
+	},
 }
 
 func TestNewBFTCore_broadcast(t *testing.T) {
-	receive := NewBFTCore(id, id, nil)
-	assert.NotNil(t, receive)
-	bftCore := receive.(*bftCore)
-	bftCore.peers = mockAccounts()
+	bft := NewBFTCore(id, id, mockAccounts)
+	assert.NotNil(t, bft)
 	monkey.Patch(net.ResolveTCPAddr, func(string, string) (*net.TCPAddr, error) {
 		return nil, fmt.Errorf("resolve error")
 	})
-	bftCore.broadcast(nil)
+	bft.broadcast(nil)
 
 	monkey.Patch(net.ResolveTCPAddr, func(string, string) (*net.TCPAddr, error) {
 		return nil, nil
@@ -141,7 +132,7 @@ func TestNewBFTCore_broadcast(t *testing.T) {
 	monkey.Patch(net.DialTCP, func(string, *net.TCPAddr, *net.TCPAddr) (*net.TCPConn, error) {
 		return nil, fmt.Errorf("dail error")
 	})
-	bftCore.broadcast(nil)
+	bft.broadcast(nil)
 
 	var c net.TCPConn
 	monkey.Patch(net.DialTCP, func(string, *net.TCPAddr, *net.TCPAddr) (*net.TCPConn, error) {
@@ -150,18 +141,16 @@ func TestNewBFTCore_broadcast(t *testing.T) {
 	monkey.PatchInstanceMethod(reflect.TypeOf(&c), "Write", func(*net.TCPConn, []byte) (int, error) {
 		return 0, nil
 	})
-	bftCore.broadcast(nil)
+	bft.broadcast(nil)
 }
 
 func TestBftCore_unicast(t *testing.T) {
-	receive := NewBFTCore(id, id, nil)
-	assert.NotNil(t, receive)
-	bftCore := receive.(*bftCore)
-	bftCore.peers = mockAccounts()
+	bft := NewBFTCore(id, id, mockAccounts)
+	assert.NotNil(t, bft)
 	monkey.Patch(net.ResolveTCPAddr, func(string, string) (*net.TCPAddr, error) {
 		return nil, fmt.Errorf("resolve error")
 	})
-	err := bftCore.unicast(bftCore.peers[1], nil)
+	err := bft.unicast(bft.peers[1], nil)
 	assert.Equal(t, fmt.Errorf("resolve error"), err)
 	monkey.Patch(net.ResolveTCPAddr, func(string, string) (*net.TCPAddr, error) {
 		return nil, nil
@@ -173,14 +162,13 @@ func TestBftCore_unicast(t *testing.T) {
 	monkey.PatchInstanceMethod(reflect.TypeOf(&c), "Write", func(*net.TCPConn, []byte) (int, error) {
 		return 0, nil
 	})
-	err = bftCore.unicast(bftCore.peers[1], nil)
+	err = bft.unicast(bft.peers[1], nil)
 	assert.Nil(t, err)
 }
 
 func TestBftCore_receiveProposal(t *testing.T) {
-	receive := NewBFTCore(id, id, nil)
-	assert.NotNil(t, receive)
-	bft := receive.(*bftCore)
+	bft := NewBFTCore(id, id, mockAccounts)
+	assert.NotNil(t, bft)
 	proposal := &messages.Proposal{
 		Timestamp: 1535414400,
 		Payload: &types.Block{
@@ -196,7 +184,6 @@ func TestBftCore_receiveProposal(t *testing.T) {
 		return nil, fmt.Errorf("marshal proposal msg failed")
 	})
 	bft.receiveProposal(proposal)
-	bft.peers = mockAccounts()
 
 	monkey.Patch(proto.Marshal, func(proto.Message) ([]byte, error) {
 		return nil, nil
@@ -208,9 +195,8 @@ func TestBftCore_receiveProposal(t *testing.T) {
 }
 
 func TestBftCore_receiveResponse(t *testing.T) {
-	receive := NewBFTCore(id, id+1, mockAccounts())
-	assert.NotNil(t, receive)
-	bft := receive.(*bftCore)
+	bft := NewBFTCore(id, id+1, mockAccounts)
+	assert.NotNil(t, bft)
 	response := &messages.Response{
 		Timestamp: 1535414400,
 		Payload: &types.Block{

@@ -15,6 +15,13 @@ type Proposal struct {
 	Timestamp int64
 }
 
+// BFTRequest that with bft policy
+type Request struct {
+	Id      uint64
+	Payload *Proposal
+	Status  ConsensusStatus
+}
+
 type ConsensusStatus uint8
 
 const (

@@ -3,26 +3,24 @@ package bft
 import (
 	"github.com/DSiSc/galaxy/consensus/common"
 	"github.com/DSiSc/galaxy/participates"
+	"github.com/DSiSc/validator/tools/account"
+	"github.com/ontio/ontology/common/log"
 )
 
 type BFTPolicy struct {
 	name         string
-	tolerance    uint8
+	account      account.Account
 	participates participates.Participates
+	bftCore      *bftCore
 }
 
-// BFTProposal that with solo policy
-type BFTProposal struct {
-	proposal *common.Proposal
-	status   common.ConsensusStatus
-}
-
-func NewBFTPolicy(participates participates.Participates) (*BFTPolicy, error) {
-	participate, _ := participates.GetParticipates()
+func NewBFTPolicy(participate participates.Participates, account account.Account, master account.Account) (*BFTPolicy, error) {
+	members, _ := participate.GetParticipates()
 	policy := &BFTPolicy{
 		name:         common.BFT_POLICY,
-		participates: participates,
-		tolerance:    uint8((len(participate) - 1) / 3),
+		account:      account,
+		participates: participate,
+		bftCore:      NewBFTCore(account.Extension.Id, master.Extension.Id, members),
 	}
 	return policy, nil
 }
@@ -31,7 +29,7 @@ func (self *BFTPolicy) PolicyName() string {
 	return self.name
 }
 
-// to get consensus
-func (self *BFTPolicy) ToConsensus(p *common.Proposal) error {
-	return nil
+func (self *BFTPolicy) Start() {
+	log.Info("start bft policy service.")
+	self.bftCore.Start(self.account)
 }

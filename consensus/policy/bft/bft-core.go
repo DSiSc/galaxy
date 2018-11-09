@@ -29,7 +29,7 @@ func (s *signData) addSignature(account account.Account, sign []byte) {
 	s.signatures = append(s.signatures, sign)
 }
 
-func NewBFTCore(id uint64, masterId uint64, peers []account.Account) tools.Receiver {
+func NewBFTCore(id uint64, masterId uint64, peers []account.Account) *bftCore {
 	return &bftCore{
 		id:     id,
 		peers:  peers,
@@ -38,6 +38,7 @@ func NewBFTCore(id uint64, masterId uint64, peers []account.Account) tools.Recei
 			signatures: make([][]byte, 0),
 			signMap:    make(map[account.Account][]byte),
 		},
+		tolerance: uint8((len(peers) - 1) / 3),
 	}
 }
 
