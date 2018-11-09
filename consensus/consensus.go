@@ -4,8 +4,10 @@ import (
 	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/galaxy/consensus/common"
 	"github.com/DSiSc/galaxy/consensus/config"
+	"github.com/DSiSc/galaxy/consensus/policy/bft"
 	"github.com/DSiSc/galaxy/consensus/policy/solo"
 	"github.com/DSiSc/galaxy/participates"
+	"github.com/DSiSc/validator/tools/account"
 )
 
 type Consensus interface {
@@ -15,7 +17,7 @@ type Consensus interface {
 	Halt()
 }
 
-func NewConsensus(participates participates.Participates, conf config.ConsensusConfig) (Consensus, error) {
+func NewConsensus(participates participates.Participates, conf config.ConsensusConfig, account account.Account) (Consensus, error) {
 	var err error
 	var consensus Consensus
 	consensusPolicy := conf.PolicyName
@@ -23,6 +25,9 @@ func NewConsensus(participates participates.Participates, conf config.ConsensusC
 	case common.SOLO_POLICY:
 		log.Info("Get consensus policy is solo.")
 		consensus, err = solo.NewSoloPolicy(participates)
+	case common.BFT_POLICY:
+		log.Info("Get consensus policy is bft.")
+		consensus, err = bft.NewBFTPolicy(participates, account)
 	default:
 		log.Error("Now, we only support solo policy consensus.")
 	}

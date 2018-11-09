@@ -50,6 +50,10 @@ func (self *BFTPolicy) ToConsensus(p *common.Proposal) error {
 	return nil
 }
 
+func (self *BFTPolicy) Halt() {
+	return
+}
+
 func (self *BFTPolicy) final() ([][]byte, []account.Account, error) {
 	result := <-self.bftCore.result
 	// check result
