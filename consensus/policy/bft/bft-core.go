@@ -16,6 +16,7 @@ type bftCore struct {
 	peers     []account.Account
 	signature *signData
 	tolerance uint8
+	result    chan *signData
 }
 
 type signData struct {
@@ -150,6 +151,7 @@ func (instance *bftCore) maybeCommit() {
 	}
 	log.Info("commit it.")
 	// TODO: send message to ToConsensus
+	// instance.result <- instance.signature
 }
 
 func (instance *bftCore) receiveResponse(response *messages.Response) {
