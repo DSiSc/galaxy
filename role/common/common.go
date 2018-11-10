@@ -1,5 +1,7 @@
 package common
 
+import "errors"
+
 type Roler int
 
 // Role
@@ -13,4 +15,8 @@ const (
 const (
 	SOLO_POLICY = "solo"
 	DPOS_POLICY = "dpos"
+)
+
+var (
+	AssignmentNotBeExecute = errors.New("assignments role has not be executed")
 )

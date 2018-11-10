@@ -6,6 +6,7 @@ import (
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/galaxy/participates"
 	"github.com/DSiSc/galaxy/participates/config"
+	"github.com/DSiSc/galaxy/participates/policy/dpos"
 	"github.com/DSiSc/galaxy/role/common"
 	"github.com/DSiSc/monkey"
 	"github.com/DSiSc/validator/tools/account"
@@ -33,14 +34,14 @@ var mockAccounts = []account.Account{
 }
 
 func TestNewDPOSPolicy(t *testing.T) {
-	policy, err := NewDPOSPolicy(mockAccounts)
+	policy, err := NewDPOSPolicy(nil)
 	assert.Nil(t, err)
 	assert.NotNil(t, policy)
 	assert.Equal(t, common.DPOS_POLICY, policy.name)
 }
 
 func TestDPOSPolicy_PolicyName(t *testing.T) {
-	policy, _ := NewDPOSPolicy(mockAccounts)
+	policy, _ := NewDPOSPolicy(nil)
 	assert.Equal(t, common.DPOS_POLICY, policy.name)
 	assert.Equal(t, policy.name, policy.PolicyName())
 }
@@ -55,13 +56,24 @@ func TestDPOSPolicy_RoleAssignments(t *testing.T) {
 	assert.NotNil(t, participate)
 	assert.Nil(t, err)
 
-	dposPolicy, err1 := NewDPOSPolicy(mockAccounts)
+	dposPolicy, err := NewDPOSPolicy(participate)
 	assert.NotNil(t, dposPolicy)
-	assert.Nil(t, err1)
+	assert.Nil(t, err)
 
-	assignment, err2 := dposPolicy.RoleAssignments()
+	var s *dpos.DPOSPolicy
+	monkey.PatchInstanceMethod(reflect.TypeOf(s), "GetParticipates", func(*dpos.DPOSPolicy) ([]account.Account, error) {
+		return nil, fmt.Errorf("get particioates failed")
+	})
+	assignment, err := dposPolicy.RoleAssignments()
 	assert.Nil(t, assignment)
-	assert.Equal(t, fmt.Errorf("get NewLatestStateBlockChain failed"), err2)
+	assert.Equal(t, fmt.Errorf("get participates failed"), err)
+
+	monkey.PatchInstanceMethod(reflect.TypeOf(s), "GetParticipates", func(*dpos.DPOSPolicy) ([]account.Account, error) {
+		return mockAccounts, nil
+	})
+	assignment, err = dposPolicy.RoleAssignments()
+	assert.Nil(t, assignment)
+	assert.Equal(t, fmt.Errorf("get NewLatestStateBlockChain failed"), err)
 
 	monkey.Patch(blockchain.NewLatestStateBlockChain, func() (*blockchain.BlockChain, error) {
 		var temp blockchain.BlockChain
@@ -79,7 +91,7 @@ func TestDPOSPolicy_RoleAssignments(t *testing.T) {
 	assignment, err3 := dposPolicy.RoleAssignments()
 	assert.NotNil(t, assignment)
 	assert.Nil(t, err3)
-	address := dposPolicy.participates[height+1]
+	address := mockAccounts[height+1]
 	assert.Equal(t, common.Master, dposPolicy.assignments[address])
 }
 
@@ -88,7 +100,7 @@ func TestDPOSPolicy_AppointRole(t *testing.T) {
 	assert.NotNil(t, participate)
 	assert.Nil(t, err)
 
-	dposPolicy, err1 := NewDPOSPolicy(mockAccounts)
+	dposPolicy, err1 := NewDPOSPolicy(participate)
 	assert.NotNil(t, dposPolicy)
 	assert.Nil(t, err1)
 
@@ -108,10 +120,19 @@ func TestDPOSPolicy_AppointRole(t *testing.T) {
 	assert.NotNil(t, assignment)
 	assert.Nil(t, err3)
 
-	address := dposPolicy.participates[0]
-	assert.Equal(t, common.Slave, dposPolicy.assignments[address])
-	dposPolicy.AppointRole(0)
-	assert.Equal(t, common.Master, dposPolicy.assignments[address])
+	account0 := mockAccounts[0]
+	assert.Equal(t, common.Slave, dposPolicy.assignments[account0])
+
+	dposPolicy.AppointRole(account0)
+	assert.Equal(t, common.Master, dposPolicy.assignments[account0])
+
+	dposPolicy.assignments[account0] = common.Slave
+	err = dposPolicy.AppointRole(account0)
+	assert.Equal(t, fmt.Errorf("no master exist in current delegates"), err)
+
+	var fakeAccount account.Account
+	err = dposPolicy.AppointRole(fakeAccount)
+	assert.Equal(t, fmt.Errorf("appoint account is not a delegate"), err)
 }
 
 func TestDPOSPolicy_GetRoles(t *testing.T) {
@@ -119,9 +140,9 @@ func TestDPOSPolicy_GetRoles(t *testing.T) {
 	assert.NotNil(t, participate)
 	assert.Nil(t, err)
 
-	dposPolicy, err1 := NewDPOSPolicy(mockAccounts)
+	dposPolicy, err := NewDPOSPolicy(participate)
 	assert.NotNil(t, dposPolicy)
-	assert.Nil(t, err1)
+	assert.Nil(t, err)
 
 	monkey.Patch(blockchain.NewLatestStateBlockChain, func() (*blockchain.BlockChain, error) {
 		var temp blockchain.BlockChain
@@ -135,16 +156,26 @@ func TestDPOSPolicy_GetRoles(t *testing.T) {
 			},
 		}
 	})
-	assignment, err3 := dposPolicy.RoleAssignments()
+	assignment, err := dposPolicy.RoleAssignments()
 	assert.NotNil(t, assignment)
-	assert.Nil(t, err3)
+	assert.Nil(t, err)
 
-	account0 := dposPolicy.participates[0]
-	assert.Equal(t, common.Slave, dposPolicy.GetRoles(account0))
+	dposPolicy.assignments = make(map[account.Account]common.Roler)
+	account0 := mockAccounts[0]
+	role, err := dposPolicy.GetRoles(account0)
+	assert.Equal(t, common.UnKnown, role)
+	assert.Equal(t, common.AssignmentNotBeExecute, err)
 
-	account1 := dposPolicy.participates[1]
-	assert.Equal(t, common.Master, dposPolicy.GetRoles(account1))
+	dposPolicy.assignments = assignment
+	role, err = dposPolicy.GetRoles(account0)
+	assert.Nil(t, err)
+	assert.Equal(t, common.Slave, role)
+
+	account1 := mockAccounts[1]
+	role, err = dposPolicy.GetRoles(account1)
+	assert.Equal(t, common.Master, role)
 
 	var fakeAccount account.Account
-	assert.Equal(t, common.UnKnown, dposPolicy.GetRoles(fakeAccount))
+	role, err = dposPolicy.GetRoles(fakeAccount)
+	assert.Equal(t, common.UnKnown, role)
 }

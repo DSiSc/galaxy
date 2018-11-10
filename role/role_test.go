@@ -44,7 +44,7 @@ func mock_dpos_conf() config.RoleConfig {
 func Test_NewRole(t *testing.T) {
 	asserts := assert.New(t)
 	conf := mock_solo_conf()
-	role, err := NewRole(mockAccounts[:1], conf)
+	role, err := NewRole(nil, conf)
 	asserts.Nil(err)
 	asserts.NotNil(role)
 	asserts.Equal(common.SOLO_POLICY, role.PolicyName())
@@ -62,7 +62,7 @@ func Test_NewRole(t *testing.T) {
 	asserts.NotNil(method)
 	asserts.True(exist)
 
-	role, err = NewRole(mockAccounts, mock_dpos_conf())
+	role, err = NewRole(nil, mock_dpos_conf())
 	asserts.Nil(err)
 	asserts.NotNil(role)
 	asserts.Equal(common.DPOS_POLICY, role.PolicyName())

@@ -3,44 +3,52 @@ package solo
 import (
 	"fmt"
 	"github.com/DSiSc/craft/log"
+	"github.com/DSiSc/galaxy/participates"
 	"github.com/DSiSc/galaxy/role/common"
 	"github.com/DSiSc/validator/tools/account"
 )
 
 type SoloPolicy struct {
 	name         string
-	participates []account.Account
+	assignments  map[account.Account]common.Roler
+	participates participates.Participates
 }
 
-func NewSoloPolicy(accounts []account.Account) (*SoloPolicy, error) {
-	if 1 != len(accounts) {
-		log.Error("solo role policy only support one participate.")
-		return nil, fmt.Errorf("solo role policy only support one participate")
-	}
+func NewSoloPolicy(participates participates.Participates) (*SoloPolicy, error) {
 	soloPolicy := &SoloPolicy{
 		name:         common.SOLO_POLICY,
-		participates: accounts,
+		participates: participates,
 	}
 	return soloPolicy, nil
 }
 
 func (self *SoloPolicy) RoleAssignments() (map[account.Account]common.Roler, error) {
-	participates := len(self.participates)
+	accounts, err := self.participates.GetParticipates()
+	if nil != err {
+		log.Error("get participates failed with error %v.", err)
+		return nil, fmt.Errorf("get participates failed")
+	}
+	participates := len(accounts)
 	if 1 != participates {
 		log.Error("solo role policy only support one participate.")
 		return nil, fmt.Errorf("more than one participate")
 	}
-	assignment := make(map[account.Account]common.Roler, participates)
-	assignment[self.participates[0]] = common.Master
-	return assignment, nil
+	self.assignments = make(map[account.Account]common.Roler, participates)
+	self.assignments[accounts[0]] = common.Master
+	return self.assignments, nil
 }
 
-func (self *SoloPolicy) GetRoles(address account.Account) common.Roler {
-	if address != self.participates[0] {
-		log.Error("wrong address which nobody knows in solo role policy")
-		return common.UnKnown
+func (self *SoloPolicy) GetRoles(address account.Account) (common.Roler, error) {
+	if 0 == len(self.assignments) {
+		log.Error("RoleAssignments must be called before.")
+		return common.UnKnown, common.AssignmentNotBeExecute
 	}
-	return common.Master
+	if role, ok := self.assignments[address]; !ok {
+		log.Error("wrong address which nobody knows in solo policy")
+		return common.UnKnown, fmt.Errorf("wrong address")
+	} else {
+		return role, nil
+	}
 }
 
 func (self *SoloPolicy) PolicyName() string {
