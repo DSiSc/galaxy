@@ -51,7 +51,7 @@ func mockRoleAssignment(master account.Account, accounts []account.Account) map[
 	return assignments
 }
 
-func TestBFTPolicy_Prepare(t *testing.T) {
+func TestBFTPolicy_Initialization(t *testing.T) {
 	bft, err := NewBFTPolicy(mockAccounts[0])
 	assert.NotNil(t, bft)
 	assert.Nil(t, err)
