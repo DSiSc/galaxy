@@ -34,7 +34,7 @@ const (
 
 const (
 	SOLO_POLICY        = "solo"
-	SOLO_CONSENSUS_NUM = 1
+	SOLO_CONSENSUS_NUM = uint8(1)
 	BFT_POLICY         = "bft"
 )
 
