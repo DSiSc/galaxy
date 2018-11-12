@@ -22,8 +22,7 @@ type Consensus interface {
 func NewConsensus(participates participates.Participates, conf config.ConsensusConfig, account account.Account) (Consensus, error) {
 	var err error
 	var consensus Consensus
-	consensusPolicy := conf.PolicyName
-	switch consensusPolicy {
+	switch conf.PolicyName {
 	case common.SOLO_POLICY:
 		log.Info("Get consensus policy is solo.")
 		consensus, err = solo.NewSoloPolicy(account)

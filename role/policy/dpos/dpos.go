@@ -4,42 +4,36 @@ import (
 	"fmt"
 	"github.com/DSiSc/blockchain"
 	"github.com/DSiSc/craft/log"
-	"github.com/DSiSc/galaxy/participates"
 	"github.com/DSiSc/galaxy/role/common"
 	"github.com/DSiSc/validator/tools/account"
 )
 
 type DPOSPolicy struct {
 	name         string
-	participates participates.Participates
+	participates []account.Account
 	assignments  map[account.Account]common.Roler
 }
 
-func NewDPOSPolicy(participates participates.Participates) (*DPOSPolicy, error) {
+func NewDPOSPolicy() (*DPOSPolicy, error) {
 	policy := &DPOSPolicy{
-		name:         common.DPOS_POLICY,
-		participates: participates,
+		name: common.DPOS_POLICY,
 	}
 	return policy, nil
 }
 
-func (self *DPOSPolicy) RoleAssignments() (map[account.Account]common.Roler, error) {
-	accounts, err := self.participates.GetParticipates()
-	if nil != err {
-		log.Error("get participates failed with error %v.", err)
-		return nil, fmt.Errorf("get participates failed")
-	}
+func (self *DPOSPolicy) RoleAssignments(participates []account.Account) (map[account.Account]common.Roler, error) {
 	// TODO: simply we decide master by block height, while it will support appoint external
 	block, ok := blockchain.NewLatestStateBlockChain()
 	if nil != ok {
 		log.Error("Get NewLatestStateBlockChain failed.")
 		return nil, fmt.Errorf("get NewLatestStateBlockChain failed")
 	}
-	delegates := len(accounts)
+	self.participates = participates
+	delegates := len(self.participates)
 	self.assignments = make(map[account.Account]common.Roler, delegates)
 	currentBlockHeight := block.GetCurrentBlock().Header.Height
 	masterIndex := (currentBlockHeight + 1) % uint64(delegates)
-	for index, delegate := range accounts {
+	for index, delegate := range self.participates {
 		if index == int(masterIndex) {
 			self.assignments[delegate] = common.Master
 		} else {

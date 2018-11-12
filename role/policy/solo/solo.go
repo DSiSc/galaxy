@@ -3,7 +3,6 @@ package solo
 import (
 	"fmt"
 	"github.com/DSiSc/craft/log"
-	"github.com/DSiSc/galaxy/participates"
 	"github.com/DSiSc/galaxy/role/common"
 	"github.com/DSiSc/validator/tools/account"
 )
@@ -11,30 +10,25 @@ import (
 type SoloPolicy struct {
 	name         string
 	assignments  map[account.Account]common.Roler
-	participates participates.Participates
+	participates []account.Account
 }
 
-func NewSoloPolicy(participates participates.Participates) (*SoloPolicy, error) {
+func NewSoloPolicy() (*SoloPolicy, error) {
 	soloPolicy := &SoloPolicy{
-		name:         common.SOLO_POLICY,
-		participates: participates,
+		name: common.SOLO_POLICY,
 	}
 	return soloPolicy, nil
 }
 
-func (self *SoloPolicy) RoleAssignments() (map[account.Account]common.Roler, error) {
-	accounts, err := self.participates.GetParticipates()
-	if nil != err {
-		log.Error("get participates failed with error %v.", err)
-		return nil, fmt.Errorf("get participates failed")
-	}
+func (self *SoloPolicy) RoleAssignments(accounts []account.Account) (map[account.Account]common.Roler, error) {
 	participates := len(accounts)
 	if 1 != participates {
 		log.Error("solo role policy only support one participate.")
 		return nil, fmt.Errorf("more than one participate")
 	}
+	self.participates = accounts
 	self.assignments = make(map[account.Account]common.Roler, participates)
-	self.assignments[accounts[0]] = common.Master
+	self.assignments[self.participates[0]] = common.Master
 	return self.assignments, nil
 }
 

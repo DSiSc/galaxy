@@ -6,7 +6,6 @@ import (
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/galaxy/participates"
 	"github.com/DSiSc/galaxy/participates/config"
-	"github.com/DSiSc/galaxy/participates/policy/dpos"
 	"github.com/DSiSc/galaxy/role/common"
 	"github.com/DSiSc/monkey"
 	"github.com/DSiSc/validator/tools/account"
@@ -34,14 +33,14 @@ var mockAccounts = []account.Account{
 }
 
 func TestNewDPOSPolicy(t *testing.T) {
-	policy, err := NewDPOSPolicy(nil)
+	policy, err := NewDPOSPolicy()
 	assert.Nil(t, err)
 	assert.NotNil(t, policy)
 	assert.Equal(t, common.DPOS_POLICY, policy.name)
 }
 
 func TestDPOSPolicy_PolicyName(t *testing.T) {
-	policy, _ := NewDPOSPolicy(nil)
+	policy, _ := NewDPOSPolicy()
 	assert.Equal(t, common.DPOS_POLICY, policy.name)
 	assert.Equal(t, policy.name, policy.PolicyName())
 }
@@ -52,26 +51,11 @@ var participateConf = config.ParticipateConfig{
 }
 
 func TestDPOSPolicy_RoleAssignments(t *testing.T) {
-	participate, err := participates.NewParticipates(participateConf)
-	assert.NotNil(t, participate)
-	assert.Nil(t, err)
-
-	dposPolicy, err := NewDPOSPolicy(participate)
+	dposPolicy, err := NewDPOSPolicy()
 	assert.NotNil(t, dposPolicy)
 	assert.Nil(t, err)
 
-	var s *dpos.DPOSPolicy
-	monkey.PatchInstanceMethod(reflect.TypeOf(s), "GetParticipates", func(*dpos.DPOSPolicy) ([]account.Account, error) {
-		return nil, fmt.Errorf("get particioates failed")
-	})
-	assignment, err := dposPolicy.RoleAssignments()
-	assert.Nil(t, assignment)
-	assert.Equal(t, fmt.Errorf("get participates failed"), err)
-
-	monkey.PatchInstanceMethod(reflect.TypeOf(s), "GetParticipates", func(*dpos.DPOSPolicy) ([]account.Account, error) {
-		return mockAccounts, nil
-	})
-	assignment, err = dposPolicy.RoleAssignments()
+	assignment, err := dposPolicy.RoleAssignments(mockAccounts)
 	assert.Nil(t, assignment)
 	assert.Equal(t, fmt.Errorf("get NewLatestStateBlockChain failed"), err)
 
@@ -88,7 +72,7 @@ func TestDPOSPolicy_RoleAssignments(t *testing.T) {
 			},
 		}
 	})
-	assignment, err3 := dposPolicy.RoleAssignments()
+	assignment, err3 := dposPolicy.RoleAssignments(mockAccounts)
 	assert.NotNil(t, assignment)
 	assert.Nil(t, err3)
 	address := mockAccounts[height+1]
@@ -100,7 +84,7 @@ func TestDPOSPolicy_AppointRole(t *testing.T) {
 	assert.NotNil(t, participate)
 	assert.Nil(t, err)
 
-	dposPolicy, err1 := NewDPOSPolicy(participate)
+	dposPolicy, err1 := NewDPOSPolicy()
 	assert.NotNil(t, dposPolicy)
 	assert.Nil(t, err1)
 
@@ -116,7 +100,7 @@ func TestDPOSPolicy_AppointRole(t *testing.T) {
 			},
 		}
 	})
-	assignment, err3 := dposPolicy.RoleAssignments()
+	assignment, err3 := dposPolicy.RoleAssignments(mockAccounts)
 	assert.NotNil(t, assignment)
 	assert.Nil(t, err3)
 
@@ -140,7 +124,7 @@ func TestDPOSPolicy_GetRoles(t *testing.T) {
 	assert.NotNil(t, participate)
 	assert.Nil(t, err)
 
-	dposPolicy, err := NewDPOSPolicy(participate)
+	dposPolicy, err := NewDPOSPolicy()
 	assert.NotNil(t, dposPolicy)
 	assert.Nil(t, err)
 
@@ -156,7 +140,7 @@ func TestDPOSPolicy_GetRoles(t *testing.T) {
 			},
 		}
 	})
-	assignment, err := dposPolicy.RoleAssignments()
+	assignment, err := dposPolicy.RoleAssignments(mockAccounts)
 	assert.NotNil(t, assignment)
 	assert.Nil(t, err)
 

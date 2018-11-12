@@ -44,7 +44,7 @@ func mock_dpos_conf() config.RoleConfig {
 func Test_NewRole(t *testing.T) {
 	asserts := assert.New(t)
 	conf := mock_solo_conf()
-	role, err := NewRole(nil, conf)
+	role, err := NewRole(conf)
 	asserts.Nil(err)
 	asserts.NotNil(role)
 	asserts.Equal(common.SOLO_POLICY, role.PolicyName())
@@ -62,7 +62,7 @@ func Test_NewRole(t *testing.T) {
 	asserts.NotNil(method)
 	asserts.True(exist)
 
-	role, err = NewRole(nil, mock_dpos_conf())
+	role, err = NewRole(mock_dpos_conf())
 	asserts.Nil(err)
 	asserts.NotNil(role)
 	asserts.Equal(common.DPOS_POLICY, role.PolicyName())
@@ -70,7 +70,7 @@ func Test_NewRole(t *testing.T) {
 	fakeConf := config.RoleConfig{
 		PolicyName: "unknown",
 	}
-	role, err = NewRole(nil, fakeConf)
+	role, err = NewRole(fakeConf)
 	asserts.NotNil(err)
 	asserts.Equal(fmt.Errorf("unkonwn policy type"), err)
 	asserts.Nil(role)
