@@ -24,7 +24,7 @@ func NewBFTPolicy(account account.Account) (*BFTPolicy, error) {
 	return policy, nil
 }
 
-func (self *BFTPolicy) Prepare(role map[account.Account]commonr.Roler, peers []account.Account) error {
+func (self *BFTPolicy) Initialization(role map[account.Account]commonr.Roler, peers []account.Account) error {
 	if len(role) != len(peers) {
 		log.Error("bft core has not been initial, please confirm.")
 		return fmt.Errorf("role and peers not in consistent")

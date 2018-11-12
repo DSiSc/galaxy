@@ -6,7 +6,9 @@ import (
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/galaxy/consensus/common"
 	"github.com/DSiSc/galaxy/participates"
+	commonr "github.com/DSiSc/galaxy/role/common"
 	"github.com/DSiSc/validator"
+	"github.com/DSiSc/validator/tools/account"
 	"github.com/DSiSc/validator/tools/signature"
 	"math"
 )
@@ -47,6 +49,11 @@ func (self *SoloPolicy) Start() {
 func (self *SoloPolicy) Halt() {
 	log.Warn("Stop solo policy service.")
 	return
+}
+
+func (self *SoloPolicy) Initialization(role map[account.Account]commonr.Roler, account []account.Account) error {
+	log.Info("Initial solo policy.")
+	return nil
 }
 
 func (self *SoloPolicy) toSoloProposal(p *common.Proposal) *SoloProposal {

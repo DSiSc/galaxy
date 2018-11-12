@@ -57,17 +57,17 @@ func TestBFTPolicy_Prepare(t *testing.T) {
 	assert.Nil(t, err)
 
 	assignment := mockRoleAssignment(mockAccounts[3], mockAccounts)
-	err = bft.Prepare(assignment, mockAccounts[:3])
+	err = bft.Initialization(assignment, mockAccounts[:3])
 	assert.Equal(t, err, fmt.Errorf("role and peers not in consistent"))
 
 	assignment[mockAccounts[3]] = commonr.Master
-	err = bft.Prepare(assignment, mockAccounts)
+	err = bft.Initialization(assignment, mockAccounts)
 	assert.Equal(t, bft.bftCore.peers, mockAccounts)
 	assert.Equal(t, bft.bftCore.tolerance, uint8((len(mockAccounts)-1)/3))
 	assert.Equal(t, bft.bftCore.master, mockAccounts[3].Extension.Id)
 
 	assignment[mockAccounts[3]] = commonr.Slave
-	err = bft.Prepare(assignment, mockAccounts)
+	err = bft.Initialization(assignment, mockAccounts)
 	assert.Equal(t, err, fmt.Errorf("no master"))
 }
 

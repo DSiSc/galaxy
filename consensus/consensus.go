@@ -7,11 +7,13 @@ import (
 	"github.com/DSiSc/galaxy/consensus/policy/bft"
 	"github.com/DSiSc/galaxy/consensus/policy/solo"
 	"github.com/DSiSc/galaxy/participates"
+	commonr "github.com/DSiSc/galaxy/role/common"
 	"github.com/DSiSc/validator/tools/account"
 )
 
 type Consensus interface {
 	PolicyName() string
+	Initialization(map[account.Account]commonr.Roler, []account.Account) error
 	ToConsensus(p *common.Proposal) error
 	Start()
 	Halt()

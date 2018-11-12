@@ -142,3 +142,9 @@ func TestSoloPolicy_Halt(t *testing.T) {
 	sp, _ := NewSoloPolicy(MockParticipate)
 	sp.Halt()
 }
+
+func TestSoloPolicy_Initialization(t *testing.T) {
+	sp, _ := NewSoloPolicy(MockParticipate)
+	err := sp.Initialization(nil, nil)
+	assert.Nil(t, err)
+}
