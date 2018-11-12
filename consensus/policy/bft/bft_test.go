@@ -1,10 +1,11 @@
 package bft
 
 import (
+	"fmt"
 	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/galaxy/consensus/common"
-	"github.com/DSiSc/galaxy/participates"
 	"github.com/DSiSc/galaxy/participates/config"
+	commonr "github.com/DSiSc/galaxy/role/common"
 	"github.com/DSiSc/monkey"
 	"github.com/DSiSc/validator/tools/account"
 	"github.com/stretchr/testify/assert"
@@ -20,7 +21,7 @@ func mock_conf(policy string) config.ParticipateConfig {
 }
 
 func TestNewBFTPolicy(t *testing.T) {
-	bft, err := NewBFTPolicy(nil, mockAccounts[0])
+	bft, err := NewBFTPolicy(mockAccounts[0])
 	assert.NotNil(t, bft)
 	assert.Nil(t, err)
 	assert.Equal(t, common.BFT_POLICY, bft.name)
@@ -31,30 +32,47 @@ func TestNewBFTPolicy(t *testing.T) {
 }
 
 func TestBFTPolicy_PolicyName(t *testing.T) {
-	conf := mock_conf("dpos")
-	participate, err := participates.NewParticipates(conf)
-	assert.Nil(t, err)
-	bft, _ := NewBFTPolicy(participate, mockAccounts[0])
+	bft, _ := NewBFTPolicy(mockAccounts[0])
 	assert.Equal(t, common.BFT_POLICY, bft.name)
 	assert.Equal(t, bft.name, bft.PolicyName())
 	assert.Equal(t, mockAccounts[0].Extension.Id, bft.bftCore.id)
 }
 
+func mockRoleAssignment(master account.Account, accounts []account.Account) map[account.Account]commonr.Roler {
+	delegates := len(accounts)
+	assignments := make(map[account.Account]commonr.Roler, delegates)
+	for _, delegate := range accounts {
+		if delegate == master {
+			assignments[delegate] = commonr.Master
+		} else {
+			assignments[delegate] = commonr.Slave
+		}
+	}
+	return assignments
+}
+
 func TestBFTPolicy_Prepare(t *testing.T) {
-	bft, err := NewBFTPolicy(nil, mockAccounts[0])
+	bft, err := NewBFTPolicy(mockAccounts[0])
 	assert.NotNil(t, bft)
 	assert.Nil(t, err)
-	bft.Prepare(mockAccounts[1], mockAccounts)
+
+	assignment := mockRoleAssignment(mockAccounts[3], mockAccounts)
+	err = bft.Prepare(assignment, mockAccounts[:3])
+	assert.Equal(t, err, fmt.Errorf("role and peers not in consistent"))
+
+	assignment[mockAccounts[3]] = commonr.Master
+	err = bft.Prepare(assignment, mockAccounts)
 	assert.Equal(t, bft.bftCore.peers, mockAccounts)
 	assert.Equal(t, bft.bftCore.tolerance, uint8((len(mockAccounts)-1)/3))
-	assert.Equal(t, bft.bftCore.master, mockAccounts[1].Extension.Id)
+	assert.Equal(t, bft.bftCore.master, mockAccounts[3].Extension.Id)
+
+	assignment[mockAccounts[3]] = commonr.Slave
+	err = bft.Prepare(assignment, mockAccounts)
+	assert.Equal(t, err, fmt.Errorf("no master"))
 }
 
 func TestBFTPolicy_Start(t *testing.T) {
-	conf := mock_conf("dpos")
-	participate, err := participates.NewParticipates(conf)
-	assert.Nil(t, err)
-	bft, _ := NewBFTPolicy(participate, mockAccounts[0])
+	bft, _ := NewBFTPolicy(mockAccounts[0])
 	var b *bftCore
 	monkey.PatchInstanceMethod(reflect.TypeOf(b), "Start", func(*bftCore, account.Account) {
 		log.Info("pass it.")
