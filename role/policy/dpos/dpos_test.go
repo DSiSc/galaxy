@@ -76,7 +76,8 @@ func TestDPOSPolicy_RoleAssignments(t *testing.T) {
 	assert.NotNil(t, assignment)
 	assert.Nil(t, err3)
 	address := mockAccounts[height+1]
-	assert.Equal(t, common.Master, dposPolicy.assignments[address])
+	assert.Equal(t, common.Master, assignment[address])
+	assert.Equal(t, common.Slave, assignment[mockAccounts[height]])
 }
 
 func TestDPOSPolicy_AppointRole(t *testing.T) {

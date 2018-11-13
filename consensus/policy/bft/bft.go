@@ -2,12 +2,12 @@ package bft
 
 import (
 	"fmt"
+	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/galaxy/consensus/common"
 	"github.com/DSiSc/galaxy/consensus/policy/bft/messages"
 	"github.com/DSiSc/galaxy/consensus/policy/bft/tools"
 	commonr "github.com/DSiSc/galaxy/role/common"
 	"github.com/DSiSc/validator/tools/account"
-	"github.com/DSiSc/craft/log"
 )
 
 type BFTPolicy struct {

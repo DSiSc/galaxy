@@ -2,6 +2,7 @@ package bft
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/galaxy/consensus/policy/bft/messages"
@@ -9,7 +10,6 @@ import (
 	"github.com/DSiSc/validator/tools/account"
 	"github.com/golang/protobuf/proto"
 	"net"
-	`encoding/json`
 )
 
 type bftCore struct {
@@ -268,8 +268,15 @@ func handleConnection(tcpListener *net.TCPListener, bft *bftCore) {
 			log.Info("receive response message.")
 			response := payload.(*messages.Message_Response).Response
 			tools.SendEvent(bft, response)
+		case nil:
+			log.Info("receive handshake, omit it.")
+			continue
 		default:
-			log.Error("not support type for handleConnection.")
+			if nil == payload {
+				log.Info("receive handshake, omit it.")
+			} else {
+				log.Error("not support type for %v.", payload)
+			}
 			continue
 		}
 	}
