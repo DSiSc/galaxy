@@ -2,6 +2,7 @@ package bft
 
 import (
 	"bytes"
+	"fmt"
 	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/galaxy/consensus/policy/bft/messages"
 	"github.com/DSiSc/galaxy/consensus/policy/bft/tools"
@@ -16,7 +17,7 @@ type bftCore struct {
 	peers     []account.Account
 	signature *signData
 	tolerance uint8
-	result    chan *signData
+	result    chan messages.SignatureSet
 }
 
 type signData struct {
@@ -30,14 +31,14 @@ func (s *signData) addSignature(account account.Account, sign []byte) {
 	s.signatures = append(s.signatures, sign)
 }
 
-func NewBFTCore(id uint64) *bftCore {
+func NewBFTCore(id uint64, result chan messages.SignatureSet) *bftCore {
 	return &bftCore{
 		id: id,
 		signature: &signData{
 			signatures: make([][]byte, 0),
 			signMap:    make(map[account.Account][]byte),
 		},
-		result: make(chan *signData),
+		result: result,
 	}
 }
 
@@ -141,15 +142,38 @@ func (instance *bftCore) receiveProposal(proposal *messages.Proposal) {
 	}
 }
 
-func (instance *bftCore) maybeCommit() {
+func (instance *bftCore) maybeCommit() (messages.SignatureSet, error) {
 	signatures := len(instance.signature.signatures)
 	if uint8(signatures) < instance.tolerance {
 		log.Info("commit need %d signature, while now is %d.", instance.tolerance, signatures)
-		return
+		return nil, fmt.Errorf("commit not complete")
 	}
 	log.Info("commit it.")
-	// TODO: send message to ToConsensus
-	// instance.result <- instance.signature
+	signData := instance.signature.signatures
+	signMap := instance.signature.signMap
+	if len(signData) != len(signMap) {
+		log.Error("length of signData[%d] and signMap[%d] does not match.", len(signData), len(signMap))
+		return nil, fmt.Errorf("result not in coincidence")
+	}
+	var reallySignature = make([][]byte, 0)
+	var suspiciousAccount = make([]account.Account, 0)
+	for account, sign := range signMap {
+		if signDataVerify(account, sign) {
+			reallySignature = append(reallySignature, sign)
+			continue
+		}
+		suspiciousAccount = append(suspiciousAccount, account)
+		log.Error("signature %x by account %x is invalid", sign, account)
+	}
+	if uint8(len(reallySignature)) < instance.tolerance {
+		log.Error("suspicious signature with accounts %x.", suspiciousAccount)
+		return nil, fmt.Errorf("suspicious signature exist")
+	}
+	return reallySignature, nil
+}
+
+func signDataVerify(account account.Account, sign []byte) bool {
+	return true
 }
 
 func (instance *bftCore) receiveResponse(response *messages.Response) {
@@ -170,7 +194,12 @@ func (instance *bftCore) receiveResponse(response *messages.Response) {
 		}
 		log.Warn("receive duplicate signature from the same validator, ignore it.")
 	}
-	instance.maybeCommit()
+	signatures, err := instance.maybeCommit()
+	if nil != err {
+		log.Error("maybe commit error %v.", err)
+		return
+	}
+	instance.result <- signatures
 }
 
 func (instance *bftCore) ProcessEvent(e tools.Event) tools.Event {

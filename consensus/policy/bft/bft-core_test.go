@@ -50,13 +50,15 @@ var mockAccounts = []account.Account{
 }
 
 func TestNewBFTCore(t *testing.T) {
-	bft := NewBFTCore(id)
+	sigChannel := make(chan messages.SignatureSet)
+	bft := NewBFTCore(id, sigChannel)
 	assert.NotNil(t, bft)
 	assert.Equal(t, id, bft.id)
 }
 
 func TestBftCore_ProcessEvent(t *testing.T) {
-	bft := NewBFTCore(id)
+	sigChannel := make(chan messages.SignatureSet)
+	bft := NewBFTCore(id, sigChannel)
 	assert.NotNil(t, bft)
 	err := bft.ProcessEvent(nil)
 	assert.Nil(t, err)
@@ -102,12 +104,20 @@ func TestBftCore_ProcessEvent(t *testing.T) {
 		Payload:   nil,
 		Signature: []byte{0x33, 0x3c, 0x33, 0x10, 0x82, 0x4b, 0x7c, 0x68},
 	}
-	err = bft.ProcessEvent(mock_response)
-	assert.Nil(t, err)
+	go func() {
+		err = bft.ProcessEvent(mock_response)
+		assert.Nil(t, err)
+	}()
+	ch := <-bft.result
+	assert.NotNil(t, ch)
+	var exceptSig = make([][]byte, 0)
+	exceptSig = append(exceptSig, []byte{0x33, 0x3c, 0x33, 0x10, 0x82, 0x4b, 0x7c, 0x68})
+	assert.Equal(t, messages.SignatureSet(exceptSig), ch)
 }
 
 func TestBftCore_Start(t *testing.T) {
-	bft := NewBFTCore(id)
+	sigChannel := make(chan messages.SignatureSet)
+	bft := NewBFTCore(id, sigChannel)
 	assert.NotNil(t, bft)
 	var account = account.Account{
 		Extension: account.AccountExtension{
@@ -119,7 +129,8 @@ func TestBftCore_Start(t *testing.T) {
 }
 
 func TestBftCore_receiveRequest(t *testing.T) {
-	bft := NewBFTCore(id)
+	sigChannel := make(chan messages.SignatureSet)
+	bft := NewBFTCore(id, sigChannel)
 	assert.NotNil(t, bft)
 	bft.peers = mockAccounts
 	// only master process request
@@ -164,7 +175,8 @@ func TestBftCore_receiveRequest(t *testing.T) {
 }
 
 func TestNewBFTCore_broadcast(t *testing.T) {
-	bft := NewBFTCore(id)
+	sigChannel := make(chan messages.SignatureSet)
+	bft := NewBFTCore(id, sigChannel)
 	assert.NotNil(t, bft)
 	bft.peers = mockAccounts
 	// resolve error
@@ -192,7 +204,8 @@ func TestNewBFTCore_broadcast(t *testing.T) {
 }
 
 func TestBftCore_unicast(t *testing.T) {
-	bft := NewBFTCore(id)
+	sigChannel := make(chan messages.SignatureSet)
+	bft := NewBFTCore(id, sigChannel)
 	assert.NotNil(t, bft)
 	bft.peers = mockAccounts
 	monkey.Patch(net.ResolveTCPAddr, func(string, string) (*net.TCPAddr, error) {
@@ -215,7 +228,8 @@ func TestBftCore_unicast(t *testing.T) {
 }
 
 func TestBftCore_receiveProposal(t *testing.T) {
-	bft := NewBFTCore(id)
+	sigChannel := make(chan messages.SignatureSet)
+	bft := NewBFTCore(id, sigChannel)
 	assert.NotNil(t, bft)
 	bft.peers = mockAccounts
 	// master receive proposal
@@ -245,7 +259,8 @@ func TestBftCore_receiveProposal(t *testing.T) {
 }
 
 func TestBftCore_receiveResponse(t *testing.T) {
-	bft := NewBFTCore(id)
+	sigChannel := make(chan messages.SignatureSet)
+	bft := NewBFTCore(id, sigChannel)
 	assert.NotNil(t, bft)
 	bft.peers = mockAccounts
 	// master receive response
@@ -282,5 +297,13 @@ func TestBftCore_receiveResponse(t *testing.T) {
 	// all conditions are met
 	bft.tolerance = 1
 	response.Signature = fakeSignature
-	bft.receiveResponse(response)
+
+	go func() {
+		bft.receiveResponse(response)
+	}()
+	ch := <-bft.result
+	assert.NotNil(t, ch)
+	var exceptSig = make([][]byte, 0)
+	exceptSig = append(exceptSig, fakeSignature)
+	assert.Equal(t, messages.SignatureSet(exceptSig), ch)
 }

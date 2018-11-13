@@ -5,6 +5,8 @@ import (
 	"github.com/golang/protobuf/proto"
 )
 
+type SignatureSet [][]byte
+
 // messages of events
 type Request struct {
 	Timestamp int64
