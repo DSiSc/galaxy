@@ -33,6 +33,7 @@ func (self *DPOSPolicy) RoleAssignments(participates []account.Account) (map[acc
 	self.assignments = make(map[account.Account]common.Roler, delegates)
 	currentBlockHeight := block.GetCurrentBlock().Header.Height
 	masterIndex := (currentBlockHeight + 1) % uint64(delegates)
+	// masterIndex := currentBlockHeight % uint64(delegates)
 	for index, delegate := range self.participates {
 		if index == int(masterIndex) {
 			self.assignments[delegate] = common.Master

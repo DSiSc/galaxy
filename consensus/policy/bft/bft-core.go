@@ -9,6 +9,7 @@ import (
 	"github.com/DSiSc/validator/tools/account"
 	"github.com/golang/protobuf/proto"
 	"net"
+	`encoding/json`
 )
 
 type bftCore struct {
@@ -79,17 +80,17 @@ func (instance *bftCore) unicast(account account.Account, msgPayload []byte) err
 	return err
 }
 
-func (instance *bftCore) receiveRequest(request *messages.Request) {
+func (instance *bftCore) receiveRequest(request *messages.Request) error {
 	// send
 	isMaster := instance.id == instance.master
 	if !isMaster {
 		log.Info("only master process request.")
-		return
+		return fmt.Errorf("only master process request")
 	}
 	signature := request.Payload.Header.SigData
 	if 1 != len(signature) {
 		log.Error("request must have signature from client.")
-		return
+		return fmt.Errorf("request must have signature from client")
 	}
 	// TODO: Add master signature to proposal
 	// now, client is master, so we just used client's signature
@@ -105,12 +106,13 @@ func (instance *bftCore) receiveRequest(request *messages.Request) {
 			},
 		},
 	}
-	msgRaw, err := proto.Marshal(proposal)
+	msgRaw, err := json.Marshal(proposal)
 	if nil != err {
 		log.Error("marshal proposal msg failed with %v.", err)
-		return
+		return fmt.Errorf("marshal proposal msg failed")
 	}
 	instance.broadcast(msgRaw)
+	return nil
 }
 
 func (instance *bftCore) receiveProposal(proposal *messages.Proposal) {

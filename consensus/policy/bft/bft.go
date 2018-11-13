@@ -7,7 +7,7 @@ import (
 	"github.com/DSiSc/galaxy/consensus/policy/bft/tools"
 	commonr "github.com/DSiSc/galaxy/role/common"
 	"github.com/DSiSc/validator/tools/account"
-	"github.com/ontio/ontology/common/log"
+	"github.com/DSiSc/craft/log"
 )
 
 type BFTPolicy struct {
@@ -38,10 +38,11 @@ func (self *BFTPolicy) Initialization(role map[account.Account]commonr.Roler, pe
 		if commonr.Master == role {
 			self.bftCore.master = delegate.Extension.Id
 			masterExist = true
+			break
 		}
 	}
 	if !masterExist {
-		log.Errorf("no master exist in delegates")
+		log.Error("no master exist in delegates")
 		return fmt.Errorf("no master")
 	}
 
