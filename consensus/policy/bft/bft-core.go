@@ -124,7 +124,7 @@ func (instance *bftCore) receiveProposal(proposal *messages.Proposal) {
 	}
 	// TODO: Add signature
 	response := &messages.Message{
-		MessageType: messages.RequestMessageType,
+		MessageType: messages.ResponseMessageType,
 		Payload: &messages.ResponseMessage{
 			Response: &messages.Response{
 				Id:        instance.id,
