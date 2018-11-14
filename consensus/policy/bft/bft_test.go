@@ -80,3 +80,37 @@ func TestBFTPolicy_Start(t *testing.T) {
 	})
 	bft.Start()
 }
+
+/*
+func TestBFTPolicy_Halt(t *testing.T) {
+	local := account.Account{
+		Address: types.Address{0x33, 0x3c, 0x33, 0x10, 0x82, 0x4b, 0x7c, 0x68, 0x51, 0x33, 0xf2, 0xbe, 0xdb, 0x2c, 0xa4, 0xb8, 0xb4, 0xdf, 0x63, 0x3d},
+		Extension: account.AccountExtension{
+			Id:  0,
+			Url: "127.0.0.1:8080",
+		},
+	}
+	bft, err := NewBFTPolicy(local)
+	assert.Nil(t, err)
+	go bft.Start()
+	var sign = [][]byte{{0x33, 0x3c, 0x33, 0x10, 0x82}}
+	time.Sleep(5*time.Second)
+	request := &messages.Request{
+		Timestamp: time.Now().Unix(),
+		Payload:   &types.Block{
+			Header:&types.Header{
+				Height:1,
+				SigData:sign,
+			},
+		},
+	}
+	var ch = make(chan messages.SignatureSet)
+	bft.bftCore = NewBFTCore(uint64(0), ch)
+	bft.bftCore.master = uint64(0)
+	bft.bftCore.peers = []account.Account{local}
+	bft.bftCore.tolerance = 0
+	go tools.SendEvent(bft.bftCore, request)
+	result := <-bft.result
+	assert.NotNil(t, result)
+}
+*/

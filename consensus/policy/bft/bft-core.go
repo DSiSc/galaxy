@@ -96,6 +96,7 @@ func (instance *bftCore) receiveRequest(request *messages.Request) error {
 	master := instance.peers[instance.master]
 	instance.signature.addSignature(master, signature[0])
 	proposal := &messages.Message{
+		MessageType: messages.ProposalMessageType,
 		Payload: &messages.ProposalMessage{
 			Proposal: &messages.Proposal{
 				Id:        instance.id,
@@ -123,6 +124,7 @@ func (instance *bftCore) receiveProposal(proposal *messages.Proposal) {
 	}
 	// TODO: Add signature
 	response := &messages.Message{
+		MessageType: messages.RequestMessageType,
 		Payload: &messages.ResponseMessage{
 			Response: &messages.Response{
 				Id:        instance.id,

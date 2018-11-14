@@ -99,7 +99,7 @@ func (m *Message) UnmarshalJSON(rawData []byte) error {
 		}
 		m.Payload = payload
 	default:
-		log.Error("uot support marshal type %v.", m.MessageType)
+		log.Error("not support marshal type %v.", m.MessageType)
 		err = fmt.Errorf("not support marshal type")
 	}
 	return err
