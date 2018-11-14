@@ -8,7 +8,6 @@ import (
 	"github.com/DSiSc/galaxy/consensus/policy/bft/messages"
 	"github.com/DSiSc/galaxy/consensus/policy/bft/tools"
 	"github.com/DSiSc/validator/tools/account"
-	"github.com/golang/protobuf/proto"
 	"net"
 )
 
@@ -97,7 +96,7 @@ func (instance *bftCore) receiveRequest(request *messages.Request) error {
 	master := instance.peers[instance.master]
 	instance.signature.addSignature(master, signature[0])
 	proposal := &messages.Message{
-		Payload: &messages.Message_Proposal{
+		Payload: &messages.ProposalMessage{
 			Proposal: &messages.Proposal{
 				Id:        instance.id,
 				Timestamp: request.Timestamp,
@@ -106,6 +105,7 @@ func (instance *bftCore) receiveRequest(request *messages.Request) error {
 			},
 		},
 	}
+
 	msgRaw, err := json.Marshal(proposal)
 	if nil != err {
 		log.Error("marshal proposal msg failed with %v.", err)
@@ -123,7 +123,7 @@ func (instance *bftCore) receiveProposal(proposal *messages.Proposal) {
 	}
 	// TODO: Add signature
 	response := &messages.Message{
-		Payload: &messages.Message_Response{
+		Payload: &messages.ResponseMessage{
 			Response: &messages.Response{
 				Id:        instance.id,
 				Timestamp: proposal.Timestamp,
@@ -132,7 +132,7 @@ func (instance *bftCore) receiveProposal(proposal *messages.Proposal) {
 			},
 		},
 	}
-	msgRaw, err := proto.Marshal(response)
+	msgRaw, err := json.Marshal(response)
 	if nil != err {
 		log.Error("marshal proposal msg failed with %v.", err)
 		return
@@ -253,24 +253,21 @@ func handleConnection(tcpListener *net.TCPListener, bft *bftCore) {
 		}
 		log.Info("receive messages form other node.")
 		var msg messages.Message
-		err = proto.Unmarshal(buffer[:n], &msg)
-		payload := msg.GetPayload()
-		switch payload.(type) {
-		case *messages.Message_Request:
+		err = json.Unmarshal(buffer[:n], &msg)
+		payload := msg.Payload
+		switch msg.MessageType {
+		case messages.RequestMessageType:
 			log.Info("receive request message.")
-			request := payload.(*messages.Message_Request).Request
+			request := payload.(*messages.RequestMessage).Request
 			tools.SendEvent(bft, request)
-		case *messages.Message_Proposal:
+		case messages.ProposalMessageType:
 			log.Info("receive proposal message.")
-			proposal := payload.(*messages.Message_Proposal).Proposal
+			proposal := payload.(*messages.ProposalMessage).Proposal
 			tools.SendEvent(bft, proposal)
-		case *messages.Message_Response:
+		case messages.ResponseMessageType:
 			log.Info("receive response message.")
-			response := payload.(*messages.Message_Response).Response
+			response := payload.(*messages.ResponseMessage).Response
 			tools.SendEvent(bft, response)
-		case nil:
-			log.Info("receive handshake, omit it.")
-			continue
 		default:
 			if nil == payload {
 				log.Info("receive handshake, omit it.")

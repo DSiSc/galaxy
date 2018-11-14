@@ -1,6 +1,7 @@
 package bft
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/galaxy/consensus/policy/bft/messages"
@@ -306,4 +307,51 @@ func TestBftCore_receiveResponse(t *testing.T) {
 	var exceptSig = make([][]byte, 0)
 	exceptSig = append(exceptSig, fakeSignature)
 	assert.Equal(t, messages.SignatureSet(exceptSig), ch)
+}
+
+func TestBFTPolicy_ToConsensus(t *testing.T) {
+	var fakeSignature1 = []byte{
+		0x34, 0x3c, 0x33, 0x10, 0x82, 0x4b, 0x7c, 0x68, 0x51, 0x33,
+		0xf2, 0xbe, 0xdb, 0x2c, 0xa4, 0xb8, 0xb4, 0xdf, 0x63, 0x3d,
+	}
+	instance := &bftCore{
+		id: 0,
+	}
+	request := messages.Request{
+		Timestamp: time.Now().Unix(),
+		Payload: &types.Block{
+			Header: &types.Header{
+				Height: 1,
+			},
+		},
+	}
+	payload := messages.ProposalMessage{
+		Proposal: &messages.Proposal{
+			Id:        instance.id,
+			Timestamp: request.Timestamp,
+			Payload:   request.Payload,
+			Signature: fakeSignature1,
+		},
+	}
+	proposal := messages.Message{
+		MessageType: messages.ProposalMessageType,
+		Payload:     payload,
+	}
+	/*
+		msgRaw, err := json.Marshal(proposal.Header)
+		msgRaw1, err := json.Marshal(proposal.Payload)
+		msgRaw = append(msgRaw, msgRaw1...)
+	*/
+	msgRaw, err := json.Marshal(&proposal)
+	assert.Nil(t, err)
+	assert.NotNil(t, msgRaw)
+
+	n := 2048
+	buffer := make([]byte, n)
+	copy(buffer, msgRaw)
+	// var header messages.Header
+	var ttt messages.Message
+	err = json.Unmarshal(msgRaw, &ttt)
+	//var ttt messages.TestStr
+	assert.Nil(t, err)
 }

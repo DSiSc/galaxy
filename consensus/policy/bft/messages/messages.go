@@ -1,8 +1,10 @@
 package messages
 
 import (
+	"encoding/json"
+	"fmt"
+	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/craft/types"
-	"github.com/golang/protobuf/proto"
 )
 
 type SignatureSet [][]byte
@@ -28,41 +30,77 @@ type Response struct {
 	Signature []byte
 }
 
-// message of nodes
-type Message struct {
-	Payload isMessage_Payload `protobuf_oneof:"payload"`
-}
+type MessageType string
 
-func (m *Message) Reset()                    { *m = Message{} }
-func (m *Message) String() string            { return proto.CompactTextString(m) }
-func (*Message) ProtoMessage()               {}
-func (*Message) Descriptor() ([]byte, []int) { return nil, []int{0} }
+var RequestMessageType MessageType = "RequestMessage"
+var ProposalMessageType MessageType = "ProposalMessage"
+var ResponseMessageType MessageType = "ResponseMessage"
 
-type isMessage_Payload interface {
-	isMessage_Payload()
-}
-
-func (m *Message) GetPayload() isMessage_Payload {
-	if m != nil {
-		return m.Payload
-	}
-	return nil
-}
-
-type Message_Request struct {
+type RequestMessage struct {
 	Request *Request
 }
 
-func (*Message_Request) isMessage_Payload() {}
-
-type Message_Proposal struct {
+type ProposalMessage struct {
 	Proposal *Proposal
 }
 
-func (*Message_Proposal) isMessage_Payload() {}
-
-type Message_Response struct {
+type ResponseMessage struct {
 	Response *Response
 }
 
-func (*Message_Response) isMessage_Payload() {}
+type Message struct {
+	MessageType MessageType
+	Payload     interface{}
+}
+
+type MessageClone struct {
+	MessageType MessageType
+	Payload     []byte
+}
+
+func (m *Message) MarshalJSON() ([]byte, error) {
+	var err error
+	messageClone := MessageClone{}
+	messageClone.MessageType = m.MessageType
+	messageClone.Payload, err = json.Marshal(m.Payload)
+	if nil != err {
+		log.Error("marshal json failed with %v", err)
+		return nil, fmt.Errorf("marshal json failed with")
+	}
+
+	return json.Marshal(messageClone)
+}
+
+func (m *Message) UnmarshalJSON(rawData []byte) error {
+	var err error
+	messageClone := MessageClone{}
+	json.Unmarshal(rawData, &messageClone)
+	m.MessageType = messageClone.MessageType
+	switch m.MessageType {
+	case RequestMessageType:
+		payload := &RequestMessage{}
+		err = json.Unmarshal(messageClone.Payload, payload)
+		if nil != err {
+			log.Error("unmarshal request message failed with err %v.", err)
+		}
+		m.Payload = payload
+	case ProposalMessageType:
+		payload := &ProposalMessage{}
+		err = json.Unmarshal(messageClone.Payload, payload)
+		if nil != err {
+			log.Error("unmarshal proposal message failed with err %v.", err)
+		}
+		m.Payload = payload
+	case ResponseMessageType:
+		payload := &ResponseMessage{}
+		err = json.Unmarshal(messageClone.Payload, payload)
+		if nil != err {
+			log.Error("unmarshal response message failed with err %v.", err)
+		}
+		m.Payload = payload
+	default:
+		log.Error("uot support marshal type %v.", m.MessageType)
+		err = fmt.Errorf("not support marshal type")
+	}
+	return err
+}
