@@ -7,7 +7,6 @@ import (
 	"github.com/DSiSc/galaxy/consensus/policy/bft/messages"
 	"github.com/DSiSc/monkey"
 	"github.com/DSiSc/validator/tools/account"
-	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"net"
 	"reflect"
@@ -74,7 +73,7 @@ func TestBftCore_ProcessEvent(t *testing.T) {
 			},
 		},
 	}
-	monkey.Patch(proto.Marshal, func(proto.Message) ([]byte, error) {
+	monkey.Patch(json.Marshal, func(v interface{}) ([]byte, error) {
 		return nil, nil
 	})
 	monkey.Patch(net.DialTCP, func(string, *net.TCPAddr, *net.TCPAddr) (*net.TCPConn, error) {
@@ -114,6 +113,9 @@ func TestBftCore_ProcessEvent(t *testing.T) {
 	var exceptSig = make([][]byte, 0)
 	exceptSig = append(exceptSig, []byte{0x33, 0x3c, 0x33, 0x10, 0x82, 0x4b, 0x7c, 0x68})
 	assert.Equal(t, messages.SignatureSet(exceptSig), ch)
+	monkey.Unpatch(net.ResolveTCPAddr)
+	monkey.Unpatch(net.DialTCP)
+	monkey.UnpatchInstanceMethod(reflect.TypeOf(&c), "Write")
 }
 
 func TestBftCore_Start(t *testing.T) {
@@ -155,11 +157,11 @@ func TestBftCore_receiveRequest(t *testing.T) {
 		0xf2, 0xbe, 0xdb, 0x2c, 0xa4, 0xb8, 0xb4, 0xdf, 0x63, 0x3d,
 	}
 	request.Payload.Header.SigData = append(request.Payload.Header.SigData, fakeSignature)
-	monkey.Patch(proto.Marshal, func(proto.Message) ([]byte, error) {
+	monkey.Patch(json.Marshal, func(interface{}) ([]byte, error) {
 		return nil, fmt.Errorf("marshal proposal msg failed")
 	})
 	bft.receiveRequest(request)
-	monkey.Patch(proto.Marshal, func(proto.Message) ([]byte, error) {
+	monkey.Patch(json.Marshal, func(interface{}) ([]byte, error) {
 		return nil, nil
 	})
 	monkey.Patch(net.DialTCP, func(string, *net.TCPAddr, *net.TCPAddr) (*net.TCPConn, error) {
@@ -173,6 +175,9 @@ func TestBftCore_receiveRequest(t *testing.T) {
 		return 0, nil
 	})
 	bft.receiveRequest(request)
+	monkey.Unpatch(net.ResolveTCPAddr)
+	monkey.Unpatch(net.DialTCP)
+	monkey.UnpatchInstanceMethod(reflect.TypeOf(&c), "Write")
 }
 
 func TestNewBFTCore_broadcast(t *testing.T) {
@@ -202,6 +207,9 @@ func TestNewBFTCore_broadcast(t *testing.T) {
 		return 0, nil
 	})
 	bft.broadcast(nil)
+	monkey.Unpatch(net.ResolveTCPAddr)
+	monkey.Unpatch(net.DialTCP)
+	monkey.UnpatchInstanceMethod(reflect.TypeOf(&c), "Write")
 }
 
 func TestBftCore_unicast(t *testing.T) {
@@ -226,6 +234,9 @@ func TestBftCore_unicast(t *testing.T) {
 	})
 	err = bft.unicast(bft.peers[1], nil)
 	assert.Nil(t, err)
+	monkey.Unpatch(net.ResolveTCPAddr)
+	monkey.Unpatch(net.DialTCP)
+	monkey.UnpatchInstanceMethod(reflect.TypeOf(&c), "Write")
 }
 
 func TestBftCore_receiveProposal(t *testing.T) {
@@ -245,18 +256,20 @@ func TestBftCore_receiveProposal(t *testing.T) {
 	bft.receiveProposal(proposal)
 
 	bft.id = id + 1
-	monkey.Patch(proto.Marshal, func(proto.Message) ([]byte, error) {
+	monkey.Patch(json.Marshal, func(interface{}) ([]byte, error) {
 		return nil, fmt.Errorf("marshal proposal msg failed")
 	})
 	bft.receiveProposal(proposal)
 
-	monkey.Patch(proto.Marshal, func(proto.Message) ([]byte, error) {
+	monkey.Patch(json.Marshal, func(interface{}) ([]byte, error) {
 		return nil, nil
 	})
 	monkey.Patch(net.ResolveTCPAddr, func(string, string) (*net.TCPAddr, error) {
 		return nil, fmt.Errorf("resolve error")
 	})
 	bft.receiveProposal(proposal)
+	monkey.Unpatch(net.ResolveTCPAddr)
+	monkey.Unpatch(json.Marshal)
 }
 
 func TestBftCore_receiveResponse(t *testing.T) {
@@ -307,51 +320,4 @@ func TestBftCore_receiveResponse(t *testing.T) {
 	var exceptSig = make([][]byte, 0)
 	exceptSig = append(exceptSig, fakeSignature)
 	assert.Equal(t, messages.SignatureSet(exceptSig), ch)
-}
-
-func TestBFTPolicy_ToConsensus(t *testing.T) {
-	var fakeSignature1 = []byte{
-		0x34, 0x3c, 0x33, 0x10, 0x82, 0x4b, 0x7c, 0x68, 0x51, 0x33,
-		0xf2, 0xbe, 0xdb, 0x2c, 0xa4, 0xb8, 0xb4, 0xdf, 0x63, 0x3d,
-	}
-	instance := &bftCore{
-		id: 0,
-	}
-	request := messages.Request{
-		Timestamp: time.Now().Unix(),
-		Payload: &types.Block{
-			Header: &types.Header{
-				Height: 1,
-			},
-		},
-	}
-	payload := messages.ProposalMessage{
-		Proposal: &messages.Proposal{
-			Id:        instance.id,
-			Timestamp: request.Timestamp,
-			Payload:   request.Payload,
-			Signature: fakeSignature1,
-		},
-	}
-	proposal := messages.Message{
-		MessageType: messages.ProposalMessageType,
-		Payload:     payload,
-	}
-	/*
-		msgRaw, err := json.Marshal(proposal.Header)
-		msgRaw1, err := json.Marshal(proposal.Payload)
-		msgRaw = append(msgRaw, msgRaw1...)
-	*/
-	msgRaw, err := json.Marshal(&proposal)
-	assert.Nil(t, err)
-	assert.NotNil(t, msgRaw)
-
-	n := 2048
-	buffer := make([]byte, n)
-	copy(buffer, msgRaw)
-	// var header messages.Header
-	var ttt messages.Message
-	err = json.Unmarshal(msgRaw, &ttt)
-	//var ttt messages.TestStr
-	assert.Nil(t, err)
 }
