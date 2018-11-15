@@ -21,6 +21,7 @@ type bftCore struct {
 	signature *signData
 	tolerance uint8
 	commit    bool
+	digest    types.Hash
 	result    chan messages.SignatureSet
 }
 
@@ -104,8 +105,6 @@ func (instance *bftCore) receiveRequest(request *messages.Request) {
 		log.Error("archive proposal signature failed with error %v.", err)
 		return
 	}
-	master := instance.peers[instance.master]
-	instance.signature.addSignature(master, signature[0])
 	proposal := &messages.Message{
 		MessageType: messages.ProposalMessageType,
 		Payload: &messages.ProposalMessage{
@@ -122,6 +121,8 @@ func (instance *bftCore) receiveRequest(request *messages.Request) {
 		log.Error("marshal proposal msg failed with %v.", err)
 		return
 	}
+	instance.digest = request.Payload.Header.MixDigest
+	instance.signature.addSignature(instance.local, signData)
 	instance.broadcast(msgRaw)
 }
 
@@ -131,12 +132,12 @@ func (instance *bftCore) receiveProposal(proposal *messages.Proposal) {
 		log.Info("master not need to process proposal.")
 		return
 	}
-	if instance.master != proposal.Id{
+	if instance.master != proposal.Id {
 		log.Error("proposal must from master %d, while it from %d in fact.", instance.master, proposal.Id)
 		return
 	}
 	masterAccount := instance.peers[instance.master]
-	if !signDataVerify(masterAccount, proposal.Signature){
+	if !signDataVerify(masterAccount, proposal.Signature, proposal.Payload.Header.MixDigest) {
 		log.Error("proposal signature not from master, please confirm.")
 		return
 	}
@@ -156,7 +157,7 @@ func (instance *bftCore) receiveProposal(proposal *messages.Proposal) {
 			Response: &messages.Response{
 				Account:   instance.local,
 				Timestamp: proposal.Timestamp,
-				Digest:    proposal.Payload.HeaderHash,
+				Digest:    proposal.Payload.Header.MixDigest,
 				Signature: signData,
 			},
 		},
@@ -212,7 +213,7 @@ func (instance *bftCore) maybeCommit() {
 	var reallySignature = make([][]byte, 0)
 	var suspiciousAccount = make([]account.Account, 0)
 	for account, sign := range signMap {
-		if signDataVerify(account, sign) {
+		if signDataVerify(account, sign, instance.digest) {
 			reallySignature = append(reallySignature, sign)
 			continue
 		}
@@ -227,8 +228,12 @@ func (instance *bftCore) maybeCommit() {
 	instance.result <- reallySignature
 }
 
-func signDataVerify(account account.Account, sign []byte) bool {
-	return true
+func signDataVerify(account account.Account, sign []byte, digest types.Hash) bool {
+	address, err := signature.Verify(digest, sign)
+	if nil != err {
+		log.Error("verify sign %v failed with public key %v", sign, account.PublicKey)
+	}
+	return account.Address == address
 }
 
 func (instance *bftCore) receiveResponse(response *messages.Response) {
@@ -237,10 +242,15 @@ func (instance *bftCore) receiveResponse(response *messages.Response) {
 		log.Info("only master need to process response.")
 		return
 	}
+	if bytes.Equal(instance.digest[:], response.Digest[:]) {
+		log.Error("received response digest %x not in coincidence with reserved %x.",
+			instance.digest, response.Digest)
+		return
+	}
 	peer := instance.peers[response.Account.Extension.Id]
-	if !signDataVerify(peer, response.Signature){
-	    log.Error("signature and response sender not in coincidence.")
-	    return
+	if !signDataVerify(peer, response.Signature, instance.digest) {
+		log.Error("signature and response sender not in coincidence.")
+		return
 	}
 	if sign, ok := instance.signature.signMap[peer]; !ok {
 		instance.signature.addSignature(peer, response.Signature)

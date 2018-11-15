@@ -9,6 +9,7 @@ import (
 	"github.com/DSiSc/monkey"
 	"github.com/DSiSc/validator/tools/account"
 	"github.com/DSiSc/validator/tools/signature"
+	"github.com/DSiSc/validator/tools/signature/keypair"
 	"github.com/DSiSc/validator/worker"
 	"github.com/stretchr/testify/assert"
 	"net"
@@ -78,6 +79,9 @@ func TestBftCore_ProcessEvent(t *testing.T) {
 	monkey.PatchInstanceMethod(reflect.TypeOf(w), "VerifyBlock", func(*worker.Worker) error {
 		return fmt.Errorf("verify block failed")
 	})
+	monkey.Patch(signature.Verify, func(keypair.PublicKey, []byte) (types.Address, error) {
+		return mockAccounts[0].Address, nil
+	})
 
 	bft.peers = mockAccounts
 	var mockSignature = [][]byte{{0x33, 0x3c, 0x33, 0x10, 0x82, 0x4b, 0x7c, 0x68}}
@@ -136,6 +140,7 @@ func TestBftCore_ProcessEvent(t *testing.T) {
 	assert.Equal(t, messages.SignatureSet(exceptSig), ch)
 	monkey.Unpatch(net.ResolveTCPAddr)
 	monkey.Unpatch(net.DialTCP)
+	monkey.Unpatch(signature.Verify)
 	monkey.UnpatchInstanceMethod(reflect.TypeOf(&c), "Write")
 	monkey.Unpatch(blockchain.NewBlockChainByBlockHash)
 	monkey.UnpatchInstanceMethod(reflect.TypeOf(w), "VerifyBlock")
@@ -302,8 +307,14 @@ func TestBftCore_receiveProposal(t *testing.T) {
 
 	// verify failed: Get NewBlockChainByBlockHash failed
 	bft.local.Extension.Id = mockAccounts[0].Extension.Id + 1
+	monkey.Patch(signature.Verify, func(keypair.PublicKey, []byte) (types.Address, error) {
+		return mockAccounts[1].Address, nil
+	})
 	bft.receiveProposal(proposal)
 
+	monkey.Patch(signature.Verify, func(keypair.PublicKey, []byte) (types.Address, error) {
+		return mockAccounts[0].Address, nil
+	})
 	var b *blockchain.BlockChain
 	monkey.Patch(blockchain.NewBlockChainByBlockHash, func(types.Hash) (*blockchain.BlockChain, error) {
 		return b, nil
@@ -341,6 +352,7 @@ func TestBftCore_receiveProposal(t *testing.T) {
 	monkey.Unpatch(json.Marshal)
 	monkey.Unpatch(blockchain.NewBlockChainByBlockHash)
 	monkey.Unpatch(signature.Sign)
+	monkey.Unpatch(signature.Verify)
 	monkey.UnpatchInstanceMethod(reflect.TypeOf(w), "VerifyBlock")
 }
 
