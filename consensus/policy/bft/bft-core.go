@@ -245,7 +245,6 @@ func (instance *bftCore) receiveResponse(response *messages.Response) {
 	} else {
 		log.Warn("response has been committed already.")
 	}
-
 }
 
 func (instance *bftCore) ProcessEvent(e tools.Event) tools.Event {
@@ -259,7 +258,7 @@ func (instance *bftCore) ProcessEvent(e tools.Event) tools.Event {
 		log.Info("receive proposal from replica %d.", et.Id)
 		instance.receiveProposal(et)
 	case *messages.Response:
-		log.Info("receive proposal from replica %d.", et.Account.Extension.Id)
+		log.Info("receive response from replica %d.", et.Account.Extension.Id)
 		instance.receiveResponse(et)
 	default:
 		log.Warn("replica %d received an unknown message type %T", instance.local.Extension.Id, et)
