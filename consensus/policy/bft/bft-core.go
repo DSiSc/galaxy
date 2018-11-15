@@ -21,6 +21,7 @@ type bftCore struct {
 	peers     []account.Account
 	signature *signData
 	tolerance uint8
+	commit    bool
 	result    chan messages.SignatureSet
 }
 
@@ -186,17 +187,17 @@ func (instance *bftCore) signProposal(digest types.Hash) ([]byte, error) {
 	return sign, nil
 }
 
-func (instance *bftCore) maybeCommit() (messages.SignatureSet, error) {
+func (instance *bftCore) maybeCommit() {
 	signatures := len(instance.signature.signatures)
 	if uint8(signatures) < instance.tolerance {
 		log.Info("commit need %d signature, while now is %d.", instance.tolerance, signatures)
-		return nil, fmt.Errorf("commit not complete")
+		return
 	}
 	signData := instance.signature.signatures
 	signMap := instance.signature.signMap
 	if len(signData) != len(signMap) {
 		log.Error("length of signData[%d] and signMap[%d] does not match.", len(signData), len(signMap))
-		return nil, fmt.Errorf("result not in coincidence")
+		return
 	}
 	var reallySignature = make([][]byte, 0)
 	var suspiciousAccount = make([]account.Account, 0)
@@ -210,9 +211,10 @@ func (instance *bftCore) maybeCommit() (messages.SignatureSet, error) {
 	}
 	if uint8(len(reallySignature)) < instance.tolerance {
 		log.Error("suspicious signature with accounts %x.", suspiciousAccount)
-		return nil, fmt.Errorf("suspicious signature exist")
+		return
 	}
-	return reallySignature, nil
+	instance.commit = true
+	instance.result <- reallySignature
 }
 
 func signDataVerify(account account.Account, sign []byte) bool {
@@ -237,12 +239,13 @@ func (instance *bftCore) receiveResponse(response *messages.Response) {
 		}
 		log.Warn("receive duplicate signature from the same validator, ignore it.")
 	}
-	signatures, err := instance.maybeCommit()
-	if nil != err {
-		log.Error("maybe commit error %v.", err)
-		return
+	if !instance.commit {
+		log.Info("try to commit the response.")
+		instance.maybeCommit()
+	} else {
+		log.Warn("response has been committed already.")
 	}
-	instance.result <- signatures
+
 }
 
 func (instance *bftCore) ProcessEvent(e tools.Event) tools.Event {

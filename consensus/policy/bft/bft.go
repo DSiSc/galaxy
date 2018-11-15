@@ -45,7 +45,7 @@ func (self *BFTPolicy) Initialization(role map[account.Account]commonr.Roler, pe
 		log.Error("no master exist in delegates")
 		return fmt.Errorf("no master")
 	}
-
+	self.bftCore.commit = false
 	self.bftCore.peers = peers
 	self.bftCore.tolerance = uint8((len(peers) - 1) / 3)
 	return nil
