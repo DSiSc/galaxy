@@ -5,10 +5,44 @@ import (
 	"fmt"
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/monkey"
+	"github.com/DSiSc/validator/tools/account"
 	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
 )
+
+var mockAccounts = []account.Account{
+	account.Account{
+		Address: types.Address{0x33, 0x3c, 0x33, 0x10, 0x82, 0x4b, 0x7c, 0x68,
+			0x51, 0x33, 0xf2, 0xbe, 0xdb, 0x2c, 0xa4, 0xb8, 0xb4, 0xdf, 0x63, 0x3d},
+		Extension: account.AccountExtension{
+			Id:  0,
+			Url: "172.0.0.1:8080",
+		},
+	},
+	account.Account{
+		Address: types.Address{0x34, 0x3c, 0x33, 0x10, 0x82, 0x4b, 0x7c, 0x68,
+			0x51, 0x33, 0xf2, 0xbe, 0xdb, 0x2c, 0xa4, 0xb8, 0xb4, 0xdf, 0x63, 0x3d},
+		Extension: account.AccountExtension{
+			Id:  1,
+			Url: "172.0.0.1:8081"},
+	},
+	account.Account{
+		Address: types.Address{0x35, 0x3c, 0x33, 0x10, 0x82, 0x4b, 0x7c, 0x68, 0x51, 0x33, 0xf2, 0xbe, 0xdb, 0x2c, 0xa4, 0xb8, 0xb4, 0xdf, 0x63, 0x3d},
+		Extension: account.AccountExtension{
+			Id:  2,
+			Url: "172.0.0.1:8082",
+		},
+	},
+
+	account.Account{
+		Address: types.Address{0x36, 0x3c, 0x33, 0x10, 0x82, 0x4b, 0x7c, 0x68, 0x51, 0x33, 0xf2, 0xbe, 0xdb, 0x2c, 0xa4, 0xb8, 0xb4, 0xdf, 0x63, 0x3d},
+		Extension: account.AccountExtension{
+			Id:  3,
+			Url: "172.0.0.1:8083",
+		},
+	},
+}
 
 func TestMessage_MessageType(t *testing.T) {
 	assert.Equal(t, MessageType("RequestMessage"), RequestMessageType)
@@ -59,9 +93,8 @@ func mockMessage(messageType MessageType) *Message {
 	if ResponseMessageType == messageType {
 		payload := &ResponseMessage{
 			Response: &Response{
-				Id:        0,
+				Account:   mockAccounts[0],
 				Timestamp: time.Now().Unix(),
-				Payload:   payload,
 				Signature: fakeSignature1,
 			},
 		}

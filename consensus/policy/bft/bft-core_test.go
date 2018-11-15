@@ -3,18 +3,18 @@ package bft
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/DSiSc/blockchain"
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/galaxy/consensus/policy/bft/messages"
 	"github.com/DSiSc/monkey"
 	"github.com/DSiSc/validator/tools/account"
+	"github.com/DSiSc/validator/worker"
 	"github.com/stretchr/testify/assert"
 	"net"
 	"reflect"
 	"testing"
 	"time"
 )
-
-var id uint64 = 0
 
 var mockAccounts = []account.Account{
 	account.Account{
@@ -49,19 +49,34 @@ var mockAccounts = []account.Account{
 	},
 }
 
+var mockHash = types.Hash{
+	0xbd, 0x79, 0x1d, 0x4a, 0xf9, 0x64, 0x8f, 0xc3, 0x7f, 0x94, 0xeb, 0x36, 0x53, 0x19, 0xf6, 0xd0,
+	0xa9, 0x78, 0x9f, 0x9c, 0x22, 0x47, 0x2c, 0xa7, 0xa6, 0x12, 0xa9, 0xca, 0x4, 0x13, 0xc1, 0x4,
+}
+
 func TestNewBFTCore(t *testing.T) {
 	sigChannel := make(chan messages.SignatureSet)
-	bft := NewBFTCore(id, sigChannel)
+	bft := NewBFTCore(mockAccounts[0], sigChannel)
 	assert.NotNil(t, bft)
-	assert.Equal(t, id, bft.id)
+	assert.Equal(t, mockAccounts[0], bft.local)
 }
 
 func TestBftCore_ProcessEvent(t *testing.T) {
 	sigChannel := make(chan messages.SignatureSet)
-	bft := NewBFTCore(id, sigChannel)
+	bft := NewBFTCore(mockAccounts[0], sigChannel)
 	assert.NotNil(t, bft)
+	id := mockAccounts[0].Extension.Id
 	err := bft.ProcessEvent(nil)
 	assert.Nil(t, err)
+
+	var b *blockchain.BlockChain
+	monkey.Patch(blockchain.NewBlockChainByBlockHash, func(types.Hash) (*blockchain.BlockChain, error) {
+		return b, nil
+	})
+	var w *worker.Worker
+	monkey.PatchInstanceMethod(reflect.TypeOf(w), "VerifyBlock", func(*worker.Worker) error {
+		return fmt.Errorf("verify block failed")
+	})
 
 	bft.peers = mockAccounts
 	var mockSignature = [][]byte{{0x33, 0x3c, 0x33, 0x10, 0x82, 0x4b, 0x7c, 0x68}}
@@ -91,21 +106,26 @@ func TestBftCore_ProcessEvent(t *testing.T) {
 
 	var mock_proposal = &messages.Proposal{
 		Timestamp: time.Now().Unix(),
-		Payload:   nil,
+		Payload: &types.Block{
+			Header: &types.Header{
+				Height:        0,
+				PrevBlockHash: mockHash,
+			},
+		},
 	}
 	bft.master = id + 1
 	err = bft.ProcessEvent(mock_proposal)
 	assert.Nil(t, err)
 
 	bft.master = id
-	mock_response := &messages.Response{
-		Id:        id,
+	mockResponse := &messages.Response{
+		Account:   mockAccounts[0],
 		Timestamp: time.Now().Unix(),
-		Payload:   nil,
+		Digest:    mockHash,
 		Signature: []byte{0x33, 0x3c, 0x33, 0x10, 0x82, 0x4b, 0x7c, 0x68},
 	}
 	go func() {
-		err = bft.ProcessEvent(mock_response)
+		err = bft.ProcessEvent(mockResponse)
 		assert.Nil(t, err)
 	}()
 	ch := <-bft.result
@@ -116,11 +136,13 @@ func TestBftCore_ProcessEvent(t *testing.T) {
 	monkey.Unpatch(net.ResolveTCPAddr)
 	monkey.Unpatch(net.DialTCP)
 	monkey.UnpatchInstanceMethod(reflect.TypeOf(&c), "Write")
+	monkey.Unpatch(blockchain.NewBlockChainByBlockHash)
+	monkey.UnpatchInstanceMethod(reflect.TypeOf(w), "VerifyBlock")
 }
 
 func TestBftCore_Start(t *testing.T) {
 	sigChannel := make(chan messages.SignatureSet)
-	bft := NewBFTCore(id, sigChannel)
+	bft := NewBFTCore(mockAccounts[0], sigChannel)
 	assert.NotNil(t, bft)
 	var account = account.Account{
 		Extension: account.AccountExtension{
@@ -133,7 +155,8 @@ func TestBftCore_Start(t *testing.T) {
 
 func TestBftCore_receiveRequest(t *testing.T) {
 	sigChannel := make(chan messages.SignatureSet)
-	bft := NewBFTCore(id, sigChannel)
+	bft := NewBFTCore(mockAccounts[0], sigChannel)
+	id := mockAccounts[0].Extension.Id
 	assert.NotNil(t, bft)
 	bft.peers = mockAccounts
 	// only master process request
@@ -182,7 +205,7 @@ func TestBftCore_receiveRequest(t *testing.T) {
 
 func TestNewBFTCore_broadcast(t *testing.T) {
 	sigChannel := make(chan messages.SignatureSet)
-	bft := NewBFTCore(id, sigChannel)
+	bft := NewBFTCore(mockAccounts[0], sigChannel)
 	assert.NotNil(t, bft)
 	bft.peers = mockAccounts
 	// resolve error
@@ -214,7 +237,7 @@ func TestNewBFTCore_broadcast(t *testing.T) {
 
 func TestBftCore_unicast(t *testing.T) {
 	sigChannel := make(chan messages.SignatureSet)
-	bft := NewBFTCore(id, sigChannel)
+	bft := NewBFTCore(mockAccounts[0], sigChannel)
 	assert.NotNil(t, bft)
 	bft.peers = mockAccounts
 	monkey.Patch(net.ResolveTCPAddr, func(string, string) (*net.TCPAddr, error) {
@@ -241,7 +264,7 @@ func TestBftCore_unicast(t *testing.T) {
 
 func TestBftCore_receiveProposal(t *testing.T) {
 	sigChannel := make(chan messages.SignatureSet)
-	bft := NewBFTCore(id, sigChannel)
+	bft := NewBFTCore(mockAccounts[0], sigChannel)
 	assert.NotNil(t, bft)
 	bft.peers = mockAccounts
 	// master receive proposal
@@ -255,7 +278,24 @@ func TestBftCore_receiveProposal(t *testing.T) {
 	}
 	bft.receiveProposal(proposal)
 
-	bft.id = id + 1
+	// verify failed: Get NewBlockChainByBlockHash failed
+	bft.local.Extension.Id = mockAccounts[0].Extension.Id + 1
+	bft.receiveProposal(proposal)
+
+	var b *blockchain.BlockChain
+	monkey.Patch(blockchain.NewBlockChainByBlockHash, func(types.Hash) (*blockchain.BlockChain, error) {
+		return b, nil
+	})
+	var w *worker.Worker
+	monkey.PatchInstanceMethod(reflect.TypeOf(w), "VerifyBlock", func(*worker.Worker) error {
+		return fmt.Errorf("verify block failed")
+	})
+	bft.receiveProposal(proposal)
+
+	monkey.PatchInstanceMethod(reflect.TypeOf(w), "VerifyBlock", func(*worker.Worker) error {
+		return nil
+	})
+
 	monkey.Patch(json.Marshal, func(interface{}) ([]byte, error) {
 		return nil, fmt.Errorf("marshal proposal msg failed")
 	})
@@ -270,22 +310,22 @@ func TestBftCore_receiveProposal(t *testing.T) {
 	bft.receiveProposal(proposal)
 	monkey.Unpatch(net.ResolveTCPAddr)
 	monkey.Unpatch(json.Marshal)
+	monkey.Unpatch(blockchain.NewBlockChainByBlockHash)
+	monkey.UnpatchInstanceMethod(reflect.TypeOf(w), "VerifyBlock")
 }
 
 func TestBftCore_receiveResponse(t *testing.T) {
 	sigChannel := make(chan messages.SignatureSet)
-	bft := NewBFTCore(id, sigChannel)
+	bft := NewBFTCore(mockAccounts[0], sigChannel)
 	assert.NotNil(t, bft)
 	bft.peers = mockAccounts
+	id := mockAccounts[0].Extension.Id
 	// master receive response
 	response := &messages.Response{
-		Timestamp: 1535414400,
-		Payload: &types.Block{
-			Header: &types.Header{
-				Height:  0,
-				SigData: make([][]byte, 0),
-			},
-		},
+		Account:   mockAccounts[0],
+		Timestamp: time.Now().Unix(),
+		Digest:    mockHash,
+		Signature: []byte{0x33, 0x3c, 0x33, 0x10, 0x82, 0x4b, 0x7c, 0x68},
 	}
 	bft.master = id + 1
 	bft.receiveResponse(response)

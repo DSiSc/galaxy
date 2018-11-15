@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/craft/types"
+	"github.com/DSiSc/validator/tools/account"
 )
 
 type SignatureSet [][]byte
@@ -16,17 +17,16 @@ type Request struct {
 }
 
 type Proposal struct {
+	Id        uint64
 	Timestamp int64
 	Payload   *types.Block
-	Id        uint64
 	Signature []byte
 }
 
 type Response struct {
-	Id        uint64
+	Account   account.Account
 	Timestamp int64
-	// TODO: used sig to replace Payload
-	Payload   *types.Block
+	Digest    types.Hash
 	Signature []byte
 }
 

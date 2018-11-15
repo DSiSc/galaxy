@@ -24,7 +24,7 @@ func NewBFTPolicy(account account.Account) (*BFTPolicy, error) {
 		account: account,
 		result:  make(chan messages.SignatureSet),
 	}
-	policy.bftCore = NewBFTCore(account.Extension.Id, policy.result)
+	policy.bftCore = NewBFTCore(account, policy.result)
 	return policy, nil
 }
 

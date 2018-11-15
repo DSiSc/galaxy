@@ -27,7 +27,7 @@ func TestNewBFTPolicy(t *testing.T) {
 	assert.Equal(t, common.BFT_POLICY, bft.name)
 	assert.NotNil(t, bft.bftCore)
 	// assert.Equal(t, uint8((conf.Delegates-1)/3), bft.bftCore.tolerance)
-	assert.Equal(t, mockAccounts[0].Extension.Id, bft.bftCore.id)
+	assert.Equal(t, mockAccounts[0].Extension.Id, bft.bftCore.local.Extension.Id)
 	// assert.Equal(t, mockAccounts[1].Extension.Id, bft.bftCore.master)
 }
 
@@ -35,7 +35,7 @@ func TestBFTPolicy_PolicyName(t *testing.T) {
 	bft, _ := NewBFTPolicy(mockAccounts[0])
 	assert.Equal(t, common.BFT_POLICY, bft.name)
 	assert.Equal(t, bft.name, bft.PolicyName())
-	assert.Equal(t, mockAccounts[0].Extension.Id, bft.bftCore.id)
+	assert.Equal(t, mockAccounts[0].Extension.Id, bft.bftCore.local.Extension.Id)
 }
 
 func mockRoleAssignment(master account.Account, accounts []account.Account) map[account.Account]commonr.Roler {

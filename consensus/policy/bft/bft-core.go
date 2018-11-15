@@ -4,15 +4,19 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/DSiSc/blockchain"
 	"github.com/DSiSc/craft/log"
+	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/galaxy/consensus/policy/bft/messages"
 	"github.com/DSiSc/galaxy/consensus/policy/bft/tools"
 	"github.com/DSiSc/validator/tools/account"
+	"github.com/DSiSc/validator/tools/signature"
+	"github.com/DSiSc/validator/worker"
 	"net"
 )
 
 type bftCore struct {
-	id        uint64
+	local     account.Account
 	master    uint64
 	peers     []account.Account
 	signature *signData
@@ -31,9 +35,9 @@ func (s *signData) addSignature(account account.Account, sign []byte) {
 	s.signatures = append(s.signatures, sign)
 }
 
-func NewBFTCore(id uint64, result chan messages.SignatureSet) *bftCore {
+func NewBFTCore(local account.Account, result chan messages.SignatureSet) *bftCore {
 	return &bftCore{
-		id: id,
+		local: local,
 		signature: &signData{
 			signatures: make([][]byte, 0),
 			signMap:    make(map[account.Account][]byte),
@@ -81,7 +85,7 @@ func (instance *bftCore) unicast(account account.Account, msgPayload []byte) err
 
 func (instance *bftCore) receiveRequest(request *messages.Request) error {
 	// send
-	isMaster := instance.id == instance.master
+	isMaster := instance.local.Extension.Id == instance.master
 	if !isMaster {
 		log.Info("only master process request.")
 		return fmt.Errorf("only master process request")
@@ -99,14 +103,13 @@ func (instance *bftCore) receiveRequest(request *messages.Request) error {
 		MessageType: messages.ProposalMessageType,
 		Payload: &messages.ProposalMessage{
 			Proposal: &messages.Proposal{
-				Id:        instance.id,
+				Id:        instance.local.Extension.Id,
 				Timestamp: request.Timestamp,
 				Payload:   request.Payload,
 				Signature: signature[0],
 			},
 		},
 	}
-
 	msgRaw, err := json.Marshal(proposal)
 	if nil != err {
 		log.Error("marshal proposal msg failed with %v.", err)
@@ -117,9 +120,21 @@ func (instance *bftCore) receiveRequest(request *messages.Request) error {
 }
 
 func (instance *bftCore) receiveProposal(proposal *messages.Proposal) {
-	isMaster := instance.id == instance.master
+	isMaster := instance.local.Extension.Id == instance.master
 	if isMaster {
 		log.Info("master not need to process proposal.")
+		return
+	}
+	// Get NewBlockChainByBlockHash failed
+	err := instance.verifyProposal(proposal.Payload)
+	if nil != err {
+		log.Error("proposal verified failed with error %v.", err)
+		return
+	}
+
+	signData, err := instance.signProposal(proposal.Payload.Header.MixDigest)
+	if nil != err {
+		log.Error("archive proposal signature failed with error %v.", err)
 		return
 	}
 	// TODO: Add signature
@@ -127,10 +142,10 @@ func (instance *bftCore) receiveProposal(proposal *messages.Proposal) {
 		MessageType: messages.ResponseMessageType,
 		Payload: &messages.ResponseMessage{
 			Response: &messages.Response{
-				Id:        instance.id,
+				Account:   instance.local,
 				Timestamp: proposal.Timestamp,
-				// TODO: add sign to the block
-				Payload: proposal.Payload,
+				Digest:    proposal.Payload.HeaderHash,
+				Signature: signData,
 			},
 		},
 	}
@@ -146,13 +161,37 @@ func (instance *bftCore) receiveProposal(proposal *messages.Proposal) {
 	}
 }
 
+func (instance *bftCore) verifyProposal(payload *types.Block) error {
+	blockStore, err := blockchain.NewBlockChainByBlockHash(payload.Header.PrevBlockHash)
+	if nil != err {
+		log.Error("Get NewBlockChainByBlockHash failed.")
+		return err
+	}
+	worker := worker.NewWorker(blockStore, payload)
+	err = worker.VerifyBlock()
+	if err != nil {
+		log.Error("The block %d verified failed with err %v.", payload.Header.Height, err)
+		return err
+	}
+	return nil
+}
+
+func (instance *bftCore) signProposal(digest types.Hash) ([]byte, error) {
+	sign, err := signature.Sign(&instance.local, digest[:])
+	if nil != err {
+		log.Error("archive signature error.")
+		return nil, err
+	}
+	log.Info("archive signature for %x successfully.", digest)
+	return sign, nil
+}
+
 func (instance *bftCore) maybeCommit() (messages.SignatureSet, error) {
 	signatures := len(instance.signature.signatures)
 	if uint8(signatures) < instance.tolerance {
 		log.Info("commit need %d signature, while now is %d.", instance.tolerance, signatures)
 		return nil, fmt.Errorf("commit not complete")
 	}
-	log.Info("commit it.")
 	signData := instance.signature.signatures
 	signMap := instance.signature.signMap
 	if len(signData) != len(signMap) {
@@ -181,12 +220,12 @@ func signDataVerify(account account.Account, sign []byte) bool {
 }
 
 func (instance *bftCore) receiveResponse(response *messages.Response) {
-	isMaster := instance.id == instance.master
+	isMaster := instance.local.Extension.Id == instance.master
 	if !isMaster {
 		log.Info("only master need to process response.")
 		return
 	}
-	peer := instance.peers[response.Id]
+	peer := instance.peers[response.Account.Extension.Id]
 	if sign, ok := instance.signature.signMap[peer]; !ok {
 		instance.signature.addSignature(peer, response.Signature)
 	} else {
@@ -208,19 +247,19 @@ func (instance *bftCore) receiveResponse(response *messages.Response) {
 
 func (instance *bftCore) ProcessEvent(e tools.Event) tools.Event {
 	var err error
-	log.Debug("replica %d processing event", instance.id)
+	log.Debug("replica %d processing event", instance.local.Extension.Id)
 	switch et := e.(type) {
 	case *messages.Request:
-		log.Info("receive request from replica %d.", instance.id)
+		log.Info("receive request from replica %d.", instance.local.Extension.Id)
 		instance.receiveRequest(et)
 	case *messages.Proposal:
 		log.Info("receive proposal from replica %d.", et.Id)
 		instance.receiveProposal(et)
 	case *messages.Response:
-		log.Info("receive proposal from replica %d.", et.Id)
+		log.Info("receive proposal from replica %d.", et.Account.Extension.Id)
 		instance.receiveResponse(et)
 	default:
-		log.Warn("replica %d received an unknown message type %T", instance.id, et)
+		log.Warn("replica %d received an unknown message type %T", instance.local.Extension.Id, et)
 	}
 	if err != nil {
 		log.Warn(err.Error())
