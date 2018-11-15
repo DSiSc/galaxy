@@ -3,7 +3,6 @@ package bft
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"github.com/DSiSc/blockchain"
 	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/craft/types"
@@ -84,20 +83,27 @@ func (instance *bftCore) unicast(account account.Account, msgPayload []byte) err
 	return err
 }
 
-func (instance *bftCore) receiveRequest(request *messages.Request) error {
-	// send
+func (instance *bftCore) receiveRequest(request *messages.Request) {
 	isMaster := instance.local.Extension.Id == instance.master
 	if !isMaster {
 		log.Info("only master process request.")
-		return fmt.Errorf("only master process request")
+		return
 	}
 	signature := request.Payload.Header.SigData
 	if 1 != len(signature) {
-		log.Error("request must have signature from client.")
-		return fmt.Errorf("request must have signature from client")
+		log.Error("request must have signature from producer.")
+		return
 	}
-	// TODO: Add master signature to proposal
-	// now, client is master, so we just used client's signature
+	err := instance.verifyPayload(request.Payload)
+	if nil != err {
+		log.Error("proposal verified failed with error %v.", err)
+		return
+	}
+	signData, err := instance.signPayload(request.Payload.Header.MixDigest)
+	if nil != err {
+		log.Error("archive proposal signature failed with error %v.", err)
+		return
+	}
 	master := instance.peers[instance.master]
 	instance.signature.addSignature(master, signature[0])
 	proposal := &messages.Message{
@@ -107,17 +113,16 @@ func (instance *bftCore) receiveRequest(request *messages.Request) error {
 				Id:        instance.local.Extension.Id,
 				Timestamp: request.Timestamp,
 				Payload:   request.Payload,
-				Signature: signature[0],
+				Signature: signData,
 			},
 		},
 	}
 	msgRaw, err := json.Marshal(proposal)
 	if nil != err {
 		log.Error("marshal proposal msg failed with %v.", err)
-		return fmt.Errorf("marshal proposal msg failed")
+		return
 	}
 	instance.broadcast(msgRaw)
-	return nil
 }
 
 func (instance *bftCore) receiveProposal(proposal *messages.Proposal) {
@@ -126,19 +131,16 @@ func (instance *bftCore) receiveProposal(proposal *messages.Proposal) {
 		log.Info("master not need to process proposal.")
 		return
 	}
-	// Get NewBlockChainByBlockHash failed
-	err := instance.verifyProposal(proposal.Payload)
+	err := instance.verifyPayload(proposal.Payload)
 	if nil != err {
 		log.Error("proposal verified failed with error %v.", err)
 		return
 	}
-
-	signData, err := instance.signProposal(proposal.Payload.Header.MixDigest)
+	signData, err := instance.signPayload(proposal.Payload.Header.MixDigest)
 	if nil != err {
 		log.Error("archive proposal signature failed with error %v.", err)
 		return
 	}
-	// TODO: Add signature
 	response := &messages.Message{
 		MessageType: messages.ResponseMessageType,
 		Payload: &messages.ResponseMessage{
@@ -162,7 +164,7 @@ func (instance *bftCore) receiveProposal(proposal *messages.Proposal) {
 	}
 }
 
-func (instance *bftCore) verifyProposal(payload *types.Block) error {
+func (instance *bftCore) verifyPayload(payload *types.Block) error {
 	blockStore, err := blockchain.NewBlockChainByBlockHash(payload.Header.PrevBlockHash)
 	if nil != err {
 		log.Error("Get NewBlockChainByBlockHash failed.")
@@ -177,7 +179,7 @@ func (instance *bftCore) verifyProposal(payload *types.Block) error {
 	return nil
 }
 
-func (instance *bftCore) signProposal(digest types.Hash) ([]byte, error) {
+func (instance *bftCore) signPayload(digest types.Hash) ([]byte, error) {
 	sign, err := signature.Sign(&instance.local, digest[:])
 	if nil != err {
 		log.Error("archive signature error.")
@@ -300,16 +302,27 @@ func handleConnection(tcpListener *net.TCPListener, bft *bftCore) {
 		payload := msg.Payload
 		switch msg.MessageType {
 		case messages.RequestMessageType:
-			log.Info("receive request message.")
+			log.Info("receive request message from producer")
+			// TODO: separate producer and master, so client need send request to master
 			request := payload.(*messages.RequestMessage).Request
 			tools.SendEvent(bft, request)
 		case messages.ProposalMessageType:
-			log.Info("receive proposal message.")
 			proposal := payload.(*messages.ProposalMessage).Proposal
+			log.Info("receive proposal message form node %d with payload %x.",
+				proposal.Id, proposal.Payload.Header.MixDigest)
+			if proposal.Id == bft.master {
+				log.Warn("master %d will not receive proposal message from itself.", bft.master)
+				continue
+			}
 			tools.SendEvent(bft, proposal)
 		case messages.ResponseMessageType:
-			log.Info("receive response message.")
 			response := payload.(*messages.ResponseMessage).Response
+			log.Info("receive response message from node %d with payload %x.",
+				response.Account.Extension.Id, response.Digest)
+			if response.Account.Extension.Id == bft.master {
+				log.Warn("master %d will not receive response message from itself.")
+				continue
+			}
 			tools.SendEvent(bft, response)
 		default:
 			if nil == payload {
