@@ -199,10 +199,9 @@ func (instance *bftCore) signPayload(digest types.Hash) ([]byte, error) {
 }
 
 func (instance *bftCore) maybeCommit() {
-	signatures := len(instance.signature.signatures)
-	if uint8(signatures) < instance.tolerance {
-		log.Info("commit need %d signature, while now is %d.", instance.tolerance, signatures)
-		return
+	if uint8(len(instance.signature.signatures)) < uint8(len(instance.peers))-instance.tolerance {
+		log.Info("commit need %d signature, while now is %d.",
+			uint8(len(instance.peers))-instance.tolerance, len(instance.signature.signatures))
 	}
 	signData := instance.signature.signatures
 	signMap := instance.signature.signMap
@@ -220,8 +219,9 @@ func (instance *bftCore) maybeCommit() {
 		suspiciousAccount = append(suspiciousAccount, account)
 		log.Error("signature %x by account %x is invalid", sign, account)
 	}
-	if uint8(len(reallySignature)) < instance.tolerance {
-		log.Error("suspicious signature with accounts %x.", suspiciousAccount)
+	if uint8(len(reallySignature)) < uint8(len(instance.peers))-instance.tolerance {
+		log.Error("really signature %d less than need %d.",
+			len(reallySignature), uint8(len(instance.peers))-instance.tolerance)
 		return
 	}
 	instance.commit = true
@@ -242,7 +242,7 @@ func (instance *bftCore) receiveResponse(response *messages.Response) {
 		log.Info("only master need to process response.")
 		return
 	}
-	if bytes.Equal(instance.digest[:], response.Digest[:]) {
+	if !bytes.Equal(instance.digest[:], response.Digest[:]) {
 		log.Error("received response digest %x not in coincidence with reserved %x.",
 			instance.digest, response.Digest)
 		return

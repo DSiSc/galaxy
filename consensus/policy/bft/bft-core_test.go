@@ -1,6 +1,7 @@
 package bft
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"github.com/DSiSc/blockchain"
@@ -63,6 +64,14 @@ func TestNewBFTCore(t *testing.T) {
 	assert.Equal(t, mockAccounts[0], bft.local)
 }
 
+var mockSignset = [][]byte{
+	{0x33, 0x3c, 0x33, 0x10, 0x82, 0x4b, 0x7c, 0x68, 0x51, 0x33, 0xf2, 0xbe, 0xdb, 0x2c, 0xa4, 0xb8, 0xb4, 0xdf, 0x63, 0x3d},
+	{0x34, 0x3c, 0x33, 0x10, 0x82, 0x4b, 0x7c, 0x68, 0x51, 0x33, 0xf2, 0xbe, 0xdb, 0x2c, 0xa4, 0xb8, 0xb4, 0xdf, 0x63, 0x3d},
+	{0x35, 0x3c, 0x33, 0x10, 0x82, 0x4b, 0x7c, 0x68, 0x51, 0x33, 0xf2, 0xbe, 0xdb, 0x2c, 0xa4, 0xb8, 0xb4, 0xdf, 0x63, 0x3d},
+	{0x36, 0x3c, 0x33, 0x10, 0x82, 0x4b, 0x7c, 0x68, 0x51, 0x33, 0xf2, 0xbe, 0xdb, 0x2c, 0xa4, 0xb8, 0xb4, 0xdf, 0x63, 0x3d},
+	{0x37, 0x3c, 0x33, 0x10, 0x82, 0x4b, 0x7c, 0x68, 0x51, 0x33, 0xf2, 0xbe, 0xdb, 0x2c, 0xa4, 0xb8, 0xb4, 0xdf, 0x63, 0x3d},
+}
+
 func TestBftCore_ProcessEvent(t *testing.T) {
 	sigChannel := make(chan messages.SignatureSet)
 	bft := NewBFTCore(mockAccounts[0], sigChannel)
@@ -84,12 +93,11 @@ func TestBftCore_ProcessEvent(t *testing.T) {
 	})
 
 	bft.peers = mockAccounts
-	var mockSignature = [][]byte{{0x33, 0x3c, 0x33, 0x10, 0x82, 0x4b, 0x7c, 0x68}}
 	var mock_request = &messages.Request{
 		Timestamp: time.Now().Unix(),
 		Payload: &types.Block{
 			Header: &types.Header{
-				SigData: mockSignature,
+				SigData: mockSignset[:1],
 			},
 		},
 	}
@@ -122,22 +130,41 @@ func TestBftCore_ProcessEvent(t *testing.T) {
 	err = bft.ProcessEvent(mock_proposal)
 	assert.Nil(t, err)
 
+	monkey.Patch(signature.Verify, func(_ keypair.PublicKey, sign []byte) (types.Address, error) {
+		var address types.Address
+		if bytes.Equal(sign[:], mockSignset[0]) {
+			address = mockAccounts[0].Address
+		}
+		if bytes.Equal(sign[:], mockSignset[1]) {
+			address = mockAccounts[1].Address
+		}
+		if bytes.Equal(sign[:], mockSignset[2]) {
+			address = mockAccounts[2].Address
+		}
+		if bytes.Equal(sign[:], mockSignset[3]) {
+			address = mockAccounts[3].Address
+		}
+		return address, nil
+	})
+
 	bft.master = id
 	mockResponse := &messages.Response{
 		Account:   mockAccounts[0],
 		Timestamp: time.Now().Unix(),
 		Digest:    mockHash,
-		Signature: []byte{0x33, 0x3c, 0x33, 0x10, 0x82, 0x4b, 0x7c, 0x68},
+		Signature: mockSignset[0],
 	}
+	bft.signature.addSignature(bft.peers[1], mockSignset[1])
+	bft.signature.addSignature(bft.peers[2], mockSignset[2])
+	bft.tolerance = uint8((len(bft.peers) - 1) / 3)
+	bft.digest = mockHash
 	go func() {
 		err = bft.ProcessEvent(mockResponse)
 		assert.Nil(t, err)
 	}()
 	ch := <-bft.result
 	assert.NotNil(t, ch)
-	var exceptSig = make([][]byte, 0)
-	exceptSig = append(exceptSig, []byte{0x33, 0x3c, 0x33, 0x10, 0x82, 0x4b, 0x7c, 0x68})
-	assert.Equal(t, messages.SignatureSet(exceptSig), ch)
+	assert.Equal(t, 3, len(ch))
 	monkey.Unpatch(net.ResolveTCPAddr)
 	monkey.Unpatch(net.DialTCP)
 	monkey.Unpatch(signature.Verify)
@@ -362,44 +389,71 @@ func TestBftCore_receiveResponse(t *testing.T) {
 	assert.NotNil(t, bft)
 	bft.peers = mockAccounts
 	id := mockAccounts[0].Extension.Id
-	// master receive response
+
+	// log.Info("only master need to process response.")
 	response := &messages.Response{
 		Account:   mockAccounts[0],
 		Timestamp: time.Now().Unix(),
 		Digest:    mockHash,
-		Signature: []byte{0x33, 0x3c, 0x33, 0x10, 0x82, 0x4b, 0x7c, 0x68},
+		Signature: mockSignset[0],
 	}
 	bft.master = id + 1
 	bft.receiveResponse(response)
 
+	// log.Error("received response digest %x not in coincidence with reserved
 	bft.master = id
-	bft.tolerance = 3
-	// signature not exist
-	var fakeSignature = []byte{
-		0x33, 0x3c, 0x33, 0x10, 0x82, 0x4b, 0x7c, 0x68, 0x51, 0x33,
-		0xf2, 0xbe, 0xdb, 0x2c, 0xa4, 0xb8, 0xb4, 0xdf, 0x63, 0x3d,
+	bft.digest = types.Hash{
+		0xbe, 0x79, 0x1d, 0x4a, 0xf9, 0x64, 0x8f, 0xc3, 0x7f, 0x94, 0xeb, 0x36, 0x53, 0x19, 0xf6, 0xd0,
+		0xa9, 0x78, 0x9f, 0x9c, 0x22, 0x47, 0x2c, 0xa7, 0xa6, 0x12, 0xa9, 0xca, 0x4, 0x13, 0xc1, 0x4,
 	}
-	response.Signature = fakeSignature
 	bft.receiveResponse(response)
 
-	// signature exist, while not consistence
-	var fakeSignature1 = []byte{
-		0x34, 0x3c, 0x33, 0x10, 0x82, 0x4b, 0x7c, 0x68, 0x51, 0x33,
-		0xf2, 0xbe, 0xdb, 0x2c, 0xa4, 0xb8, 0xb4, 0xdf, 0x63, 0x3d,
-	}
-	response.Signature = fakeSignature1
+	// log.Error("signature and response sender not in coincidence.")
+	bft.digest = mockHash
 	bft.receiveResponse(response)
 
-	// all conditions are met
+	monkey.Patch(signature.Verify, func(_ keypair.PublicKey, sign []byte) (types.Address, error) {
+		var address types.Address
+		if bytes.Equal(sign[:], mockSignset[0]) {
+			address = mockAccounts[0].Address
+		}
+		if bytes.Equal(sign[:], mockSignset[1]) {
+			address = mockAccounts[1].Address
+		}
+		if bytes.Equal(sign[:], mockSignset[2]) {
+			address = mockAccounts[2].Address
+		}
+		if bytes.Equal(sign[:], mockSignset[3]) {
+			address = mockAccounts[3].Address
+		}
+		return address, nil
+	})
+	bft.commit = true
+	bft.receiveResponse(response)
+
+	bft.signature.signMap[mockAccounts[0]] = mockSignset[1]
+	bft.receiveResponse(response)
+
+	bft.commit = false
+	bft.signature.signMap[mockAccounts[0]] = mockSignset[0]
+	bft.receiveResponse(response)
+
+	bft.signature.signatures = mockSignset[:4]
+	bft.signature.addSignature(mockAccounts[0], mockSignset[0])
+	bft.signature.addSignature(mockAccounts[1], mockSignset[1])
+	bft.signature.addSignature(mockAccounts[2], mockSignset[2])
+	bft.receiveResponse(response)
+
+	bft.signature.signatures = mockSignset[:3]
+	bft.signature.signMap[mockAccounts[2]] = mockSignset[3]
+	bft.receiveResponse(response)
+
 	bft.tolerance = 1
-	response.Signature = fakeSignature
-
+	bft.signature.signMap[mockAccounts[2]] = mockSignset[2]
 	go func() {
 		bft.receiveResponse(response)
 	}()
 	ch := <-bft.result
 	assert.NotNil(t, ch)
-	var exceptSig = make([][]byte, 0)
-	exceptSig = append(exceptSig, fakeSignature)
-	assert.Equal(t, messages.SignatureSet(exceptSig), ch)
+	assert.Equal(t, 3, len(ch))
 }
