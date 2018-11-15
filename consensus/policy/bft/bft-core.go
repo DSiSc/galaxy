@@ -131,6 +131,15 @@ func (instance *bftCore) receiveProposal(proposal *messages.Proposal) {
 		log.Info("master not need to process proposal.")
 		return
 	}
+	if instance.master != proposal.Id{
+		log.Error("proposal must from master %d, while it from %d in fact.", instance.master, proposal.Id)
+		return
+	}
+	masterAccount := instance.peers[instance.master]
+	if !signDataVerify(masterAccount, proposal.Signature){
+		log.Error("proposal signature not from master, please confirm.")
+		return
+	}
 	err := instance.verifyPayload(proposal.Payload)
 	if nil != err {
 		log.Error("proposal verified failed with error %v.", err)
@@ -157,7 +166,6 @@ func (instance *bftCore) receiveProposal(proposal *messages.Proposal) {
 		log.Error("marshal proposal msg failed with %v.", err)
 		return
 	}
-	masterAccount := instance.peers[instance.master]
 	err = instance.unicast(masterAccount, msgRaw)
 	if err != nil {
 		log.Error("unicast to master %x failed with error %v.", masterAccount.Address, err)
@@ -230,6 +238,10 @@ func (instance *bftCore) receiveResponse(response *messages.Response) {
 		return
 	}
 	peer := instance.peers[response.Account.Extension.Id]
+	if !signDataVerify(peer, response.Signature){
+	    log.Error("signature and response sender not in coincidence.")
+	    return
+	}
 	if sign, ok := instance.signature.signMap[peer]; !ok {
 		instance.signature.addSignature(peer, response.Signature)
 	} else {
