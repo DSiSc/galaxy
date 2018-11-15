@@ -8,6 +8,7 @@ import (
 	"github.com/DSiSc/galaxy/consensus/policy/bft/messages"
 	"github.com/DSiSc/monkey"
 	"github.com/DSiSc/validator/tools/account"
+	"github.com/DSiSc/validator/tools/signature"
 	"github.com/DSiSc/validator/worker"
 	"github.com/stretchr/testify/assert"
 	"net"
@@ -153,6 +154,11 @@ func TestBftCore_Start(t *testing.T) {
 	time.Sleep(1 * time.Second)
 }
 
+var fakeSignature = []byte{
+	0x33, 0x3c, 0x33, 0x10, 0x82, 0x4b, 0x7c, 0x68, 0x51, 0x33,
+	0xf2, 0xbe, 0xdb, 0x2c, 0xa4, 0xb8, 0xb4, 0xdf, 0x63, 0x3d,
+}
+
 func TestBftCore_receiveRequest(t *testing.T) {
 	sigChannel := make(chan messages.SignatureSet)
 	bft := NewBFTCore(mockAccounts[0], sigChannel)
@@ -174,12 +180,26 @@ func TestBftCore_receiveRequest(t *testing.T) {
 	// absence of signature
 	bft.master = id
 	bft.receiveRequest(request)
-	//  marshal failed
-	var fakeSignature = []byte{
-		0x33, 0x3c, 0x33, 0x10, 0x82, 0x4b, 0x7c, 0x68, 0x51, 0x33,
-		0xf2, 0xbe, 0xdb, 0x2c, 0xa4, 0xb8, 0xb4, 0xdf, 0x63, 0x3d,
-	}
+
 	request.Payload.Header.SigData = append(request.Payload.Header.SigData, fakeSignature)
+
+	var b *blockchain.BlockChain
+	monkey.Patch(blockchain.NewBlockChainByBlockHash, func(types.Hash) (*blockchain.BlockChain, error) {
+		return b, nil
+	})
+	var w *worker.Worker
+	monkey.PatchInstanceMethod(reflect.TypeOf(w), "VerifyBlock", func(*worker.Worker) error {
+		return nil
+	})
+	monkey.Patch(signature.Sign, func(signature.Signer, []byte) ([]byte, error) {
+		return nil, fmt.Errorf("get signature failed")
+	})
+	bft.receiveRequest(request)
+
+	monkey.Patch(signature.Sign, func(signature.Signer, []byte) ([]byte, error) {
+		return fakeSignature, nil
+	})
+	//  marshal failed
 	monkey.Patch(json.Marshal, func(interface{}) ([]byte, error) {
 		return nil, fmt.Errorf("marshal proposal msg failed")
 	})
@@ -200,6 +220,8 @@ func TestBftCore_receiveRequest(t *testing.T) {
 	bft.receiveRequest(request)
 	monkey.Unpatch(net.ResolveTCPAddr)
 	monkey.Unpatch(net.DialTCP)
+	monkey.Unpatch(signature.Sign)
+	monkey.UnpatchInstanceMethod(reflect.TypeOf(w), "VerifyBlock")
 	monkey.UnpatchInstanceMethod(reflect.TypeOf(&c), "Write")
 }
 
@@ -295,7 +317,14 @@ func TestBftCore_receiveProposal(t *testing.T) {
 	monkey.PatchInstanceMethod(reflect.TypeOf(w), "VerifyBlock", func(*worker.Worker) error {
 		return nil
 	})
+	monkey.Patch(signature.Sign, func(signature.Signer, []byte) ([]byte, error) {
+		return nil, fmt.Errorf("get signature failed")
+	})
+	bft.receiveProposal(proposal)
 
+	monkey.Patch(signature.Sign, func(signature.Signer, []byte) ([]byte, error) {
+		return fakeSignature, nil
+	})
 	monkey.Patch(json.Marshal, func(interface{}) ([]byte, error) {
 		return nil, fmt.Errorf("marshal proposal msg failed")
 	})
@@ -311,6 +340,7 @@ func TestBftCore_receiveProposal(t *testing.T) {
 	monkey.Unpatch(net.ResolveTCPAddr)
 	monkey.Unpatch(json.Marshal)
 	monkey.Unpatch(blockchain.NewBlockChainByBlockHash)
+	monkey.Unpatch(signature.Sign)
 	monkey.UnpatchInstanceMethod(reflect.TypeOf(w), "VerifyBlock")
 }
 
