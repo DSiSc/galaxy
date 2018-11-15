@@ -332,8 +332,8 @@ func handleConnection(tcpListener *net.TCPListener, bft *bftCore) {
 			proposal := payload.(*messages.ProposalMessage).Proposal
 			log.Info("receive proposal message form node %d with payload %x.",
 				proposal.Id, proposal.Payload.Header.MixDigest)
-			if proposal.Id == bft.master {
-				log.Warn("master %d will not receive proposal message from itself.", bft.master)
+			if proposal.Id != bft.master {
+				log.Warn("only master can issue a proposal.", bft.master)
 				continue
 			}
 			tools.SendEvent(bft, proposal)
