@@ -231,7 +231,7 @@ func (instance *bftCore) maybeCommit() {
 func signDataVerify(account account.Account, sign []byte, digest types.Hash) bool {
 	address, err := signature.Verify(digest, sign)
 	if nil != err {
-		log.Error("verify sign %v failed with public key %v", sign, account.PublicKey)
+		log.Error("verify sign %v failed with err %s", sign, err)
 	}
 	return account.Address == address
 }
