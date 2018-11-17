@@ -71,7 +71,8 @@ func (self *BFTPolicy) ToConsensus(p *common.Proposal) error {
 	}
 	go tools.SendEvent(self.bftCore, request)
 	result := <-self.result
-	log.Info("receive signature %v.", result)
+	p.Block.Header.SigData = result
+	log.Info("To consensus successfully with signature %x.", result)
 	return nil
 }
 

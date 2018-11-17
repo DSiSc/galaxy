@@ -3,7 +3,9 @@ package bft
 import (
 	"fmt"
 	"github.com/DSiSc/craft/log"
+	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/galaxy/consensus/common"
+	"github.com/DSiSc/galaxy/consensus/policy/bft/tools"
 	"github.com/DSiSc/galaxy/participates/config"
 	commonr "github.com/DSiSc/galaxy/role/common"
 	"github.com/DSiSc/monkey"
@@ -114,3 +116,24 @@ func TestBFTPolicy_Halt(t *testing.T) {
 	assert.NotNil(t, result)
 }
 */
+
+func TestBFTPolicy_ToConsensus(t *testing.T) {
+	bft, err := NewBFTPolicy(mockAccounts[0])
+	assert.NotNil(t, bft)
+	assert.Nil(t, err)
+	monkey.Patch(tools.SendEvent, func(tools.Receiver, tools.Event) {
+		bft.result <- mockSignset
+	})
+	proposal := &common.Proposal{
+		Block: &types.Block{
+			Header: &types.Header{
+				Height: 0,
+			},
+		},
+	}
+	assert.Equal(t, 0, len(proposal.Block.Header.SigData))
+	err = bft.ToConsensus(proposal)
+	assert.Nil(t, err)
+	assert.Equal(t, len(mockSignset), len(proposal.Block.Header.SigData))
+	assert.Equal(t, mockSignset, proposal.Block.Header.SigData)
+}
