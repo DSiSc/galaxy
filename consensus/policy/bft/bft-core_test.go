@@ -456,4 +456,5 @@ func TestBftCore_receiveResponse(t *testing.T) {
 	ch := <-bft.result
 	assert.NotNil(t, ch)
 	assert.Equal(t, 3, len(ch))
+	monkey.Unpatch(signature.Verify)
 }

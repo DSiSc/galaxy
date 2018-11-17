@@ -78,6 +78,7 @@ func TestDPOSPolicy_RoleAssignments(t *testing.T) {
 	address := mockAccounts[height+1]
 	assert.Equal(t, common.Master, assignment[address])
 	assert.Equal(t, common.Slave, assignment[mockAccounts[height]])
+	monkey.UnpatchAll()
 }
 
 func TestDPOSPolicy_AppointRole(t *testing.T) {
@@ -118,6 +119,7 @@ func TestDPOSPolicy_AppointRole(t *testing.T) {
 	var fakeAccount account.Account
 	err = dposPolicy.AppointRole(fakeAccount)
 	assert.Equal(t, fmt.Errorf("appoint account is not a delegate"), err)
+	monkey.UnpatchAll()
 }
 
 func TestDPOSPolicy_GetRoles(t *testing.T) {
@@ -163,4 +165,5 @@ func TestDPOSPolicy_GetRoles(t *testing.T) {
 	var fakeAccount account.Account
 	role, err = dposPolicy.GetRoles(fakeAccount)
 	assert.Equal(t, common.UnKnown, role)
+	monkey.UnpatchAll()
 }

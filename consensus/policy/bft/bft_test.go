@@ -81,6 +81,7 @@ func TestBFTPolicy_Start(t *testing.T) {
 		return
 	})
 	bft.Start()
+	monkey.UnpatchInstanceMethod(reflect.TypeOf(b), "Start")
 }
 
 /*
@@ -136,4 +137,5 @@ func TestBFTPolicy_ToConsensus(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, len(mockSignset), len(proposal.Block.Header.SigData))
 	assert.Equal(t, mockSignset, proposal.Block.Header.SigData)
+	monkey.Unpatch(tools.SendEvent)
 }

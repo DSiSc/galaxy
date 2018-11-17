@@ -161,7 +161,7 @@ func TestSoloPolicy_ToConsensus(t *testing.T) {
 	})
 	err = sp.ToConsensus(proposal)
 	asserts.Nil(err)
-
+	monkey.UnpatchAll()
 }
 
 func TestSolo_prepareConsensus(t *testing.T) {
