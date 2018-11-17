@@ -28,7 +28,7 @@ func NewConsensus(participates participates.Participates, conf config.ConsensusC
 		consensus, err = solo.NewSoloPolicy(account)
 	case common.BFT_POLICY:
 		log.Info("Get consensus policy is bft.")
-		consensus, err = bft.NewBFTPolicy(account)
+		consensus, err = bft.NewBFTPolicy(account, conf.Timeout)
 	default:
 		log.Error("Now, we only support solo policy consensus.")
 	}

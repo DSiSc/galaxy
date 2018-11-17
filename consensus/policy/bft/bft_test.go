@@ -23,8 +23,10 @@ func mock_conf(policy string) config.ParticipateConfig {
 	}
 }
 
+var timeout = int64(10)
+
 func TestNewBFTPolicy(t *testing.T) {
-	bft, err := NewBFTPolicy(mockAccounts[0])
+	bft, err := NewBFTPolicy(mockAccounts[0], timeout)
 	assert.NotNil(t, bft)
 	assert.Nil(t, err)
 	assert.Equal(t, common.BFT_POLICY, bft.name)
@@ -35,7 +37,7 @@ func TestNewBFTPolicy(t *testing.T) {
 }
 
 func TestBFTPolicy_PolicyName(t *testing.T) {
-	bft, _ := NewBFTPolicy(mockAccounts[0])
+	bft, _ := NewBFTPolicy(mockAccounts[0], timeout)
 	assert.Equal(t, common.BFT_POLICY, bft.name)
 	assert.Equal(t, bft.name, bft.PolicyName())
 	assert.Equal(t, mockAccounts[0].Extension.Id, bft.bftCore.local.Extension.Id)
@@ -55,7 +57,7 @@ func mockRoleAssignment(master account.Account, accounts []account.Account) map[
 }
 
 func TestBFTPolicy_Initialization(t *testing.T) {
-	bft, err := NewBFTPolicy(mockAccounts[0])
+	bft, err := NewBFTPolicy(mockAccounts[0], timeout)
 	assert.NotNil(t, bft)
 	assert.Nil(t, err)
 
@@ -75,7 +77,7 @@ func TestBFTPolicy_Initialization(t *testing.T) {
 }
 
 func TestBFTPolicy_Start(t *testing.T) {
-	bft, _ := NewBFTPolicy(mockAccounts[0])
+	bft, _ := NewBFTPolicy(mockAccounts[0], timeout)
 	var b *bftCore
 	monkey.PatchInstanceMethod(reflect.TypeOf(b), "Start", func(*bftCore, account.Account) {
 		log.Info("pass it.")
@@ -120,7 +122,7 @@ func TestBFTPolicy_Halt(t *testing.T) {
 */
 
 func TestBFTPolicy_ToConsensus(t *testing.T) {
-	bft, err := NewBFTPolicy(mockAccounts[0])
+	bft, err := NewBFTPolicy(mockAccounts[0], timeout)
 	assert.NotNil(t, bft)
 	assert.Nil(t, err)
 	monkey.Patch(tools.SendEvent, func(tools.Receiver, tools.Event) {
@@ -139,6 +141,7 @@ func TestBFTPolicy_ToConsensus(t *testing.T) {
 	assert.Equal(t, len(mockSignset), len(proposal.Block.Header.SigData))
 	assert.Equal(t, mockSignset, proposal.Block.Header.SigData)
 
+	bft.timeout = time.Duration(2)
 	monkey.Patch(tools.SendEvent, func(tools.Receiver, tools.Event) {
 		time.Sleep(5 * time.Second)
 		bft.result <- mockSignset
