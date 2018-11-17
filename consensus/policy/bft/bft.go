@@ -8,6 +8,7 @@ import (
 	"github.com/DSiSc/galaxy/consensus/policy/bft/tools"
 	commonr "github.com/DSiSc/galaxy/role/common"
 	"github.com/DSiSc/validator/tools/account"
+	"time"
 )
 
 type BFTPolicy struct {
@@ -65,15 +66,23 @@ func (self *BFTPolicy) toConsensus(result messages.SignatureSet) error {
 }
 
 func (self *BFTPolicy) ToConsensus(p *common.Proposal) error {
+	var timeDuration = time.Duration(2)
+	var err error
 	request := &messages.Request{
 		Timestamp: p.Timestamp,
 		Payload:   p.Block,
 	}
+	timer := time.NewTimer(time.Second * timeDuration)
 	go tools.SendEvent(self.bftCore, request)
-	result := <-self.result
-	p.Block.Header.SigData = result
-	log.Info("To consensus successfully with signature %x.", result)
-	return nil
+	select {
+	case result := <-self.result:
+		p.Block.Header.SigData = result
+		log.Info("consensus successfully with signature %x.", result)
+	case <-timer.C:
+		log.Error("consensus timeout in %d seconds.", timeDuration)
+		err = fmt.Errorf("timeout for consensus")
+	}
+	return err
 }
 
 func (self *BFTPolicy) Halt() {

@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"reflect"
 	"testing"
+	"time"
 )
 
 func mock_conf(policy string) config.ParticipateConfig {
@@ -137,5 +138,12 @@ func TestBFTPolicy_ToConsensus(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, len(mockSignset), len(proposal.Block.Header.SigData))
 	assert.Equal(t, mockSignset, proposal.Block.Header.SigData)
+
+	monkey.Patch(tools.SendEvent, func(tools.Receiver, tools.Event) {
+		time.Sleep(5 * time.Second)
+		bft.result <- mockSignset
+	})
+	err = bft.ToConsensus(proposal)
+	assert.NotNil(t, err)
 	monkey.Unpatch(tools.SendEvent)
 }
