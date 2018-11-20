@@ -27,6 +27,7 @@ type bftCore struct {
 	result    chan messages.SignatureSet
 	tunnel    chan int
 	validator map[types.Hash]types.Receipts
+	payloads  map[types.Hash]*types.Block
 }
 
 type signData struct {
@@ -50,6 +51,7 @@ func NewBFTCore(local account.Account, result chan messages.SignatureSet) *bftCo
 		result:    result,
 		tunnel:    make(chan int),
 		validator: make(map[types.Hash]types.Receipts),
+		payloads:  make(map[types.Hash]*types.Block),
 	}
 }
 
@@ -202,6 +204,7 @@ func (instance *bftCore) receiveProposal(proposal *messages.Proposal) {
 		log.Error("marshal proposal msg failed with %v.", err)
 		return
 	}
+	instance.payloads[proposal.Payload.Header.MixDigest] = proposal.Payload
 	err = instance.unicast(masterAccount, msgRaw)
 	if err != nil {
 		log.Error("unicast to master %x failed with error %v.", masterAccount.Address, err)
@@ -306,6 +309,27 @@ func (instance *bftCore) receiveResponse(response *messages.Response) {
 	}
 }
 
+func (instance *bftCore) SendCommit(commit *messages.Commit) {
+	committed := &messages.Message{
+		MessageType: messages.CommitMessageType,
+		Payload: &messages.CommitMessage{
+			Commit: commit,
+		},
+	}
+	msgRaw, err := json.Marshal(committed)
+	if nil != err {
+		log.Error("marshal commit msg failed with %v.", err)
+		return
+	}
+	instance.broadcast(msgRaw)
+}
+
+func (instance *bftCore) receiveCommit(commit *messages.Commit) {
+	// TODO: verify commit and writeblock
+	log.Info("receive commit")
+	return
+}
+
 func (instance *bftCore) ProcessEvent(e tools.Event) tools.Event {
 	var err error
 	log.Debug("replica %d processing event", instance.local.Extension.Id)
@@ -319,8 +343,12 @@ func (instance *bftCore) ProcessEvent(e tools.Event) tools.Event {
 	case *messages.Response:
 		log.Info("receive response from replica %d.", et.Account.Extension.Id)
 		instance.receiveResponse(et)
+	case *messages.Commit:
+		log.Info("receive commit from replica %d.", et.Account.Extension.Id)
+		instance.receiveCommit(et)
 	default:
 		log.Warn("replica %d received an unknown message type %T", instance.local.Extension.Id, et)
+		err = fmt.Errorf("un support type %v", et)
 	}
 	if err != nil {
 		log.Warn(err.Error())
@@ -381,6 +409,9 @@ func handleConnection(tcpListener *net.TCPListener, bft *bftCore) {
 				continue
 			}
 			tools.SendEvent(bft, response)
+		case messages.CommitMessageType:
+			commit := payload.(*messages.CommitMessage).Commit
+			tools.SendEvent(bft, commit)
 		default:
 			if nil == payload {
 				log.Info("receive handshake, omit it.")

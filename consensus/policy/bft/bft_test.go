@@ -31,9 +31,7 @@ func TestNewBFTPolicy(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, common.BFT_POLICY, bft.name)
 	assert.NotNil(t, bft.bftCore)
-	// assert.Equal(t, uint8((conf.Delegates-1)/3), bft.bftCore.tolerance)
 	assert.Equal(t, mockAccounts[0].Extension.Id, bft.bftCore.local.Extension.Id)
-	// assert.Equal(t, mockAccounts[1].Extension.Id, bft.bftCore.master)
 }
 
 func TestBFTPolicy_PolicyName(t *testing.T) {
@@ -149,4 +147,39 @@ func TestBFTPolicy_ToConsensus(t *testing.T) {
 	err = bft.ToConsensus(proposal)
 	assert.NotNil(t, err)
 	monkey.Unpatch(tools.SendEvent)
+}
+
+var MockHash = types.Hash{
+	0x1d, 0xcf, 0x7, 0xba, 0xfc, 0x42, 0xb0, 0x8d, 0xfd, 0x23, 0x9c, 0x45, 0xa4, 0xb9, 0x38, 0xd,
+	0x8d, 0xfe, 0x5d, 0x6f, 0xa7, 0xdb, 0xd5, 0x50, 0xc9, 0x25, 0xb1, 0xb3, 0x4, 0xdc, 0xc5, 0x1c,
+}
+
+func TestBFTPolicy_commit(t *testing.T) {
+	mockAccount := account.Account{
+		Address: types.Address{0x33, 0x3c, 0x33, 0x10, 0x82, 0x4b, 0x7c, 0x68,
+			0x51, 0x33, 0xf2, 0xbe, 0xdb, 0x2c, 0xa4, 0xb8, 0xb4, 0xdf, 0x63, 0x3d},
+		Extension: account.AccountExtension{
+			Id:  0,
+			Url: "127.0.0.1:8080",
+		},
+	}
+	bft, err := NewBFTPolicy(mockAccount, timeout)
+	go bft.Start()
+	assert.NotNil(t, bft)
+	assert.Nil(t, err)
+	block := &types.Block{
+		Header: &types.Header{
+			ChainID:       1,
+			PrevBlockHash: MockHash,
+			StateRoot:     MockHash,
+			TxRoot:        MockHash,
+			ReceiptsRoot:  MockHash,
+			Height:        1,
+			Timestamp:     uint64(time.Now().Unix()),
+			SigData:       mockSignset[:4],
+		},
+		Transactions: make([]*types.Transaction, 0),
+	}
+	bft.bftCore.peers = append(bft.bftCore.peers, mockAccount)
+	bft.commit(block)
 }

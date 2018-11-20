@@ -79,7 +79,7 @@ func TestBftCore_ProcessEvent(t *testing.T) {
 	assert.NotNil(t, bft)
 	id := mockAccounts[0].Extension.Id
 	err := bft.ProcessEvent(nil)
-	assert.Nil(t, err)
+	assert.Equal(t, fmt.Errorf("un support type <nil>"), err)
 
 	var b *blockchain.BlockChain
 	monkey.Patch(blockchain.NewBlockChainByBlockHash, func(types.Hash) (*blockchain.BlockChain, error) {
@@ -167,6 +167,15 @@ func TestBftCore_ProcessEvent(t *testing.T) {
 	ch := <-bft.result
 	assert.NotNil(t, ch)
 	assert.Equal(t, 3, len(ch))
+
+	mockCommit := &messages.Commit{
+		Account:    mockAccounts[0],
+		Timestamp:  time.Now().Unix(),
+		Digest:     mockHash,
+		Signatures: mockSignset,
+		BlockHash:  mockHash,
+	}
+	bft.ProcessEvent(mockCommit)
 	monkey.Unpatch(net.ResolveTCPAddr)
 	monkey.Unpatch(net.DialTCP)
 	monkey.Unpatch(signature.Verify)

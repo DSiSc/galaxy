@@ -3,6 +3,7 @@ package bft
 import (
 	"fmt"
 	"github.com/DSiSc/craft/log"
+	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/galaxy/consensus/common"
 	"github.com/DSiSc/galaxy/consensus/policy/bft/messages"
 	"github.com/DSiSc/galaxy/consensus/policy/bft/tools"
@@ -63,8 +64,15 @@ func (self *BFTPolicy) Start() {
 	self.bftCore.Start(self.account)
 }
 
-func (self *BFTPolicy) toConsensus(result messages.SignatureSet) error {
-	return nil
+func (self *BFTPolicy) commit(block *types.Block) {
+	commit := &messages.Commit{
+		Account:    self.account,
+		Timestamp:  time.Now().Unix(),
+		Digest:     block.Header.MixDigest,
+		Signatures: block.Header.SigData,
+		BlockHash:  block.HeaderHash,
+	}
+	self.bftCore.SendCommit(commit)
 }
 
 func (self *BFTPolicy) ToConsensus(p *common.Proposal) error {
@@ -78,6 +86,8 @@ func (self *BFTPolicy) ToConsensus(p *common.Proposal) error {
 	select {
 	case result := <-self.result:
 		p.Block.Header.SigData = result
+		p.Block.HeaderHash = common.HeaderHash(p.Block)
+		go self.commit(p.Block)
 		log.Info("consensus successfully with signature %x.", result)
 	case <-timer.C:
 		log.Error("consensus timeout in %d seconds.", self.timeout)
