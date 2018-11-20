@@ -108,7 +108,7 @@ func (instance *bftCore) receiveRequest(request *messages.Request) {
 		log.Error("request must have signature from producer.")
 		return
 	}
-	err := instance.verifyPayload(request.Payload)
+	receipts, err := instance.verifyPayload(request.Payload)
 	if nil != err {
 		log.Error("proposal verified failed with error %v.", err)
 		return
@@ -117,6 +117,15 @@ func (instance *bftCore) receiveRequest(request *messages.Request) {
 	if nil != err {
 		log.Error("archive proposal signature failed with error %v.", err)
 		return
+	}
+	if values, ok := instance.validator[request.Payload.Header.MixDigest]; !ok {
+		log.Info("add record payload %x.", request.Payload.Header.MixDigest)
+		instance.validator[request.Payload.Header.MixDigest] = &payloadSets{
+			block:    request.Payload,
+			receipts: receipts,
+		}
+	} else {
+		values.receipts = receipts
 	}
 	proposal := &messages.Message{
 		MessageType: messages.ProposalMessageType,
@@ -183,7 +192,7 @@ func (instance *bftCore) receiveProposal(proposal *messages.Proposal) {
 		log.Error("proposal signature not from master, please confirm.")
 		return
 	}
-	err := instance.verifyPayload(proposal.Payload)
+	receipts, err := instance.verifyPayload(proposal.Payload)
 	if nil != err {
 		log.Error("proposal verified failed with error %v.", err)
 		return
@@ -192,6 +201,16 @@ func (instance *bftCore) receiveProposal(proposal *messages.Proposal) {
 	if nil != err {
 		log.Error("archive proposal signature failed with error %v.", err)
 		return
+	}
+	// ensure reserve receipts must be verified and signed
+	if values, ok := instance.validator[proposal.Payload.Header.MixDigest]; !ok {
+		log.Info("add record payload %x.", proposal.Payload.Header.MixDigest)
+		instance.validator[proposal.Payload.Header.MixDigest] = &payloadSets{
+			block:    proposal.Payload,
+			receipts: receipts,
+		}
+	} else {
+		values.receipts = receipts
 	}
 	response := &messages.Message{
 		MessageType: messages.ResponseMessageType,
@@ -216,28 +235,20 @@ func (instance *bftCore) receiveProposal(proposal *messages.Proposal) {
 	}
 }
 
-func (instance *bftCore) verifyPayload(payload *types.Block) error {
+func (instance *bftCore) verifyPayload(payload *types.Block) (types.Receipts, error) {
 	blockStore, err := blockchain.NewBlockChainByBlockHash(payload.Header.PrevBlockHash)
 	if nil != err {
 		log.Error("Get NewBlockChainByBlockHash failed.")
-		return err
+		return nil, err
 	}
 	worker := worker.NewWorker(blockStore, payload)
 	err = worker.VerifyBlock()
 	if err != nil {
 		log.Error("The block %d verified failed with err %v.", payload.Header.Height, err)
-		return err
+		return nil, err
 	}
-	if values, ok := instance.validator[payload.Header.MixDigest]; !ok {
-		log.Info("add record payload %x.", payload.Header.MixDigest)
-		instance.validator[payload.Header.MixDigest] = &payloadSets{
-			block:    payload,
-			receipts: worker.GetReceipts(),
-		}
-	} else {
-		values.receipts = worker.GetReceipts()
-	}
-	return nil
+
+	return worker.GetReceipts(), nil
 }
 
 func (instance *bftCore) signPayload(digest types.Hash) ([]byte, error) {

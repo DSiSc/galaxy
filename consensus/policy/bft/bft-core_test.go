@@ -378,8 +378,8 @@ func TestBftCore_receiveProposal(t *testing.T) {
 	})
 	bft.digest = proposal.Payload.Header.MixDigest
 	bft.receiveProposal(proposal)
-	receipts := bft.validator[bft.digest].receipts
-	assert.Equal(t, receipts, bb)
+	_, ok := bft.validator[bft.digest]
+	assert.Equal(t, false, ok)
 
 	monkey.Patch(signature.Sign, func(signature.Signer, []byte) ([]byte, error) {
 		return fakeSignature, nil
@@ -388,6 +388,8 @@ func TestBftCore_receiveProposal(t *testing.T) {
 		return nil, fmt.Errorf("marshal proposal msg failed")
 	})
 	bft.receiveProposal(proposal)
+	receipts := bft.validator[bft.digest].receipts
+	assert.Equal(t, receipts, bb)
 
 	monkey.Patch(json.Marshal, func(interface{}) ([]byte, error) {
 		return nil, nil
