@@ -26,7 +26,7 @@ type bftCore struct {
 	digest    types.Hash
 	result    chan messages.SignatureSet
 	tunnel    chan int
-	validator map[types.Hash]types.Receipts
+	validator map[types.Hash]*payloadSets
 	payloads  map[types.Hash]*types.Block
 }
 
@@ -41,6 +41,11 @@ func (s *signData) addSignature(account account.Account, sign []byte) {
 	s.signatures = append(s.signatures, sign)
 }
 
+type payloadSets struct {
+	block    *types.Block
+	receipts types.Receipts
+}
+
 func NewBFTCore(local account.Account, result chan messages.SignatureSet) *bftCore {
 	return &bftCore{
 		local: local,
@@ -50,7 +55,7 @@ func NewBFTCore(local account.Account, result chan messages.SignatureSet) *bftCo
 		},
 		result:    result,
 		tunnel:    make(chan int),
-		validator: make(map[types.Hash]types.Receipts),
+		validator: make(map[types.Hash]*payloadSets),
 		payloads:  make(map[types.Hash]*types.Block),
 	}
 }
@@ -223,7 +228,15 @@ func (instance *bftCore) verifyPayload(payload *types.Block) error {
 		log.Error("The block %d verified failed with err %v.", payload.Header.Height, err)
 		return err
 	}
-	instance.validator[instance.digest] = worker.GetReceipts()
+	if values, ok := instance.validator[payload.Header.MixDigest]; !ok {
+		log.Info("add record payload %x.", payload.Header.MixDigest)
+		instance.validator[payload.Header.MixDigest] = &payloadSets{
+			block:    payload,
+			receipts: worker.GetReceipts(),
+		}
+	} else {
+		values.receipts = worker.GetReceipts()
+	}
 	return nil
 }
 
@@ -325,7 +338,7 @@ func (instance *bftCore) SendCommit(commit *messages.Commit) {
 }
 
 func (instance *bftCore) receiveCommit(commit *messages.Commit) {
-	// TODO: verify commit and writeblock
+	// TODO: verify commit and write block
 	log.Info("receive commit")
 	return
 }

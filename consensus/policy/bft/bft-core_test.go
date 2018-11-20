@@ -337,7 +337,8 @@ func TestBftCore_receiveProposal(t *testing.T) {
 		Timestamp: 1535414400,
 		Payload: &types.Block{
 			Header: &types.Header{
-				Height: 0,
+				Height:    0,
+				MixDigest: mockHash,
 			},
 		},
 	}
@@ -375,9 +376,9 @@ func TestBftCore_receiveProposal(t *testing.T) {
 	monkey.Patch(signature.Sign, func(signature.Signer, []byte) ([]byte, error) {
 		return nil, fmt.Errorf("get signature failed")
 	})
-	bft.digest = mockHash
+	bft.digest = proposal.Payload.Header.MixDigest
 	bft.receiveProposal(proposal)
-	receipts := bft.validator[bft.digest]
+	receipts := bft.validator[bft.digest].receipts
 	assert.Equal(t, receipts, bb)
 
 	monkey.Patch(signature.Sign, func(signature.Signer, []byte) ([]byte, error) {
