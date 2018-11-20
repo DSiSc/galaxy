@@ -12,6 +12,7 @@ import (
 	"github.com/DSiSc/validator/tools/signature"
 	"github.com/DSiSc/validator/tools/signature/keypair"
 	"github.com/DSiSc/validator/worker"
+	"github.com/DSiSc/validator/worker/common"
 	"github.com/stretchr/testify/assert"
 	"net"
 	"reflect"
@@ -356,10 +357,19 @@ func TestBftCore_receiveProposal(t *testing.T) {
 	monkey.PatchInstanceMethod(reflect.TypeOf(w), "VerifyBlock", func(*worker.Worker) error {
 		return nil
 	})
+	var bb types.Receipts
+	r := common.NewReceipt(nil, false, uint64(10))
+	bb = append(bb, r)
+	monkey.PatchInstanceMethod(reflect.TypeOf(w), "GetReceipts", func(*worker.Worker) types.Receipts {
+		return bb
+	})
 	monkey.Patch(signature.Sign, func(signature.Signer, []byte) ([]byte, error) {
 		return nil, fmt.Errorf("get signature failed")
 	})
+	bft.digest = mockHash
 	bft.receiveProposal(proposal)
+	receipts := bft.validator[bft.digest]
+	assert.Equal(t, receipts, bb)
 
 	monkey.Patch(signature.Sign, func(signature.Signer, []byte) ([]byte, error) {
 		return fakeSignature, nil

@@ -26,6 +26,7 @@ type bftCore struct {
 	digest    types.Hash
 	result    chan messages.SignatureSet
 	tunnel    chan int
+	validator map[types.Hash]types.Receipts
 }
 
 type signData struct {
@@ -46,8 +47,9 @@ func NewBFTCore(local account.Account, result chan messages.SignatureSet) *bftCo
 			signatures: make([][]byte, 0),
 			signMap:    make(map[account.Account][]byte),
 		},
-		result: result,
-		tunnel: make(chan int),
+		result:    result,
+		tunnel:    make(chan int),
+		validator: make(map[types.Hash]types.Receipts),
 	}
 }
 
@@ -218,6 +220,7 @@ func (instance *bftCore) verifyPayload(payload *types.Block) error {
 		log.Error("The block %d verified failed with err %v.", payload.Header.Height, err)
 		return err
 	}
+	instance.validator[instance.digest] = worker.GetReceipts()
 	return nil
 }
 
