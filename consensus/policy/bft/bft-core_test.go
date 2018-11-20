@@ -388,15 +388,54 @@ func TestBftCore_receiveResponse(t *testing.T) {
 	bft := NewBFTCore(mockAccounts[0], sigChannel)
 	assert.NotNil(t, bft)
 	bft.peers = mockAccounts
+	monkey.Patch(signature.Verify, func(_ keypair.PublicKey, sign []byte) (types.Address, error) {
+		var address types.Address
+		if bytes.Equal(sign[:], mockSignset[0]) {
+			address = mockAccounts[0].Address
+		}
+		if bytes.Equal(sign[:], mockSignset[1]) {
+			address = mockAccounts[1].Address
+		}
+		if bytes.Equal(sign[:], mockSignset[2]) {
+			address = mockAccounts[2].Address
+		}
+		if bytes.Equal(sign[:], mockSignset[3]) {
+			address = mockAccounts[3].Address
+		}
+		return address, nil
+	})
+	bft.digest = mockHash
+	response := &messages.Response{
+		Account:   mockAccounts[3],
+		Timestamp: time.Now().Unix(),
+		Digest:    mockHash,
+		Signature: mockSignset[3],
+	}
+	bft.signature.addSignature(mockAccounts[0], mockSignset[0])
+	bft.signature.addSignature(mockAccounts[1], mockSignset[1])
+	bft.signature.addSignature(mockAccounts[2], mockSignset[2])
+	bft.receiveResponse(response)
+	ch := <-bft.result
+	assert.Equal(t, len(mockSignset[:4]), len(ch))
+	monkey.Unpatch(signature.Verify)
+}
+
+/*
+func TestBftCore_receiveResponse(t *testing.T) {
+	sigChannel := make(chan messages.SignatureSet)
+	bft := NewBFTCore(mockAccounts[0], sigChannel)
+	assert.NotNil(t, bft)
+	bft.peers = mockAccounts
 	id := mockAccounts[0].Extension.Id
 
-	// log.Info("only master need to process response.")
 	response := &messages.Response{
 		Account:   mockAccounts[0],
 		Timestamp: time.Now().Unix(),
 		Digest:    mockHash,
 		Signature: mockSignset[0],
 	}
+	// only master need to process response
+	bft.commit = false
 	bft.master = id + 1
 	bft.receiveResponse(response)
 
@@ -428,33 +467,46 @@ func TestBftCore_receiveResponse(t *testing.T) {
 		}
 		return address, nil
 	})
-	bft.commit = true
+	bft.signature.signMap[mockAccounts[0]] = mockSignset[3]
 	bft.receiveResponse(response)
+	time.Sleep(5 * time.Second)
 
-	bft.signature.signMap[mockAccounts[0]] = mockSignset[1]
-	bft.receiveResponse(response)
-
-	bft.commit = false
-	bft.signature.signMap[mockAccounts[0]] = mockSignset[0]
-	bft.receiveResponse(response)
-
-	bft.signature.signatures = mockSignset[:4]
+	response = &messages.Response{
+		Account:   mockAccounts[1],
+		Timestamp: time.Now().Unix(),
+		Digest:    mockHash,
+		Signature: mockSignset[1],
+	}
 	bft.signature.addSignature(mockAccounts[0], mockSignset[0])
-	bft.signature.addSignature(mockAccounts[1], mockSignset[1])
-	bft.signature.addSignature(mockAccounts[2], mockSignset[2])
 	bft.receiveResponse(response)
-
-	bft.signature.signatures = mockSignset[:3]
-	bft.signature.signMap[mockAccounts[2]] = mockSignset[3]
-	bft.receiveResponse(response)
-
-	bft.tolerance = 1
-	bft.signature.signMap[mockAccounts[2]] = mockSignset[2]
-	go func() {
-		bft.receiveResponse(response)
-	}()
 	ch := <-bft.result
-	assert.NotNil(t, ch)
-	assert.Equal(t, 3, len(ch))
+	assert.Equal(t, len(mockSignset[:2]), len(ch))
+
+	assert.NotNil(t, bft)
+	bft.peers = mockAccounts
+	response = &messages.Response{
+		Account:   mockAccounts[2],
+		Timestamp: time.Now().Unix(),
+		Digest:    mockHash,
+		Signature: mockSignset[2],
+	}
+	bft.commit = false
+	bft.receiveResponse(response)
+	ch = <-bft.result
+	assert.Equal(t, len(mockSignset[:3]), len(ch))
+
+	assert.NotNil(t, bft)
+	bft.peers = mockAccounts
+	response = &messages.Response{
+		Account:   mockAccounts[3],
+		Timestamp: time.Now().Unix(),
+		Digest:    mockHash,
+		Signature: mockSignset[3],
+	}
+	bft.commit = false
+	bft.receiveResponse(response)
+	ch = <-bft.result
+	assert.Equal(t, len(mockSignset[:4]), len(ch))
 	monkey.Unpatch(signature.Verify)
 }
+*/

@@ -3,6 +3,7 @@ package bft
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"github.com/DSiSc/blockchain"
 	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/craft/types"
@@ -12,6 +13,7 @@ import (
 	"github.com/DSiSc/validator/tools/signature"
 	"github.com/DSiSc/validator/worker"
 	"net"
+	"time"
 )
 
 type bftCore struct {
@@ -23,6 +25,8 @@ type bftCore struct {
 	commit    bool
 	digest    types.Hash
 	result    chan messages.SignatureSet
+	timer     *time.Timer
+	tunnel    chan int
 }
 
 type signData struct {
@@ -44,6 +48,7 @@ func NewBFTCore(local account.Account, result chan messages.SignatureSet) *bftCo
 			signMap:    make(map[account.Account][]byte),
 		},
 		result: result,
+		tunnel: make(chan int),
 	}
 }
 
@@ -198,7 +203,8 @@ func (instance *bftCore) signPayload(digest types.Hash) ([]byte, error) {
 	return sign, nil
 }
 
-func (instance *bftCore) maybeCommit() {
+func (instance *bftCore) maybeCommit() ([][]byte, error) {
+	var reallySignature = make([][]byte, 0)
 	if uint8(len(instance.signature.signatures)) < uint8(len(instance.peers))-instance.tolerance {
 		log.Info("commit need %d signature, while now is %d.",
 			uint8(len(instance.peers))-instance.tolerance, len(instance.signature.signatures))
@@ -207,9 +213,8 @@ func (instance *bftCore) maybeCommit() {
 	signMap := instance.signature.signMap
 	if len(signData) != len(signMap) {
 		log.Error("length of signData[%d] and signMap[%d] does not match.", len(signData), len(signMap))
-		return
+		return reallySignature, fmt.Errorf("signData and signMap does not match")
 	}
-	var reallySignature = make([][]byte, 0)
 	var suspiciousAccount = make([]account.Account, 0)
 	for account, sign := range signMap {
 		if signDataVerify(account, sign, instance.digest) {
@@ -222,10 +227,9 @@ func (instance *bftCore) maybeCommit() {
 	if uint8(len(reallySignature)) < uint8(len(instance.peers))-instance.tolerance {
 		log.Error("really signature %d less than need %d.",
 			len(reallySignature), uint8(len(instance.peers))-instance.tolerance)
-		return
+		return reallySignature, fmt.Errorf("signature not satisfy")
 	}
-	instance.commit = true
-	instance.result <- reallySignature
+	return reallySignature, nil
 }
 
 func signDataVerify(account account.Account, sign []byte, digest types.Hash) bool {
@@ -236,7 +240,46 @@ func signDataVerify(account account.Account, sign []byte, digest types.Hash) boo
 	return account.Address == address
 }
 
+func (instance *bftCore) toCommit() {
+	for {
+		select {
+		case <-instance.timer.C:
+			log.Info("to commit timeout.")
+			signatures, err := instance.maybeCommit()
+			if nil != err {
+				log.Error("maybe commit failed with error %s.", err)
+			}
+			instance.commit = true
+			instance.result <- signatures
+			instance.timer = nil
+			return
+		case <-instance.tunnel:
+			log.Info("receive tunnel")
+			signatures, _ := instance.maybeCommit()
+			if len(signatures) == len(instance.peers) {
+				instance.commit = true
+				instance.result <- signatures
+				log.Info("receive all response before timeout")
+				instance.timer = nil
+				return
+			}
+			log.Warn("get %d signatures of %d peers.", len(signatures), len(instance.peers))
+		}
+	}
+}
+
 func (instance *bftCore) receiveResponse(response *messages.Response) {
+	if nil == instance.timer {
+		instance.timer = time.NewTimer(5 * time.Second)
+	}
+	if !instance.commit {
+		log.Info("try to commit the response.")
+		go instance.toCommit()
+	} else {
+		log.Info("response has be committed, ignore response from %x.", response.Account.Address)
+		return
+	}
+
 	isMaster := instance.local.Extension.Id == instance.master
 	if !isMaster {
 		log.Info("only master need to process response.")
@@ -254,21 +297,17 @@ func (instance *bftCore) receiveResponse(response *messages.Response) {
 	}
 	if sign, ok := instance.signature.signMap[peer]; !ok {
 		instance.signature.addSignature(peer, response.Signature)
+		log.Info("try to notify toCommit.")
+		instance.tunnel <- 1
 	} else {
 		// check signature
 		if !bytes.Equal(sign, response.Signature) {
 			log.Error("receive a different signature from the same validator %x, which exists is %x, while response is %x.",
 				peer.Address, sign, response.Signature)
-			return
 		}
 		log.Warn("receive duplicate signature from the same validator, ignore it.")
 	}
-	if !instance.commit {
-		log.Info("try to commit the response.")
-		instance.maybeCommit()
-	} else {
-		log.Warn("response has been committed already.")
-	}
+	log.Info("response from %x as been committed success.", response.Account.Address)
 }
 
 func (instance *bftCore) ProcessEvent(e tools.Event) tools.Event {
