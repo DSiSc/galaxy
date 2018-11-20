@@ -367,6 +367,7 @@ func (instance *bftCore) receiveCommit(commit *messages.Commit) {
 			log.Error("get NewBlockChainByHash by hash %x failed with error %s.", payload.block.Header.PrevBlockHash, err)
 			return
 		}
+		payload.block.HeaderHash = common.HeaderHash(payload.block)
 		err = chain.WriteBlockWithReceipts(payload.block, payload.receipts)
 		if nil != err {
 			payload.block.Header.SigData = make([][]byte, 0)
