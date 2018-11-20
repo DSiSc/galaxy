@@ -25,7 +25,6 @@ type bftCore struct {
 	commit    bool
 	digest    types.Hash
 	result    chan messages.SignatureSet
-	timer     *time.Timer
 	tunnel    chan int
 }
 
@@ -134,10 +133,10 @@ func (instance *bftCore) receiveRequest(request *messages.Request) {
 
 func (instance *bftCore) waitResponse() {
 	log.Warn("set timer with 5 second.")
-	instance.timer = time.NewTimer(5 * time.Second)
+	timer := time.NewTimer(5 * time.Second)
 	for {
 		select {
-		case <-instance.timer.C:
+		case <-timer.C:
 			log.Info("loop response timeout.")
 			signatures, err := instance.maybeCommit()
 			if nil != err {
