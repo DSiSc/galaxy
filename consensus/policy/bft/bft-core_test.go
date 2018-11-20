@@ -158,6 +158,7 @@ func TestBftCore_ProcessEvent(t *testing.T) {
 	bft.signature.addSignature(bft.peers[2], mockSignset[2])
 	bft.tolerance = uint8((len(bft.peers) - 1) / 3)
 	bft.digest = mockHash
+	go bft.waitResponse()
 	go func() {
 		err = bft.ProcessEvent(mockResponse)
 		assert.Nil(t, err)
@@ -388,6 +389,16 @@ func TestBftCore_receiveResponse(t *testing.T) {
 	bft := NewBFTCore(mockAccounts[0], sigChannel)
 	assert.NotNil(t, bft)
 	bft.peers = mockAccounts
+	bft.digest = mockHash
+	response := &messages.Response{
+		Account:   mockAccounts[1],
+		Timestamp: time.Now().Unix(),
+		Digest:    mockHash,
+		Signature: mockSignset[2],
+	}
+	bft.signature.addSignature(mockAccounts[0], mockSignset[0])
+	bft.signature.addSignature(mockAccounts[1], mockSignset[1])
+	go bft.waitResponse()
 	monkey.Patch(signature.Verify, func(_ keypair.PublicKey, sign []byte) (types.Address, error) {
 		var address types.Address
 		if bytes.Equal(sign[:], mockSignset[0]) {
@@ -404,18 +415,32 @@ func TestBftCore_receiveResponse(t *testing.T) {
 		}
 		return address, nil
 	})
-	bft.digest = mockHash
-	response := &messages.Response{
+	bft.receiveResponse(response)
+	ch := <-bft.result
+	assert.Equal(t, 2, len(ch))
+
+	response = &messages.Response{
+		Account:   mockAccounts[2],
+		Timestamp: time.Now().Unix(),
+		Digest:    mockHash,
+		Signature: mockSignset[2],
+	}
+	go bft.waitResponse()
+	bft.commit = false
+	bft.receiveResponse(response)
+	ch = <-bft.result
+	assert.Equal(t, len(mockSignset[:3]), len(ch))
+
+	response = &messages.Response{
 		Account:   mockAccounts[3],
 		Timestamp: time.Now().Unix(),
 		Digest:    mockHash,
 		Signature: mockSignset[3],
 	}
-	bft.signature.addSignature(mockAccounts[0], mockSignset[0])
-	bft.signature.addSignature(mockAccounts[1], mockSignset[1])
-	bft.signature.addSignature(mockAccounts[2], mockSignset[2])
+	go bft.waitResponse()
+	bft.commit = false
 	bft.receiveResponse(response)
-	ch := <-bft.result
+	ch = <-bft.result
 	assert.Equal(t, len(mockSignset[:4]), len(ch))
 	monkey.Unpatch(signature.Verify)
 }
