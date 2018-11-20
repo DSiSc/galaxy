@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/DSiSc/blockchain"
 	"github.com/DSiSc/craft/types"
+	commonc "github.com/DSiSc/galaxy/consensus/common"
 	"github.com/DSiSc/galaxy/consensus/policy/bft/messages"
 	"github.com/DSiSc/monkey"
 	"github.com/DSiSc/validator/tools/account"
@@ -467,93 +468,61 @@ func TestBftCore_receiveResponse(t *testing.T) {
 	monkey.Unpatch(signature.Verify)
 }
 
-/*
-func TestBftCore_receiveResponse(t *testing.T) {
+func TestBftCore_ProcessEvent2(t *testing.T) {
 	sigChannel := make(chan messages.SignatureSet)
 	bft := NewBFTCore(mockAccounts[0], sigChannel)
 	assert.NotNil(t, bft)
-	bft.peers = mockAccounts
-	id := mockAccounts[0].Extension.Id
-
-	response := &messages.Response{
-		Account:   mockAccounts[0],
-		Timestamp: time.Now().Unix(),
-		Digest:    mockHash,
-		Signature: mockSignset[0],
+	block0 := &types.Block{
+		Header: &types.Header{
+			Height:    1,
+			MixDigest: mockHash,
+			SigData:   mockSignset,
+		},
 	}
-	// only master need to process response
-	bft.commit = false
-	bft.master = id + 1
-	bft.receiveResponse(response)
-
-	// log.Error("received response digest %x not in coincidence with reserved
-	bft.master = id
-	bft.digest = types.Hash{
-		0xbe, 0x79, 0x1d, 0x4a, 0xf9, 0x64, 0x8f, 0xc3, 0x7f, 0x94, 0xeb, 0x36, 0x53, 0x19, 0xf6, 0xd0,
-		0xa9, 0x78, 0x9f, 0x9c, 0x22, 0x47, 0x2c, 0xa7, 0xa6, 0x12, 0xa9, 0xca, 0x4, 0x13, 0xc1, 0x4,
+	hashBlock0 := commonc.HeaderHash(block0)
+	mockCommit := &messages.Commit{
+		Account:    mockAccounts[0],
+		Timestamp:  time.Now().Unix(),
+		Digest:     mockHash,
+		Signatures: mockSignset,
+		BlockHash:  hashBlock0,
 	}
-	bft.receiveResponse(response)
+	bft.ProcessEvent(mockCommit)
 
-	// log.Error("signature and response sender not in coincidence.")
-	bft.digest = mockHash
-	bft.receiveResponse(response)
+	bft.validator[mockHash] = &payloadSets{
+		block: &types.Block{
+			Header: &types.Header{
+				Height:    2,
+				MixDigest: mockHash,
+			},
+		},
+	}
+	bft.ProcessEvent(mockCommit)
 
-	monkey.Patch(signature.Verify, func(_ keypair.PublicKey, sign []byte) (types.Address, error) {
-		var address types.Address
-		if bytes.Equal(sign[:], mockSignset[0]) {
-			address = mockAccounts[0].Address
-		}
-		if bytes.Equal(sign[:], mockSignset[1]) {
-			address = mockAccounts[1].Address
-		}
-		if bytes.Equal(sign[:], mockSignset[2]) {
-			address = mockAccounts[2].Address
-		}
-		if bytes.Equal(sign[:], mockSignset[3]) {
-			address = mockAccounts[3].Address
-		}
-		return address, nil
+	bft.validator[mockHash] = &payloadSets{
+		block: &types.Block{
+			Header: &types.Header{
+				Height:    1,
+				MixDigest: mockHash,
+			},
+		},
+	}
+	bft.ProcessEvent(mockCommit)
+	assert.Equal(t, 0, len(bft.validator[mockHash].block.Header.SigData))
+
+	var b *blockchain.BlockChain
+	monkey.Patch(blockchain.NewBlockChainByHash, func(types.Hash) (*blockchain.BlockChain, error) {
+		return b, nil
 	})
-	bft.signature.signMap[mockAccounts[0]] = mockSignset[3]
-	bft.receiveResponse(response)
-	time.Sleep(5 * time.Second)
+	monkey.PatchInstanceMethod(reflect.TypeOf(b), "WriteBlockWithReceipts", func(*blockchain.BlockChain, *types.Block, []*types.Receipt) error {
+		return fmt.Errorf("write failed")
+	})
+	bft.ProcessEvent(mockCommit)
+	assert.Equal(t, 0, len(bft.validator[mockHash].block.Header.SigData))
 
-	response = &messages.Response{
-		Account:   mockAccounts[1],
-		Timestamp: time.Now().Unix(),
-		Digest:    mockHash,
-		Signature: mockSignset[1],
-	}
-	bft.signature.addSignature(mockAccounts[0], mockSignset[0])
-	bft.receiveResponse(response)
-	ch := <-bft.result
-	assert.Equal(t, len(mockSignset[:2]), len(ch))
-
-	assert.NotNil(t, bft)
-	bft.peers = mockAccounts
-	response = &messages.Response{
-		Account:   mockAccounts[2],
-		Timestamp: time.Now().Unix(),
-		Digest:    mockHash,
-		Signature: mockSignset[2],
-	}
-	bft.commit = false
-	bft.receiveResponse(response)
-	ch = <-bft.result
-	assert.Equal(t, len(mockSignset[:3]), len(ch))
-
-	assert.NotNil(t, bft)
-	bft.peers = mockAccounts
-	response = &messages.Response{
-		Account:   mockAccounts[3],
-		Timestamp: time.Now().Unix(),
-		Digest:    mockHash,
-		Signature: mockSignset[3],
-	}
-	bft.commit = false
-	bft.receiveResponse(response)
-	ch = <-bft.result
-	assert.Equal(t, len(mockSignset[:4]), len(ch))
-	monkey.Unpatch(signature.Verify)
+	monkey.PatchInstanceMethod(reflect.TypeOf(b), "WriteBlockWithReceipts", func(*blockchain.BlockChain, *types.Block, []*types.Receipt) error {
+		return nil
+	})
+	bft.ProcessEvent(mockCommit)
+	assert.Equal(t, len(mockSignset), len(bft.validator[mockHash].block.Header.SigData))
 }
-*/

@@ -7,6 +7,7 @@ import (
 	"github.com/DSiSc/blockchain"
 	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/craft/types"
+	"github.com/DSiSc/galaxy/consensus/common"
 	"github.com/DSiSc/galaxy/consensus/policy/bft/messages"
 	"github.com/DSiSc/galaxy/consensus/policy/bft/tools"
 	"github.com/DSiSc/validator/tools/account"
@@ -349,9 +350,31 @@ func (instance *bftCore) SendCommit(commit *messages.Commit) {
 }
 
 func (instance *bftCore) receiveCommit(commit *messages.Commit) {
-	// TODO: verify commit and write block
 	log.Info("receive commit")
-	return
+	if payload, ok := instance.validator[commit.Digest]; ok {
+		payload.block.Header.SigData = commit.Signatures
+		blockHash := common.HeaderHash(payload.block)
+		if !bytes.Equal(blockHash[:], commit.BlockHash[:]) {
+			log.Error("receive commit not consist, commit is %x, while compute is %x.", commit.BlockHash, blockHash)
+			// init sign data
+			payload.block.Header.SigData = make([][]byte, 0)
+			return
+		}
+		// TODO: verify signature loop
+		chain, err := blockchain.NewBlockChainByHash(payload.block.Header.PrevBlockHash)
+		if nil != err {
+			payload.block.Header.SigData = make([][]byte, 0)
+			log.Error("get NewBlockChainByHash by hash %x failed with error %s.", payload.block.Header.PrevBlockHash, err)
+			return
+		}
+		err = chain.WriteBlockWithReceipts(payload.block, payload.receipts)
+		if nil != err {
+			payload.block.Header.SigData = make([][]byte, 0)
+			log.Error("call WriteBlockWithReceipts failed with", payload.block.Header.PrevBlockHash, err)
+		}
+	} else {
+		log.Error("payload with digest %x not found, please confirm.", commit.Digest)
+	}
 }
 
 func (instance *bftCore) ProcessEvent(e tools.Event) tools.Event {
