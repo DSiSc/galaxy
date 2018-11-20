@@ -361,7 +361,7 @@ func (instance *bftCore) receiveCommit(commit *messages.Commit) {
 			return
 		}
 		// TODO: verify signature loop
-		chain, err := blockchain.NewBlockChainByHash(payload.block.Header.PrevBlockHash)
+		chain, err := blockchain.NewBlockChainByBlockHash(payload.block.Header.PrevBlockHash)
 		if nil != err {
 			payload.block.Header.SigData = make([][]byte, 0)
 			log.Error("get NewBlockChainByHash by hash %x failed with error %s.", payload.block.Header.PrevBlockHash, err)

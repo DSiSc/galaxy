@@ -511,7 +511,7 @@ func TestBftCore_ProcessEvent2(t *testing.T) {
 	assert.Equal(t, 0, len(bft.validator[mockHash].block.Header.SigData))
 
 	var b *blockchain.BlockChain
-	monkey.Patch(blockchain.NewBlockChainByHash, func(types.Hash) (*blockchain.BlockChain, error) {
+	monkey.Patch(blockchain.NewBlockChainByBlockHash, func(types.Hash) (*blockchain.BlockChain, error) {
 		return b, nil
 	})
 	monkey.PatchInstanceMethod(reflect.TypeOf(b), "WriteBlockWithReceipts", func(*blockchain.BlockChain, *types.Block, []*types.Receipt) error {
@@ -525,4 +525,5 @@ func TestBftCore_ProcessEvent2(t *testing.T) {
 	})
 	bft.ProcessEvent(mockCommit)
 	assert.Equal(t, len(mockSignset), len(bft.validator[mockHash].block.Header.SigData))
+	monkey.UnpatchAll()
 }
