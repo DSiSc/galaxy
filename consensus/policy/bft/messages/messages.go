@@ -41,6 +41,7 @@ type Commit struct {
 	Signatures SignatureSet
 	BlockHash  types.Hash
 	Digest     types.Hash
+	Result     *ConsensusResult
 }
 
 type MessageType string

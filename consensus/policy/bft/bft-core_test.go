@@ -176,6 +176,10 @@ func TestBftCore_ProcessEvent(t *testing.T) {
 		Digest:     mockHash,
 		Signatures: mockSignset,
 		BlockHash:  mockHash,
+		Result: &messages.ConsensusResult{
+			Signatures: mockSignset,
+			Result:     nil,
+		},
 	}
 	bft.ProcessEvent(mockCommit)
 	monkey.Unpatch(net.ResolveTCPAddr)
@@ -194,7 +198,12 @@ func TestBftCore_Start(t *testing.T) {
 			Url: "127.0.0.1:8080",
 		},
 	}
+	var fakePayload = []byte{
+		0x33, 0x3c, 0x33, 0x10, 0x82, 0x4b, 0x7c, 0x68, 0x51, 0x33,
+		0xf2, 0xbe, 0xdb, 0x2c, 0xa4, 0xb8, 0xb4, 0xdf, 0x63, 0x3d,
+	}
 	go bft.Start(account)
+	bft.unicast(account, fakePayload, "none", mockHash)
 	time.Sleep(1 * time.Second)
 }
 
@@ -481,6 +490,10 @@ func TestBftCore_ProcessEvent2(t *testing.T) {
 		Digest:     mockHash,
 		Signatures: mockSignset,
 		BlockHash:  hashBlock0,
+		Result: &messages.ConsensusResult{
+			Signatures: mockSignset,
+			Result:     nil,
+		},
 	}
 	bft.ProcessEvent(mockCommit)
 

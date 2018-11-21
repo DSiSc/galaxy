@@ -2,6 +2,7 @@ package consensus
 
 import (
 	"github.com/DSiSc/craft/log"
+	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/galaxy/consensus/common"
 	"github.com/DSiSc/galaxy/consensus/config"
 	"github.com/DSiSc/galaxy/consensus/policy/bft"
@@ -13,7 +14,7 @@ import (
 
 type Consensus interface {
 	PolicyName() string
-	Initialization(map[account.Account]commonr.Roler, []account.Account) error
+	Initialization(map[account.Account]commonr.Roler, []account.Account, types.EventCenter) error
 	ToConsensus(p *common.Proposal) error
 	Start()
 	Halt()

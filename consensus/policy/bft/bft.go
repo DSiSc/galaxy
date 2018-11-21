@@ -32,7 +32,7 @@ func NewBFTPolicy(account account.Account, timeout int64) (*BFTPolicy, error) {
 	return policy, nil
 }
 
-func (self *BFTPolicy) Initialization(role map[account.Account]commonr.Roler, peers []account.Account) error {
+func (self *BFTPolicy) Initialization(role map[account.Account]commonr.Roler, peers []account.Account, events types.EventCenter) error {
 	if len(role) != len(peers) {
 		log.Error("bft core has not been initial, please confirm.")
 		return fmt.Errorf("role and peers not in consistent")
@@ -51,6 +51,7 @@ func (self *BFTPolicy) Initialization(role map[account.Account]commonr.Roler, pe
 	}
 	self.bftCore.commit = false
 	self.bftCore.peers = peers
+	self.bftCore.eventCenter = events
 	self.bftCore.tolerance = uint8((len(peers) - 1) / 3)
 	return nil
 }
@@ -64,13 +65,14 @@ func (self *BFTPolicy) Start() {
 	self.bftCore.Start(self.account)
 }
 
-func (self *BFTPolicy) commit(block *types.Block) {
+func (self *BFTPolicy) commit(block *types.Block, result *messages.ConsensusResult) {
 	commit := &messages.Commit{
 		Account:    self.account,
 		Timestamp:  time.Now().Unix(),
 		Digest:     block.Header.MixDigest,
 		Signatures: block.Header.SigData,
 		BlockHash:  block.HeaderHash,
+		Result:     result,
 	}
 	self.bftCore.SendCommit(commit)
 }
@@ -87,15 +89,21 @@ func (self *BFTPolicy) ToConsensus(p *common.Proposal) error {
 	case consensusResult := <-self.result:
 		if nil != consensusResult.Result {
 			log.Error("consensus failed with error %x.", consensusResult.Result)
-			return consensusResult.Result
+			err = consensusResult.Result
+		} else {
+			p.Block.Header.SigData = consensusResult.Signatures
+			p.Block.HeaderHash = common.HeaderHash(p.Block)
+			log.Info("consensus successfully with signature %x.", consensusResult.Signatures)
 		}
-		p.Block.Header.SigData = consensusResult.Signatures
-		p.Block.HeaderHash = common.HeaderHash(p.Block)
-		go self.commit(p.Block)
-		log.Info("consensus successfully with signature %x.", consensusResult.Signatures)
+		go self.commit(p.Block, consensusResult)
 	case <-timer.C:
 		log.Error("consensus timeout in %d seconds.", self.timeout)
 		err = fmt.Errorf("timeout for consensus")
+		result := &messages.ConsensusResult{
+			Signatures: nil,
+			Result:     err,
+		}
+		go self.commit(p.Block, result)
 	}
 	return err
 }

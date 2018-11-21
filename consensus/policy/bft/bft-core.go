@@ -18,17 +18,18 @@ import (
 )
 
 type bftCore struct {
-	local     account.Account
-	master    uint64
-	peers     []account.Account
-	signature *signData
-	tolerance uint8
-	commit    bool
-	digest    types.Hash
-	result    chan *messages.ConsensusResult
-	tunnel    chan int
-	validator map[types.Hash]*payloadSets
-	payloads  map[types.Hash]*types.Block
+	local       account.Account
+	master      uint64
+	peers       []account.Account
+	signature   *signData
+	tolerance   uint8
+	commit      bool
+	digest      types.Hash
+	result      chan *messages.ConsensusResult
+	tunnel      chan int
+	validator   map[types.Hash]*payloadSets
+	payloads    map[types.Hash]*types.Block
+	eventCenter types.EventCenter
 }
 
 type signData struct {
@@ -364,6 +365,11 @@ func (instance *bftCore) SendCommit(commit *messages.Commit) {
 
 func (instance *bftCore) receiveCommit(commit *messages.Commit) {
 	log.Info("receive commit")
+	if nil != commit.Result.Result {
+		log.Error("receive commit with error %s.", commit.Result.Result)
+		instance.eventCenter.Notify(types.EventConsensusFailed, nil)
+		return
+	}
 	if payload, ok := instance.validator[commit.Digest]; ok {
 		payload.block.Header.SigData = commit.Signatures
 		blockHash := common.HeaderHash(payload.block)
@@ -480,7 +486,7 @@ func handleConnection(tcpListener *net.TCPListener, bft *bftCore) {
 			} else {
 				log.Error("not support type for %v.", payload)
 			}
-			continue
+			return
 		}
 	}
 }

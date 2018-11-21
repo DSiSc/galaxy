@@ -61,17 +61,17 @@ func TestBFTPolicy_Initialization(t *testing.T) {
 	assert.Nil(t, err)
 
 	assignment := mockRoleAssignment(mockAccounts[3], mockAccounts)
-	err = bft.Initialization(assignment, mockAccounts[:3])
+	err = bft.Initialization(assignment, mockAccounts[:3], nil)
 	assert.Equal(t, err, fmt.Errorf("role and peers not in consistent"))
 
 	assignment[mockAccounts[3]] = commonr.Master
-	err = bft.Initialization(assignment, mockAccounts)
+	err = bft.Initialization(assignment, mockAccounts, nil)
 	assert.Equal(t, bft.bftCore.peers, mockAccounts)
 	assert.Equal(t, bft.bftCore.tolerance, uint8((len(mockAccounts)-1)/3))
 	assert.Equal(t, bft.bftCore.master, mockAccounts[3].Extension.Id)
 
 	assignment[mockAccounts[3]] = commonr.Slave
-	err = bft.Initialization(assignment, mockAccounts)
+	err = bft.Initialization(assignment, mockAccounts, nil)
 	assert.Equal(t, err, fmt.Errorf("no master"))
 }
 
@@ -187,5 +187,5 @@ func TestBFTPolicy_commit(t *testing.T) {
 		Transactions: make([]*types.Transaction, 0),
 	}
 	bft.bftCore.peers = append(bft.bftCore.peers, mockAccount)
-	bft.commit(block)
+	bft.commit(block, nil)
 }

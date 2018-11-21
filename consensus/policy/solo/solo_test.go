@@ -16,6 +16,8 @@ import (
 	"testing"
 )
 
+var events types.EventCenter
+
 var mockAccounts = []account.Account{
 	account.Account{
 		Address: types.Address{0x33, 0x3c, 0x33, 0x10, 0x82, 0x4b, 0x7c, 0x68,
@@ -134,7 +136,7 @@ func TestSoloPolicy_ToConsensus(t *testing.T) {
 
 	var role = make(map[account.Account]commonr.Roler)
 	role[mockAccounts[0]] = commonr.Master
-	err = sp.Initialization(role, mockAccounts[:1])
+	err = sp.Initialization(role, mockAccounts[:1], nil)
 	var v *validator.Validator
 	monkey.PatchInstanceMethod(reflect.TypeOf(v), "ValidateBlock", func(*validator.Validator, *types.Block) (*types.Header, error) {
 		return nil, nil
@@ -200,13 +202,13 @@ func TestSoloPolicy_Initialization(t *testing.T) {
 	sp, _ := NewSoloPolicy(mockAccounts[0])
 	var role = make(map[account.Account]commonr.Roler)
 	role[mockAccounts[0]] = commonr.Master
-	err := sp.Initialization(role, mockAccounts[:2])
+	err := sp.Initialization(role, mockAccounts[:2], nil)
 	assert.Equal(t, err, fmt.Errorf("role and peers not in consistent"))
 
-	err = sp.Initialization(role, mockAccounts[:1])
+	err = sp.Initialization(role, mockAccounts[:1], nil)
 	assert.Nil(t, err)
 
 	role[mockAccounts[1]] = commonr.Slave
-	err = sp.Initialization(role, mockAccounts[:2])
+	err = sp.Initialization(role, mockAccounts[:2], nil)
 	assert.Equal(t, err, fmt.Errorf("solo policy only support one participate"))
 }

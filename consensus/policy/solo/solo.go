@@ -51,7 +51,7 @@ func (self *SoloPolicy) Halt() {
 	return
 }
 
-func (self *SoloPolicy) Initialization(role map[account.Account]commonr.Roler, account []account.Account) error {
+func (self *SoloPolicy) Initialization(role map[account.Account]commonr.Roler, account []account.Account, event types.EventCenter) error {
 	log.Info("Initial solo policy.")
 	if len(role) != len(account) {
 		log.Error("solo core has not been initial, please confirm.")
