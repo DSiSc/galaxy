@@ -18,7 +18,7 @@ type BFTPolicy struct {
 	account account.Account
 	bftCore *bftCore
 	timeout time.Duration
-	result  chan messages.SignatureSet
+	result  chan *messages.ConsensusResult
 }
 
 func NewBFTPolicy(account account.Account, timeout int64) (*BFTPolicy, error) {
@@ -26,7 +26,7 @@ func NewBFTPolicy(account account.Account, timeout int64) (*BFTPolicy, error) {
 		name:    common.BFT_POLICY,
 		account: account,
 		timeout: time.Duration(timeout),
-		result:  make(chan messages.SignatureSet),
+		result:  make(chan *messages.ConsensusResult),
 	}
 	policy.bftCore = NewBFTCore(account, policy.result)
 	return policy, nil
@@ -84,11 +84,15 @@ func (self *BFTPolicy) ToConsensus(p *common.Proposal) error {
 	timer := time.NewTimer(time.Second * self.timeout)
 	go tools.SendEvent(self.bftCore, request)
 	select {
-	case result := <-self.result:
-		p.Block.Header.SigData = result
+	case consensusResult := <-self.result:
+		if nil != consensusResult.Result {
+			log.Error("consensus failed with error %x.", consensusResult.Result)
+			return consensusResult.Result
+		}
+		p.Block.Header.SigData = consensusResult.Signatures
 		p.Block.HeaderHash = common.HeaderHash(p.Block)
 		go self.commit(p.Block)
-		log.Info("consensus successfully with signature %x.", result)
+		log.Info("consensus successfully with signature %x.", consensusResult.Signatures)
 	case <-timer.C:
 		log.Error("consensus timeout in %d seconds.", self.timeout)
 		err = fmt.Errorf("timeout for consensus")

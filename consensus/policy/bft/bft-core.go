@@ -25,7 +25,7 @@ type bftCore struct {
 	tolerance uint8
 	commit    bool
 	digest    types.Hash
-	result    chan messages.SignatureSet
+	result    chan *messages.ConsensusResult
 	tunnel    chan int
 	validator map[types.Hash]*payloadSets
 	payloads  map[types.Hash]*types.Block
@@ -47,7 +47,7 @@ type payloadSets struct {
 	receipts types.Receipts
 }
 
-func NewBFTCore(local account.Account, result chan messages.SignatureSet) *bftCore {
+func NewBFTCore(local account.Account, result chan *messages.ConsensusResult) *bftCore {
 	return &bftCore{
 		local: local,
 		signature: &signData{
@@ -167,14 +167,22 @@ func (instance *bftCore) waitResponse() {
 				log.Warn("maybe commit errors %s.", err)
 			}
 			instance.commit = true
-			instance.result <- signatures
+			consensusResult := &messages.ConsensusResult{
+				Signatures: signatures,
+				Result:     err,
+			}
+			instance.result <- consensusResult
 			return
 		case <-instance.tunnel:
 			log.Info("receive tunnel")
-			signatures, _ := instance.maybeCommit()
+			signatures, err := instance.maybeCommit()
 			if len(signatures) == len(instance.peers) {
 				instance.commit = true
-				instance.result <- signatures
+				consensusResult := messages.ConsensusResult{
+					Signatures: signatures,
+					Result:     err,
+				}
+				instance.result <- &consensusResult
 				log.Info("receive all response before timeout")
 				return
 			}

@@ -10,6 +10,11 @@ import (
 
 type SignatureSet [][]byte
 
+type ConsensusResult struct {
+	Signatures [][]byte
+	Result     error
+}
+
 // messages of events
 type Request struct {
 	Timestamp int64

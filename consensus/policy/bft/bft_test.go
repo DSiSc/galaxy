@@ -5,6 +5,7 @@ import (
 	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/galaxy/consensus/common"
+	"github.com/DSiSc/galaxy/consensus/policy/bft/messages"
 	"github.com/DSiSc/galaxy/consensus/policy/bft/tools"
 	"github.com/DSiSc/galaxy/participates/config"
 	commonr "github.com/DSiSc/galaxy/role/common"
@@ -119,12 +120,17 @@ func TestBFTPolicy_Halt(t *testing.T) {
 }
 */
 
+var mockConsensusResult = &messages.ConsensusResult{
+	Signatures: mockSignset,
+	Result:     nil,
+}
+
 func TestBFTPolicy_ToConsensus(t *testing.T) {
 	bft, err := NewBFTPolicy(mockAccounts[0], timeout)
 	assert.NotNil(t, bft)
 	assert.Nil(t, err)
 	monkey.Patch(tools.SendEvent, func(tools.Receiver, tools.Event) {
-		bft.result <- mockSignset
+		bft.result <- mockConsensusResult
 	})
 	proposal := &common.Proposal{
 		Block: &types.Block{
@@ -142,7 +148,7 @@ func TestBFTPolicy_ToConsensus(t *testing.T) {
 	bft.timeout = time.Duration(2)
 	monkey.Patch(tools.SendEvent, func(tools.Receiver, tools.Event) {
 		time.Sleep(5 * time.Second)
-		bft.result <- mockSignset
+		bft.result <- mockConsensusResult
 	})
 	err = bft.ToConsensus(proposal)
 	assert.NotNil(t, err)
