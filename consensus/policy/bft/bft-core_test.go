@@ -278,7 +278,7 @@ func TestNewBFTCore_broadcast(t *testing.T) {
 	monkey.Patch(net.ResolveTCPAddr, func(string, string) (*net.TCPAddr, error) {
 		return nil, fmt.Errorf("resolve error")
 	})
-	bft.broadcast(nil)
+	bft.broadcast(nil, messages.ProposalMessageType, mockHash)
 
 	monkey.Patch(net.ResolveTCPAddr, func(string, string) (*net.TCPAddr, error) {
 		return nil, nil
@@ -286,7 +286,7 @@ func TestNewBFTCore_broadcast(t *testing.T) {
 	monkey.Patch(net.DialTCP, func(string, *net.TCPAddr, *net.TCPAddr) (*net.TCPConn, error) {
 		return nil, fmt.Errorf("dail error")
 	})
-	bft.broadcast(nil)
+	bft.broadcast(nil, messages.ProposalMessageType, mockHash)
 
 	var c net.TCPConn
 	monkey.Patch(net.DialTCP, func(string, *net.TCPAddr, *net.TCPAddr) (*net.TCPConn, error) {
@@ -295,7 +295,7 @@ func TestNewBFTCore_broadcast(t *testing.T) {
 	monkey.PatchInstanceMethod(reflect.TypeOf(&c), "Write", func(*net.TCPConn, []byte) (int, error) {
 		return 0, nil
 	})
-	bft.broadcast(nil)
+	bft.broadcast(nil, messages.ProposalMessageType, mockHash)
 	monkey.Unpatch(net.ResolveTCPAddr)
 	monkey.Unpatch(net.DialTCP)
 	monkey.UnpatchInstanceMethod(reflect.TypeOf(&c), "Write")
@@ -309,7 +309,7 @@ func TestBftCore_unicast(t *testing.T) {
 	monkey.Patch(net.ResolveTCPAddr, func(string, string) (*net.TCPAddr, error) {
 		return nil, fmt.Errorf("resolve error")
 	})
-	err := bft.unicast(bft.peers[1], nil)
+	err := bft.unicast(bft.peers[1], nil, messages.ProposalMessageType, mockHash)
 	assert.Equal(t, fmt.Errorf("resolve error"), err)
 	monkey.Patch(net.ResolveTCPAddr, func(string, string) (*net.TCPAddr, error) {
 		return nil, nil
@@ -321,7 +321,7 @@ func TestBftCore_unicast(t *testing.T) {
 	monkey.PatchInstanceMethod(reflect.TypeOf(&c), "Write", func(*net.TCPConn, []byte) (int, error) {
 		return 0, nil
 	})
-	err = bft.unicast(bft.peers[1], nil)
+	err = bft.unicast(bft.peers[1], nil, messages.ProposalMessageType, mockHash)
 	assert.Nil(t, err)
 	monkey.Unpatch(net.ResolveTCPAddr)
 	monkey.Unpatch(net.DialTCP)

@@ -78,22 +78,26 @@ func sendMsgByUrl(url string, msgPayload []byte) error {
 	return nil
 }
 
-func (instance *bftCore) broadcast(msgPayload []byte) {
+func (instance *bftCore) broadcast(msgPayload []byte, msgType messages.MessageType, digest types.Hash) {
 	peers := instance.peers
 	for id, peer := range peers {
-		log.Info("broadcast to node %d with url %s.", id, peer.Extension.Url)
+		log.Info("broadcast from node %d to %d by url %s with message type %v and digest %x.",
+			instance.local.Extension.Id, id, peer.Extension.Url, msgType, digest)
 		err := sendMsgByUrl(peer.Extension.Url, msgPayload)
 		if nil != err {
-			log.Error("broadcast to %s error %s.", peer.Extension.Url, err)
+			log.Error("broadcast from node %d to %d by url %s with message type %v and digest %x occur error %v.",
+				instance.local.Extension.Id, id, peer.Extension.Url, msgType, digest, err)
 		}
 	}
 }
 
-func (instance *bftCore) unicast(account account.Account, msgPayload []byte) error {
-	log.Info("send msg to node %d with url %s.", account.Extension.Id, account.Extension.Url)
+func (instance *bftCore) unicast(account account.Account, msgPayload []byte, msgType messages.MessageType, digest types.Hash) error {
+	log.Info("node %d send msg [type %d and digest %x] to %d with url %s.",
+		instance.local.Extension.Id, msgType, digest, account.Extension.Id, account.Extension.Url)
 	err := sendMsgByUrl(account.Extension.Url, msgPayload)
 	if nil != err {
-		log.Error("send msg to url %s failed with %v.", account.Extension.Url, err)
+		log.Error("node %d send msg [type %d and digest %x] to %d with url %s occurs error %v.",
+			instance.local.Extension.Id, msgType, digest, account.Extension.Id, account.Extension.Url, err)
 	}
 	return err
 }
@@ -147,7 +151,7 @@ func (instance *bftCore) receiveRequest(request *messages.Request) {
 	instance.digest = request.Payload.Header.MixDigest
 	instance.signature.addSignature(instance.local, signData)
 	log.Info("broadcast proposal to peers.")
-	instance.broadcast(msgRaw)
+	instance.broadcast(msgRaw, messages.ProposalMessageType, instance.digest)
 	go instance.waitResponse()
 }
 
@@ -231,7 +235,7 @@ func (instance *bftCore) receiveProposal(proposal *messages.Proposal) {
 		return
 	}
 	instance.payloads[proposal.Payload.Header.MixDigest] = proposal.Payload
-	err = instance.unicast(masterAccount, msgRaw)
+	err = instance.unicast(masterAccount, msgRaw, messages.ResponseMessageType, proposal.Payload.Header.MixDigest)
 	if err != nil {
 		log.Error("unicast to master %x failed with error %v.", masterAccount.Address, err)
 	}
@@ -347,7 +351,7 @@ func (instance *bftCore) SendCommit(commit *messages.Commit) {
 		log.Error("marshal commit msg failed with %v.", err)
 		return
 	}
-	instance.broadcast(msgRaw)
+	instance.broadcast(msgRaw, messages.CommitMessageType, commit.Digest)
 }
 
 func (instance *bftCore) receiveCommit(commit *messages.Commit) {
