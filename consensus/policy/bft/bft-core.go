@@ -356,7 +356,6 @@ func (instance *bftCore) receiveCommit(commit *messages.Commit) {
 		blockHash := common.HeaderHash(payload.block)
 		if !bytes.Equal(blockHash[:], commit.BlockHash[:]) {
 			log.Error("receive commit not consist, commit is %x, while compute is %x.", commit.BlockHash, blockHash)
-			// init sign data
 			payload.block.Header.SigData = make([][]byte, 0)
 			return
 		}
@@ -368,14 +367,16 @@ func (instance *bftCore) receiveCommit(commit *messages.Commit) {
 			return
 		}
 		payload.block.HeaderHash = common.HeaderHash(payload.block)
+		log.Info("begin write block %d with hash %x.", payload.block.Header.Height, payload.block.HeaderHash)
 		err = chain.WriteBlockWithReceipts(payload.block, payload.receipts)
 		if nil != err {
 			payload.block.Header.SigData = make([][]byte, 0)
 			log.Error("call WriteBlockWithReceipts failed with", payload.block.Header.PrevBlockHash, err)
 		}
-	} else {
-		log.Error("payload with digest %x not found, please confirm.", commit.Digest)
+		log.Info("end write block %d with hash %x with success.", payload.block.Header.Height, payload.block.HeaderHash)
+		return
 	}
+	log.Error("payload with digest %x not found, please confirm.", commit.Digest)
 }
 
 func (instance *bftCore) ProcessEvent(e tools.Event) tools.Event {
