@@ -62,7 +62,7 @@ func NewBFTCore(local account.Account, result chan messages.SignatureSet) *bftCo
 }
 
 func sendMsgByUrl(url string, msgPayload []byte) error {
-	log.Info("send msg to  url %s.\n", url)
+	log.Info("send msg to url %s.", url)
 	tcpAddr, err := net.ResolveTCPAddr("tcp4", url)
 	if err != nil {
 		log.Error("resolve tcp address %s occur fatal error: %v", url, err)
@@ -90,7 +90,7 @@ func (instance *bftCore) broadcast(msgPayload []byte) {
 }
 
 func (instance *bftCore) unicast(account account.Account, msgPayload []byte) error {
-	log.Info("send msg to node %d with url %s.\n", account.Extension.Id, account.Extension.Url)
+	log.Info("send msg to node %d with url %s.", account.Extension.Id, account.Extension.Url)
 	err := sendMsgByUrl(account.Extension.Url, msgPayload)
 	if nil != err {
 		log.Error("send msg to url %s failed with %v.", account.Extension.Url, err)
@@ -146,6 +146,7 @@ func (instance *bftCore) receiveRequest(request *messages.Request) {
 	}
 	instance.digest = request.Payload.Header.MixDigest
 	instance.signature.addSignature(instance.local, signData)
+	log.Info("broadcast proposal to peers.")
 	instance.broadcast(msgRaw)
 	go instance.waitResponse()
 }
@@ -156,7 +157,7 @@ func (instance *bftCore) waitResponse() {
 	for {
 		select {
 		case <-timer.C:
-			log.Info("loop response timeout.")
+			log.Info("wait response timeout.")
 			signatures, err := instance.maybeCommit()
 			if nil != err {
 				log.Warn("maybe commit errors %s.", err)
