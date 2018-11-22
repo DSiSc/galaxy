@@ -69,6 +69,11 @@ func TestBFTPolicy_Initialization(t *testing.T) {
 	assert.Equal(t, bft.bftCore.peers, mockAccounts)
 	assert.Equal(t, bft.bftCore.tolerance, uint8((len(mockAccounts)-1)/3))
 	assert.Equal(t, bft.bftCore.master, mockAccounts[3].Extension.Id)
+	assert.Equal(t, 0, len(bft.bftCore.validator))
+	assert.Equal(t, 0, len(bft.bftCore.payloads))
+	assert.NotNil(t, bft.bftCore.signature)
+	assert.Equal(t, 0, len(bft.bftCore.signature.signMap))
+	assert.Equal(t, 0, len(bft.bftCore.signature.signatures))
 
 	assignment[mockAccounts[3]] = commonr.Slave
 	err = bft.Initialization(assignment, mockAccounts, nil)

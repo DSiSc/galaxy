@@ -53,6 +53,12 @@ func (self *BFTPolicy) Initialization(role map[account.Account]commonr.Roler, pe
 	self.bftCore.peers = peers
 	self.bftCore.eventCenter = events
 	self.bftCore.tolerance = uint8((len(peers) - 1) / 3)
+	self.bftCore.signature = &signData{
+		signatures: make([][]byte, 0),
+		signMap:    make(map[account.Account][]byte),
+	}
+	self.bftCore.validator = make(map[types.Hash]*payloadSets)
+	self.bftCore.payloads = make(map[types.Hash]*types.Block)
 	return nil
 }
 

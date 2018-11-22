@@ -93,11 +93,11 @@ func (instance *bftCore) broadcast(msgPayload []byte, msgType messages.MessageTy
 }
 
 func (instance *bftCore) unicast(account account.Account, msgPayload []byte, msgType messages.MessageType, digest types.Hash) error {
-	log.Info("node %d send msg [type %d and digest %x] to %d with url %s.",
+	log.Info("node %d send msg [type %v, digest %x] to %d with url %s.",
 		instance.local.Extension.Id, msgType, digest, account.Extension.Id, account.Extension.Url)
 	err := sendMsgByUrl(account.Extension.Url, msgPayload)
 	if nil != err {
-		log.Error("node %d send msg [type %d and digest %x] to %d with url %s occurs error %v.",
+		log.Error("node %d send msg [type %v and digest %x] to %d with url %s occurs error %v.",
 			instance.local.Extension.Id, msgType, digest, account.Extension.Id, account.Extension.Url, err)
 	}
 	return err
@@ -269,10 +269,10 @@ func (instance *bftCore) verifyPayload(payload *types.Block) (types.Receipts, er
 func (instance *bftCore) signPayload(digest types.Hash) ([]byte, error) {
 	sign, err := signature.Sign(&instance.local, digest[:])
 	if nil != err {
-		log.Error("archive signature error.")
+		log.Error("archive signature occur error %x.", err)
 		return nil, err
 	}
-	log.Info("archive signature for %x successfully.", digest)
+	log.Info("archive signature for %x successfully with sign %x.", digest, sign)
 	return sign, nil
 }
 
@@ -295,10 +295,10 @@ func (instance *bftCore) maybeCommit() ([][]byte, error) {
 			continue
 		}
 		suspiciousAccount = append(suspiciousAccount, account)
-		log.Error("signature %x by account %x is invalid", sign, account)
+		log.Warn("signature %x by account %x is invalid", sign, account)
 	}
 	if uint8(len(reallySignature)) < uint8(len(instance.peers))-instance.tolerance {
-		log.Error("really signature %d less than need %d.",
+		log.Warn("really signature %d less than need %d.",
 			len(reallySignature), uint8(len(instance.peers))-instance.tolerance)
 		return reallySignature, fmt.Errorf("signature not satisfy")
 	}
