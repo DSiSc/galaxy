@@ -8,8 +8,6 @@ import (
 	"github.com/DSiSc/validator/tools/account"
 )
 
-type SignatureSet [][]byte
-
 type ConsensusResult struct {
 	Signatures [][]byte
 	Result     error
@@ -38,10 +36,10 @@ type Response struct {
 type Commit struct {
 	Account    account.Account
 	Timestamp  int64
-	Signatures SignatureSet
 	BlockHash  types.Hash
 	Digest     types.Hash
-	Result     *ConsensusResult
+	Signatures [][]byte
+	Result     error
 }
 
 type MessageType string

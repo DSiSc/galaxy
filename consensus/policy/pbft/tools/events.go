@@ -27,7 +27,7 @@ type Manager interface {
 	Inject(Event)         // A temporary interface to allow the event manager thread to skip the queue
 	Queue() chan<- Event  // Get a write-only reference to the queue, to submit events
 	SetReceiver(Receiver) // Set the target to route events to
-	Start()               // Starts the Manager thread TODO, these thread management things should probably go away
+	Start()               // Starts the Manager thread
 	Halt()                // Stops the Manager thread
 }
 

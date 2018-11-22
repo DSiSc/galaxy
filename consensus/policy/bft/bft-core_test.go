@@ -176,10 +176,7 @@ func TestBftCore_ProcessEvent(t *testing.T) {
 		Digest:     mockHash,
 		Signatures: mockSignset,
 		BlockHash:  mockHash,
-		Result: &messages.ConsensusResult{
-			Signatures: mockSignset,
-			Result:     nil,
-		},
+		Result:     nil,
 	}
 	bft.ProcessEvent(mockCommit)
 	monkey.Unpatch(net.ResolveTCPAddr)
@@ -490,10 +487,7 @@ func TestBftCore_ProcessEvent2(t *testing.T) {
 		Digest:     mockHash,
 		Signatures: mockSignset,
 		BlockHash:  hashBlock0,
-		Result: &messages.ConsensusResult{
-			Signatures: mockSignset,
-			Result:     nil,
-		},
+		Result:     nil,
 	}
 	bft.ProcessEvent(mockCommit)
 
@@ -546,10 +540,7 @@ func TestBftCore_SendCommit(t *testing.T) {
 		Digest:     mockHash,
 		Signatures: mockSignset,
 		BlockHash:  mockHash,
-		Result: &messages.ConsensusResult{
-			Signatures: mockSignset,
-			Result:     nil,
-		},
+		Result:     nil,
 	}
 	var c net.TCPConn
 	monkey.Patch(net.DialTCP, func(string, *net.TCPAddr, *net.TCPAddr) (*net.TCPConn, error) {
@@ -577,4 +568,29 @@ func TestBftCore_SendCommit(t *testing.T) {
 		bft.peers[0],
 	}
 	assert.Equal(t, failedOrder, peers)
+
+	commit := &messages.Commit{
+		Account:    mockAccounts[0],
+		Timestamp:  time.Now().Unix(),
+		Digest:     mockHash,
+		Signatures: mockSignset,
+		BlockHash:  mockHash,
+		Result:     nil,
+	}
+	committed := &messages.Message{
+		MessageType: messages.CommitMessageType,
+		Payload: &messages.CommitMessage{
+			Commit: commit,
+		},
+	}
+	msgRaw, err := json.Marshal(committed)
+	assert.Nil(t, err)
+	assert.NotNil(t, msgRaw)
+
+	var msg messages.Message
+	err = json.Unmarshal(msgRaw, &msg)
+	payload := msg.Payload
+	result := payload.(*messages.CommitMessage).Commit
+	assert.NotNil(t, result)
+	assert.Equal(t, commit, result)
 }

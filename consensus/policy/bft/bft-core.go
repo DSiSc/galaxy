@@ -393,14 +393,14 @@ func (instance *bftCore) SendCommit(commit *messages.Commit) {
 		log.Error("marshal commit msg failed with %v.", err)
 		return
 	}
-	peers := instance.getCommitOrder(commit.Result.Result, int(instance.local.Extension.Id))
+	peers := instance.getCommitOrder(commit.Result, int(instance.local.Extension.Id))
 	instance.broadcastByOrder(msgRaw, messages.CommitMessageType, commit.Digest, peers)
 }
 
 func (instance *bftCore) receiveCommit(commit *messages.Commit) {
 	log.Info("receive commit")
-	if nil != commit.Result.Result {
-		log.Error("receive commit with error %s.", commit.Result.Result)
+	if nil != commit.Result {
+		log.Error("receive commit with error %s.", commit.Result)
 		instance.eventCenter.Notify(types.EventConsensusFailed, nil)
 		return
 	}
@@ -498,7 +498,7 @@ func handleConnection(tcpListener *net.TCPListener, bft *bftCore) {
 			log.Info("receive proposal message form node %d with payload %x.",
 				proposal.Id, proposal.Payload.Header.MixDigest)
 			if proposal.Id != bft.master {
-				log.Warn("only master can issue a proposal.", bft.master)
+				log.Warn("only master can issue a proposal.")
 				continue
 			}
 			tools.SendEvent(bft, proposal)
