@@ -92,6 +92,18 @@ func (instance *bftCore) broadcast(msgPayload []byte, msgType messages.MessageTy
 	}
 }
 
+func (instance *bftCore) broadcastByOrder(msgPayload []byte, msgType messages.MessageType, digest types.Hash, peers []account.Account) {
+	for _, peer := range peers {
+		log.Info("broadcast from node %d to %d by url %s with message type %v and digest %x.",
+			instance.local.Extension.Id, peer.Extension.Id, peer.Extension.Url, msgType, digest)
+		err := sendMsgByUrl(peer.Extension.Url, msgPayload)
+		if nil != err {
+			log.Error("broadcast from node %d to %d by url %s with message type %v and digest %x occur error %v.",
+				instance.local.Extension.Id, peer.Extension.Id, peer.Extension.Url, msgType, digest, err)
+		}
+	}
+}
+
 func (instance *bftCore) unicast(account account.Account, msgPayload []byte, msgType messages.MessageType, digest types.Hash) error {
 	log.Info("node %d send msg [type %v, digest %x] to %d with url %s.",
 		instance.local.Extension.Id, msgType, digest, account.Extension.Id, account.Extension.Url)
@@ -348,6 +360,18 @@ func (instance *bftCore) receiveResponse(response *messages.Response) {
 	}
 }
 
+func (instance *bftCore) getCommitOrder(master int) []account.Account {
+	peers := make([]account.Account, 0)
+	for index, accounts := range instance.peers {
+		if index != master {
+			peers = append(peers, accounts)
+		}
+	}
+	peers = append(peers, instance.peers[master])
+	log.Info("commit order %v", peers)
+	return peers
+}
+
 func (instance *bftCore) SendCommit(commit *messages.Commit) {
 	committed := &messages.Message{
 		MessageType: messages.CommitMessageType,
@@ -360,7 +384,14 @@ func (instance *bftCore) SendCommit(commit *messages.Commit) {
 		log.Error("marshal commit msg failed with %v.", err)
 		return
 	}
-	instance.broadcast(msgRaw, messages.CommitMessageType, commit.Digest)
+	var master uint64
+	if nil != commit.Result.Result {
+		master = instance.local.Extension.Id
+	} else {
+		master = (instance.local.Extension.Id + 1) % uint64(len(instance.peers))
+	}
+	peers := instance.getCommitOrder(int(master))
+	instance.broadcastByOrder(msgRaw, messages.CommitMessageType, commit.Digest, peers)
 }
 
 func (instance *bftCore) receiveCommit(commit *messages.Commit) {

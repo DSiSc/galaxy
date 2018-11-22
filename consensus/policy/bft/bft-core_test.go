@@ -535,3 +535,28 @@ func TestBftCore_ProcessEvent2(t *testing.T) {
 	assert.Equal(t, len(mockSignset), len(bft.validator[mockHash].block.Header.SigData))
 	monkey.UnpatchAll()
 }
+
+func TestBftCore_SendCommit(t *testing.T) {
+	bft := NewBFTCore(mockAccounts[0], sigChannel)
+	assert.NotNil(t, bft)
+	bft.peers = mockAccounts
+	mockCommit := &messages.Commit{
+		Account:    mockAccounts[0],
+		Timestamp:  time.Now().Unix(),
+		Digest:     mockHash,
+		Signatures: mockSignset,
+		BlockHash:  mockHash,
+		Result: &messages.ConsensusResult{
+			Signatures: mockSignset,
+			Result:     nil,
+		},
+	}
+	var c net.TCPConn
+	monkey.Patch(net.DialTCP, func(string, *net.TCPAddr, *net.TCPAddr) (*net.TCPConn, error) {
+		return &c, nil
+	})
+	monkey.PatchInstanceMethod(reflect.TypeOf(&c), "Write", func(*net.TCPConn, []byte) (int, error) {
+		return 0, nil
+	})
+	bft.SendCommit(mockCommit)
+}

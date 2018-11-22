@@ -134,8 +134,13 @@ func TestBFTPolicy_ToConsensus(t *testing.T) {
 	bft, err := NewBFTPolicy(mockAccounts[0], timeout)
 	assert.NotNil(t, bft)
 	assert.Nil(t, err)
+	bft.bftCore.peers = mockAccounts
 	monkey.Patch(tools.SendEvent, func(tools.Receiver, tools.Event) {
 		bft.result <- mockConsensusResult
+	})
+	var b *bftCore
+	monkey.PatchInstanceMethod(reflect.TypeOf(b), "SendCommit", func(*bftCore, *messages.Commit) {
+		return
 	})
 	proposal := &common.Proposal{
 		Block: &types.Block{
@@ -152,12 +157,13 @@ func TestBFTPolicy_ToConsensus(t *testing.T) {
 
 	bft.timeout = time.Duration(2)
 	monkey.Patch(tools.SendEvent, func(tools.Receiver, tools.Event) {
-		time.Sleep(5 * time.Second)
-		bft.result <- mockConsensusResult
+		return
+	})
+	monkey.PatchInstanceMethod(reflect.TypeOf(b), "SendCommit", func(*bftCore, *messages.Commit) {
+		return
 	})
 	err = bft.ToConsensus(proposal)
-	assert.NotNil(t, err)
-	monkey.Unpatch(tools.SendEvent)
+	assert.Equal(t, fmt.Errorf("timeout for consensus"), err)
 }
 
 var MockHash = types.Hash{
