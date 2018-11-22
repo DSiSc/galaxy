@@ -139,7 +139,7 @@ func TestBFTPolicy_ToConsensus(t *testing.T) {
 		bft.result <- mockConsensusResult
 	})
 	var b *bftCore
-	monkey.PatchInstanceMethod(reflect.TypeOf(b), "SendCommit", func(*bftCore, *messages.Commit) {
+	monkey.PatchInstanceMethod(reflect.TypeOf(b), "SendCommit", func(*bftCore, *messages.Commit, *types.Block) {
 		return
 	})
 	proposal := &common.Proposal{
@@ -159,7 +159,7 @@ func TestBFTPolicy_ToConsensus(t *testing.T) {
 	monkey.Patch(tools.SendEvent, func(tools.Receiver, tools.Event) {
 		return
 	})
-	monkey.PatchInstanceMethod(reflect.TypeOf(b), "SendCommit", func(*bftCore, *messages.Commit) {
+	monkey.PatchInstanceMethod(reflect.TypeOf(b), "SendCommit", func(*bftCore, *messages.Commit, *types.Block)  {
 		return
 	})
 	err = bft.ToConsensus(proposal)

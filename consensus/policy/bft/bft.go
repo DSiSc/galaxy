@@ -80,7 +80,7 @@ func (self *BFTPolicy) commit(block *types.Block, result error) {
 		BlockHash:  block.HeaderHash,
 		Result:     result,
 	}
-	self.bftCore.SendCommit(commit)
+	self.bftCore.SendCommit(commit, block)
 }
 
 func (self *BFTPolicy) ToConsensus(p *common.Proposal) error {

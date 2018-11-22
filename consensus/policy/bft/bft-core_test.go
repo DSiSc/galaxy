@@ -534,11 +534,18 @@ func TestBftCore_SendCommit(t *testing.T) {
 	bft := NewBFTCore(mockAccounts[0], sigChannel)
 	assert.NotNil(t, bft)
 	bft.peers = mockAccounts
+	block := &types.Block{
+		HeaderHash:mockHash,
+		Header:&types.Header{
+			MixDigest:mockHash,
+			SigData:mockSignset,
+		},
+	}
 	mockCommit := &messages.Commit{
 		Account:    mockAccounts[0],
 		Timestamp:  time.Now().Unix(),
-		Digest:     mockHash,
-		Signatures: mockSignset,
+		Digest:     block.Header.MixDigest,
+		Signatures: block.Header.SigData,
 		BlockHash:  mockHash,
 		Result:     nil,
 	}
@@ -549,7 +556,7 @@ func TestBftCore_SendCommit(t *testing.T) {
 	monkey.PatchInstanceMethod(reflect.TypeOf(&c), "Write", func(*net.TCPConn, []byte) (int, error) {
 		return 0, nil
 	})
-	bft.SendCommit(mockCommit)
+	bft.SendCommit(mockCommit, block)
 
 	peers := bft.getCommitOrder(nil, 0)
 	successOrder := []account.Account{

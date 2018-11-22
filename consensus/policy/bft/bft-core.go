@@ -381,7 +381,18 @@ func (instance *bftCore) getCommitOrder(result error, currentMaster int) []accou
 	return peers
 }
 
-func (instance *bftCore) SendCommit(commit *messages.Commit) {
+func (instance *bftCore) commitFilter(blacklist account.Account) []account.Account {
+	peers := make([]account.Account, 0)
+	for index, accounts := range instance.peers {
+		if index != int(blacklist.Extension.Id) {
+			peers = append(peers, accounts)
+		}
+	}
+	log.Info("commit order %v", peers)
+	return peers
+}
+
+func (instance *bftCore) SendCommit(commit *messages.Commit, block *types.Block) {
 	committed := &messages.Message{
 		MessageType: messages.CommitMessageType,
 		Payload: &messages.CommitMessage{
@@ -393,8 +404,24 @@ func (instance *bftCore) SendCommit(commit *messages.Commit) {
 		log.Error("marshal commit msg failed with %v.", err)
 		return
 	}
-	peers := instance.getCommitOrder(commit.Result, int(instance.local.Extension.Id))
-	instance.broadcastByOrder(msgRaw, messages.CommitMessageType, commit.Digest, peers)
+	if nil != commit.Result {
+		peers := instance.commitFilter(instance.local)
+		instance.broadcastByOrder(msgRaw, messages.CommitMessageType, commit.Digest, peers)
+		log.Info("later to notify local")
+		instance.eventCenter.Notify(types.EventConsensusFailed, nil)
+	} else {
+		log.Info("first to notify local")
+		instance.commitBlock(block)
+		nextMaster := int(instance.local.Extension.Id+1) % len(instance.peers)
+		peers := make([]account.Account, 0)
+		for index, accounts := range instance.peers {
+			if index != nextMaster && index != int(instance.local.Extension.Id) {
+				peers = append(peers, accounts)
+			}
+		}
+		peers = append(peers, instance.peers[nextMaster])
+		instance.broadcastByOrder(msgRaw, messages.CommitMessageType, commit.Digest, peers)
+	}
 }
 
 func (instance *bftCore) receiveCommit(commit *messages.Commit) {
@@ -430,6 +457,23 @@ func (instance *bftCore) receiveCommit(commit *messages.Commit) {
 		return
 	}
 	log.Error("payload with digest %x not found, please confirm.", commit.Digest)
+}
+
+func (instance *bftCore) commitBlock(block *types.Block) {
+	chain, err := blockchain.NewBlockChainByBlockHash(block.Header.PrevBlockHash)
+	if nil != err {
+		block.Header.SigData = make([][]byte, 0)
+		log.Error("get NewBlockChainByHash by hash %x failed with error %s.", block.Header.PrevBlockHash, err)
+		return
+	}
+	block.HeaderHash = common.HeaderHash(block)
+	log.Info("begin write block %d with hash %x.", block.Header.Height, block.HeaderHash)
+	err = chain.WriteBlockWithReceipts(block, instance.validator[block.Header.MixDigest].receipts)
+	if nil != err {
+		block.Header.SigData = make([][]byte, 0)
+		log.Error("call WriteBlockWithReceipts failed with", block.Header.PrevBlockHash, err)
+	}
+	log.Info("end write block %d with hash %x with success.", block.Header.Height, block.HeaderHash)
 }
 
 func (instance *bftCore) ProcessEvent(e tools.Event) tools.Event {
@@ -507,7 +551,7 @@ func handleConnection(tcpListener *net.TCPListener, bft *bftCore) {
 			log.Info("receive response message from node %d with payload %x.",
 				response.Account.Extension.Id, response.Digest)
 			if response.Account.Extension.Id == bft.master {
-				log.Warn("master %d will not receive response message from itself.")
+				log.Warn("master will not receive response message from itself.")
 				continue
 			}
 			tools.SendEvent(bft, response)
