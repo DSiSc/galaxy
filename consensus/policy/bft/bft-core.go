@@ -404,14 +404,13 @@ func (instance *bftCore) SendCommit(commit *messages.Commit, block *types.Block)
 		log.Error("marshal commit msg failed with %v.", err)
 		return
 	}
-	if nil != commit.Result {
+	if !commit.Result {
 		peers := instance.commitFilter(instance.local)
 		instance.broadcastByOrder(msgRaw, messages.CommitMessageType, commit.Digest, peers)
 		log.Info("later to notify local")
 		instance.eventCenter.Notify(types.EventConsensusFailed, nil)
 	} else {
 		log.Info("first to notify local")
-		instance.commitBlock(block)
 		nextMaster := int(instance.local.Extension.Id+1) % len(instance.peers)
 		peers := make([]account.Account, 0)
 		for index, accounts := range instance.peers {
@@ -420,14 +419,15 @@ func (instance *bftCore) SendCommit(commit *messages.Commit, block *types.Block)
 			}
 		}
 		peers = append(peers, instance.peers[nextMaster])
+		instance.commitBlock(block)
 		instance.broadcastByOrder(msgRaw, messages.CommitMessageType, commit.Digest, peers)
 	}
 }
 
 func (instance *bftCore) receiveCommit(commit *messages.Commit) {
 	log.Info("receive commit")
-	if nil != commit.Result {
-		log.Error("receive commit with error %s.", commit.Result)
+	if !commit.Result {
+		log.Error("receive commit with error %v.", commit.Result)
 		instance.eventCenter.Notify(types.EventConsensusFailed, nil)
 		return
 	}
@@ -484,13 +484,13 @@ func (instance *bftCore) ProcessEvent(e tools.Event) tools.Event {
 		log.Info("receive request from replica %d.", instance.local.Extension.Id)
 		instance.receiveRequest(et)
 	case *messages.Proposal:
-		log.Info("receive proposal from replica %d.", et.Id)
+		log.Info("receive proposal from replica %d with digest %x.", et.Id, et.Payload.Header.MixDigest)
 		instance.receiveProposal(et)
 	case *messages.Response:
-		log.Info("receive response from replica %d.", et.Account.Extension.Id)
+		log.Info("receive response from replica %d with digest %x.", et.Account.Extension.Id, et.Digest)
 		instance.receiveResponse(et)
 	case *messages.Commit:
-		log.Info("receive commit from replica %d.", et.Account.Extension.Id)
+		log.Info("receive commit from replica %d with digest %x.", et.Account.Extension.Id, et.Digest)
 		instance.receiveCommit(et)
 	default:
 		log.Warn("replica %d received an unknown message type %T", instance.local.Extension.Id, et)

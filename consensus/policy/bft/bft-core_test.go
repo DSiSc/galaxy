@@ -176,7 +176,7 @@ func TestBftCore_ProcessEvent(t *testing.T) {
 		Digest:     mockHash,
 		Signatures: mockSignset,
 		BlockHash:  mockHash,
-		Result:     nil,
+		Result:     true,
 	}
 	bft.ProcessEvent(mockCommit)
 	monkey.Unpatch(net.ResolveTCPAddr)
@@ -487,7 +487,7 @@ func TestBftCore_ProcessEvent2(t *testing.T) {
 		Digest:     mockHash,
 		Signatures: mockSignset,
 		BlockHash:  hashBlock0,
-		Result:     nil,
+		Result:     true,
 	}
 	bft.ProcessEvent(mockCommit)
 
@@ -535,10 +535,10 @@ func TestBftCore_SendCommit(t *testing.T) {
 	assert.NotNil(t, bft)
 	bft.peers = mockAccounts
 	block := &types.Block{
-		HeaderHash:mockHash,
-		Header:&types.Header{
-			MixDigest:mockHash,
-			SigData:mockSignset,
+		HeaderHash: mockHash,
+		Header: &types.Header{
+			MixDigest: mockHash,
+			SigData:   mockSignset,
 		},
 	}
 	mockCommit := &messages.Commit{
@@ -547,7 +547,7 @@ func TestBftCore_SendCommit(t *testing.T) {
 		Digest:     block.Header.MixDigest,
 		Signatures: block.Header.SigData,
 		BlockHash:  mockHash,
-		Result:     nil,
+		Result:     true,
 	}
 	var c net.TCPConn
 	monkey.Patch(net.DialTCP, func(string, *net.TCPAddr, *net.TCPAddr) (*net.TCPConn, error) {
@@ -582,7 +582,7 @@ func TestBftCore_SendCommit(t *testing.T) {
 		Digest:     mockHash,
 		Signatures: mockSignset,
 		BlockHash:  mockHash,
-		Result:     nil,
+		Result:     true,
 	}
 	committed := &messages.Message{
 		MessageType: messages.CommitMessageType,
@@ -598,6 +598,30 @@ func TestBftCore_SendCommit(t *testing.T) {
 	err = json.Unmarshal(msgRaw, &msg)
 	payload := msg.Payload
 	result := payload.(*messages.CommitMessage).Commit
+	assert.NotNil(t, result)
+	assert.Equal(t, commit, result)
+
+	commit = &messages.Commit{
+		Account:    mockAccounts[0],
+		Timestamp:  time.Now().Unix(),
+		Digest:     mockHash,
+		Signatures: mockSignset,
+		BlockHash:  mockHash,
+		Result:     false,
+	}
+	committed = &messages.Message{
+		MessageType: messages.CommitMessageType,
+		Payload: &messages.CommitMessage{
+			Commit: commit,
+		},
+	}
+	msgRaw, err = json.Marshal(committed)
+	assert.Nil(t, err)
+	assert.NotNil(t, msgRaw)
+
+	err = json.Unmarshal(msgRaw, &msg)
+	payload = msg.Payload
+	result = payload.(*messages.CommitMessage).Commit
 	assert.NotNil(t, result)
 	assert.Equal(t, commit, result)
 }

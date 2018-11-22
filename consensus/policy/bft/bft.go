@@ -71,7 +71,7 @@ func (self *BFTPolicy) Start() {
 	self.bftCore.Start(self.account)
 }
 
-func (self *BFTPolicy) commit(block *types.Block, result error) {
+func (self *BFTPolicy) commit(block *types.Block, result bool) {
 	commit := &messages.Commit{
 		Account:    self.account,
 		Timestamp:  time.Now().Unix(),
@@ -85,6 +85,7 @@ func (self *BFTPolicy) commit(block *types.Block, result error) {
 
 func (self *BFTPolicy) ToConsensus(p *common.Proposal) error {
 	var err error
+	var result = false
 	request := &messages.Request{
 		Timestamp: p.Timestamp,
 		Payload:   p.Block,
@@ -99,13 +100,14 @@ func (self *BFTPolicy) ToConsensus(p *common.Proposal) error {
 		} else {
 			p.Block.Header.SigData = consensusResult.Signatures
 			p.Block.HeaderHash = common.HeaderHash(p.Block)
+			result = true
 			log.Info("consensus successfully with signature %x.", consensusResult.Signatures)
 		}
-		go self.commit(p.Block, err)
+		go self.commit(p.Block, result)
 	case <-timer.C:
 		log.Error("consensus timeout in %d seconds.", self.timeout)
 		err = fmt.Errorf("timeout for consensus")
-		go self.commit(p.Block, err)
+		go self.commit(p.Block, result)
 	}
 	return err
 }

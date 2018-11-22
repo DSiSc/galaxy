@@ -39,7 +39,7 @@ type Commit struct {
 	BlockHash  types.Hash
 	Digest     types.Hash
 	Signatures [][]byte
-	Result     error
+	Result     bool
 }
 
 type MessageType string

@@ -159,7 +159,7 @@ func TestBFTPolicy_ToConsensus(t *testing.T) {
 	monkey.Patch(tools.SendEvent, func(tools.Receiver, tools.Event) {
 		return
 	})
-	monkey.PatchInstanceMethod(reflect.TypeOf(b), "SendCommit", func(*bftCore, *messages.Commit, *types.Block)  {
+	monkey.PatchInstanceMethod(reflect.TypeOf(b), "SendCommit", func(*bftCore, *messages.Commit, *types.Block) {
 		return
 	})
 	err = bft.ToConsensus(proposal)
@@ -198,5 +198,5 @@ func TestBFTPolicy_commit(t *testing.T) {
 		Transactions: make([]*types.Transaction, 0),
 	}
 	bft.bftCore.peers = append(bft.bftCore.peers, mockAccount)
-	bft.commit(block, nil)
+	bft.commit(block, true)
 }
