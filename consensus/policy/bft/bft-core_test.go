@@ -559,4 +559,22 @@ func TestBftCore_SendCommit(t *testing.T) {
 		return 0, nil
 	})
 	bft.SendCommit(mockCommit)
+
+	peers := bft.getCommitOrder(nil, 0)
+	successOrder := []account.Account{
+		bft.peers[0],
+		bft.peers[2],
+		bft.peers[3],
+		bft.peers[1],
+	}
+	assert.Equal(t, successOrder, peers)
+
+	peers = bft.getCommitOrder(fmt.Errorf("error"), 0)
+	failedOrder := []account.Account{
+		bft.peers[1],
+		bft.peers[2],
+		bft.peers[3],
+		bft.peers[0],
+	}
+	assert.Equal(t, failedOrder, peers)
 }

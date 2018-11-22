@@ -360,14 +360,23 @@ func (instance *bftCore) receiveResponse(response *messages.Response) {
 	}
 }
 
-func (instance *bftCore) getCommitOrder(master int) []account.Account {
+func (instance *bftCore) getCommitOrder(result error, currentMaster int) []account.Account {
+	var nextMaster = -1
 	peers := make([]account.Account, 0)
+	if nil == result {
+		peers = append(peers, instance.peers[currentMaster])
+		nextMaster = (1 + currentMaster) % len(instance.peers)
+	}
 	for index, accounts := range instance.peers {
-		if index != master {
+		if index != currentMaster && index != nextMaster {
 			peers = append(peers, accounts)
 		}
 	}
-	peers = append(peers, instance.peers[master])
+	if -1 != nextMaster {
+		peers = append(peers, instance.peers[nextMaster])
+	} else {
+		peers = append(peers, instance.peers[currentMaster])
+	}
 	log.Info("commit order %v", peers)
 	return peers
 }
@@ -384,13 +393,7 @@ func (instance *bftCore) SendCommit(commit *messages.Commit) {
 		log.Error("marshal commit msg failed with %v.", err)
 		return
 	}
-	var master uint64
-	if nil != commit.Result.Result {
-		master = instance.local.Extension.Id
-	} else {
-		master = (instance.local.Extension.Id + 1) % uint64(len(instance.peers))
-	}
-	peers := instance.getCommitOrder(int(master))
+	peers := instance.getCommitOrder(commit.Result.Result, int(instance.local.Extension.Id))
 	instance.broadcastByOrder(msgRaw, messages.CommitMessageType, commit.Digest, peers)
 }
 
