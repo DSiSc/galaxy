@@ -255,7 +255,6 @@ func (instance *bftCore) receiveProposal(proposal *messages.Proposal) {
 		log.Error("marshal proposal msg failed with %v.", err)
 		return
 	}
-	instance.payloads[proposal.Payload.Header.MixDigest] = proposal.Payload
 	err = instance.unicast(masterAccount, msgRaw, messages.ResponseMessageType, proposal.Payload.Header.MixDigest)
 	if err != nil {
 		log.Error("unicast to master %x failed with error %v.", masterAccount.Address, err)

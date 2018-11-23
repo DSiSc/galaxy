@@ -57,8 +57,6 @@ func (self *BFTPolicy) Initialization(role map[account.Account]commonr.Roler, pe
 		signatures: make([][]byte, 0),
 		signMap:    make(map[account.Account][]byte),
 	}
-	self.bftCore.validator = make(map[types.Hash]*payloadSets)
-	self.bftCore.payloads = make(map[types.Hash]*types.Block)
 	return nil
 }
 
@@ -95,17 +93,17 @@ func (self *BFTPolicy) ToConsensus(p *common.Proposal) error {
 	select {
 	case consensusResult := <-self.result:
 		if nil != consensusResult.Result {
-			log.Error("consensus failed with error %x.", consensusResult.Result)
+			log.Error("consensus for %x failed with error %v.", p.Block.Header.MixDigest, consensusResult.Result)
 			err = consensusResult.Result
 		} else {
 			p.Block.Header.SigData = consensusResult.Signatures
 			p.Block.HeaderHash = common.HeaderHash(p.Block)
 			result = true
-			log.Info("consensus successfully with signature %x.", consensusResult.Signatures)
+			log.Info("consensus for %x successfully with signature %x.", p.Block.Header.MixDigest, consensusResult.Signatures)
 		}
 		go self.commit(p.Block, result)
 	case <-timer.C:
-		log.Error("consensus timeout in %d seconds.", self.timeout)
+		log.Error("consensus for %x timeout in %d seconds.", p.Block.Header.MixDigest, self.timeout)
 		err = fmt.Errorf("timeout for consensus")
 		go self.commit(p.Block, result)
 	}
