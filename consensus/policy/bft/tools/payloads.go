@@ -39,7 +39,7 @@ func VerifyPayload(payload *types.Block) (types.Receipts, error) {
 func SignPayload(account account.Account, digest types.Hash) ([]byte, error) {
 	sign, err := signature.Sign(&account, digest[:])
 	if nil != err {
-		log.Error("archive signature occur error %x.", err)
+		log.Error("archive signature occur error %v.", err)
 		return nil, err
 	}
 	log.Info("archive signature for %x successfully with sign %x.", digest, sign)
