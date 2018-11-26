@@ -9,6 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
+	"net"
+	"reflect"
 )
 
 var mockAccounts = []account.Account{
@@ -155,4 +157,58 @@ func TestMessage_UnmarshalJSON(t *testing.T) {
 	assert.NotNil(t, responseData)
 	err = json.Unmarshal(responseData, &response)
 	assert.Equal(t, fmt.Errorf("not support marshal type"), err)
+}
+
+var mockHash = types.Hash{
+	0xbd, 0x79, 0x1d, 0x4a, 0xf9, 0x64, 0x8f, 0xc3, 0x7f, 0x94, 0xeb, 0x36, 0x53, 0x19, 0xf6, 0xd0,
+	0xa9, 0x78, 0x9f, 0x9c, 0x22, 0x47, 0x2c, 0xa7, 0xa6, 0x12, 0xa9, 0xca, 0x4, 0x13, 0xc1, 0x4,
+}
+
+func TestNewBFTCore_broadcast(t *testing.T) {
+	monkey.Patch(net.ResolveTCPAddr, func(string, string) (*net.TCPAddr, error) {
+		return nil, fmt.Errorf("resolve error")
+	})
+	BroadcastPeers(nil, ProposalMessageType, mockHash, mockAccounts)
+
+	monkey.Patch(net.ResolveTCPAddr, func(string, string) (*net.TCPAddr, error) {
+		return nil, nil
+	})
+	monkey.Patch(net.DialTCP, func(string, *net.TCPAddr, *net.TCPAddr) (*net.TCPConn, error) {
+		return nil, fmt.Errorf("dail error")
+	})
+	BroadcastPeers(nil, ProposalMessageType, mockHash, mockAccounts)
+
+	var c net.TCPConn
+	monkey.Patch(net.DialTCP, func(string, *net.TCPAddr, *net.TCPAddr) (*net.TCPConn, error) {
+		return &c, nil
+	})
+	monkey.PatchInstanceMethod(reflect.TypeOf(&c), "Write", func(*net.TCPConn, []byte) (int, error) {
+		return 0, nil
+	})
+	BroadcastPeers(nil, ProposalMessageType, mockHash, mockAccounts)
+
+	monkey.UnpatchAll()
+}
+
+func TestBftCore_unicast(t *testing.T) {
+	monkey.Patch(net.ResolveTCPAddr, func(string, string) (*net.TCPAddr, error) {
+		return nil, fmt.Errorf("resolve error")
+	})
+	err := Unicast(mockAccounts[1], nil, ProposalMessageType, mockHash)
+	assert.Equal(t, fmt.Errorf("resolve error"), err)
+
+	monkey.Patch(net.ResolveTCPAddr, func(string, string) (*net.TCPAddr, error) {
+		return nil, nil
+	})
+	var c net.TCPConn
+	monkey.Patch(net.DialTCP, func(string, *net.TCPAddr, *net.TCPAddr) (*net.TCPConn, error) {
+		return &c, nil
+	})
+	monkey.PatchInstanceMethod(reflect.TypeOf(&c), "Write", func(*net.TCPConn, []byte) (int, error) {
+		return 0, nil
+	})
+	err = Unicast(mockAccounts[1], nil, ProposalMessageType, mockHash)
+	assert.Nil(t, err)
+
+	monkey.UnpatchAll()
 }

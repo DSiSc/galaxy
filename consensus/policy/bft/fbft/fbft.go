@@ -100,11 +100,11 @@ func (instance *FBFTPolicy) ToConsensus(p *common.Proposal) error {
 			result = true
 			log.Info("consensus for %x successfully with signature %x.", p.Block.Header.MixDigest, consensusResult.Signatures)
 		}
-		go instance.commit(p.Block, result)
+		instance.commit(p.Block, result)
 	case <-timer.C:
 		log.Error("consensus for %x timeout in %d seconds.", p.Block.Header.MixDigest, instance.timeout)
 		err = fmt.Errorf("timeout for consensus")
-		go instance.commit(p.Block, result)
+		instance.commit(p.Block, result)
 	}
 	return err
 }

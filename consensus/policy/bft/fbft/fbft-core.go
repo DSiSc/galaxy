@@ -165,7 +165,6 @@ func (instance *fbftCore) receiveRequest(request *messages.Request) {
 	instance.signature.addSignature(instance.local, signData)
 	log.Info("broadcast proposal to peers.")
 	instance.broadcast(msgRaw, messages.ProposalMessageType, instance.digest)
-	go instance.waitResponse()
 }
 
 func (instance *fbftCore) waitResponse() {
@@ -533,7 +532,6 @@ func handleConnection(tcpListener *net.TCPListener, bft *fbftCore) {
 		switch msg.MessageType {
 		case messages.RequestMessageType:
 			log.Info("receive request message from producer")
-			// TODO: separate producer and master, so client need send request to master
 			request := payload.(*messages.RequestMessage).Request
 			tools.SendEvent(bft, request)
 		case messages.ProposalMessageType:
