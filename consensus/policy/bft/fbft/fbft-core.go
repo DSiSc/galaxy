@@ -27,7 +27,6 @@ type fbftCore struct {
 	result      chan *messages.ConsensusResult
 	tunnel      chan int
 	validator   map[types.Hash]*payloadSets
-	payloads    map[types.Hash]*types.Block
 	eventCenter types.EventCenter
 }
 
@@ -46,7 +45,6 @@ func NewFBFTCore(local account.Account, result chan *messages.ConsensusResult) *
 		result:    result,
 		tunnel:    make(chan int),
 		validator: make(map[types.Hash]*payloadSets),
-		payloads:  make(map[types.Hash]*types.Block),
 	}
 }
 

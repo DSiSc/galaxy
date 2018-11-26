@@ -109,16 +109,11 @@ func TestBFTPolicy_Initialization(t *testing.T) {
 	assert.Nil(t, err)
 
 	assignment := mockRoleAssignment(mockAccounts[3], mockAccounts)
-	err = fbft.Initialization(assignment, mockAccounts[:3], nil)
-	assert.Equal(t, err, fmt.Errorf("role and peers not in consistent"))
-
-	assignment[mockAccounts[3]] = commonr.Master
 	err = fbft.Initialization(assignment, mockAccounts, nil)
 	assert.Equal(t, fbft.core.peers, mockAccounts)
 	assert.Equal(t, fbft.core.tolerance, uint8((len(mockAccounts)-1)/3))
 	assert.Equal(t, fbft.core.master, mockAccounts[3].Extension.Id)
 	assert.Equal(t, 0, len(fbft.core.validator))
-	assert.Equal(t, 0, len(fbft.core.payloads))
 	assert.NotNil(t, fbft.core.signature)
 	assert.Equal(t, 0, len(fbft.core.signature.SignMap))
 	assert.Equal(t, 0, len(fbft.core.signature.Signatures))

@@ -9,6 +9,7 @@ import (
 	"github.com/DSiSc/galaxy/consensus/policy/bft/tools"
 	commonr "github.com/DSiSc/galaxy/role/common"
 	"github.com/DSiSc/validator/tools/account"
+	"math"
 	"time"
 )
 
@@ -32,19 +33,13 @@ func NewFBFTPolicy(account account.Account, timeout int64) (*FBFTPolicy, error) 
 }
 
 func (instance *FBFTPolicy) Initialization(role map[account.Account]commonr.Roler, peers []account.Account, events types.EventCenter) error {
-	if len(role) != len(peers) {
-		log.Error("bft core has not been initial, please confirm.")
-		return fmt.Errorf("role and peers not in consistent")
-	}
-	var masterExist bool = false
+	instance.core.master = math.MaxUint64
 	for delegate, role := range role {
 		if commonr.Master == role {
 			instance.core.master = delegate.Extension.Id
-			masterExist = true
-			break
 		}
 	}
-	if !masterExist {
+	if instance.core.master == math.MaxUint64 {
 		log.Error("no master exist in delegates")
 		return fmt.Errorf("no master")
 	}
@@ -64,7 +59,7 @@ func (instance *FBFTPolicy) PolicyName() string {
 }
 
 func (instance *FBFTPolicy) Start() {
-	log.Info("start bft policy service.")
+	log.Info("start fbft policy service.")
 	instance.core.Start(instance.account)
 }
 
@@ -82,7 +77,7 @@ func (instance *FBFTPolicy) commit(block *types.Block, result bool) {
 
 func (instance *FBFTPolicy) ToConsensus(p *common.Proposal) error {
 	var err error
-	var result = false
+	var result bool
 	request := &messages.Request{
 		Timestamp: p.Timestamp,
 		Payload:   p.Block,
@@ -104,6 +99,7 @@ func (instance *FBFTPolicy) ToConsensus(p *common.Proposal) error {
 	case <-timer.C:
 		log.Error("consensus for %x timeout in %d seconds.", p.Block.Header.MixDigest, instance.timeout)
 		err = fmt.Errorf("timeout for consensus")
+		result = false
 		instance.commit(p.Block, result)
 	}
 	return err
