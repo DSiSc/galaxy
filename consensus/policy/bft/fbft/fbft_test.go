@@ -120,8 +120,8 @@ func TestBFTPolicy_Initialization(t *testing.T) {
 	assert.Equal(t, 0, len(fbft.core.validator))
 	assert.Equal(t, 0, len(fbft.core.payloads))
 	assert.NotNil(t, fbft.core.signature)
-	assert.Equal(t, 0, len(fbft.core.signature.signMap))
-	assert.Equal(t, 0, len(fbft.core.signature.signatures))
+	assert.Equal(t, 0, len(fbft.core.signature.SignMap))
+	assert.Equal(t, 0, len(fbft.core.signature.Signatures))
 
 	assignment[mockAccounts[3]] = commonr.Slave
 	err = fbft.Initialization(assignment, mockAccounts, nil)

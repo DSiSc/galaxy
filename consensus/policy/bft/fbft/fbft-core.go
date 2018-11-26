@@ -12,7 +12,6 @@ import (
 	"github.com/DSiSc/galaxy/consensus/policy/bft/tools"
 	"github.com/DSiSc/validator/tools/account"
 	"github.com/DSiSc/validator/tools/signature"
-	"github.com/DSiSc/validator/worker"
 	"net"
 	"time"
 )
@@ -21,7 +20,7 @@ type fbftCore struct {
 	local       account.Account
 	master      uint64
 	peers       []account.Account
-	signature   *signData
+	signature   *tools.SignData
 	tolerance   uint8
 	commit      bool
 	digest      types.Hash
@@ -32,17 +31,6 @@ type fbftCore struct {
 	eventCenter types.EventCenter
 }
 
-type signData struct {
-	signatures [][]byte
-	signMap    map[account.Account][]byte
-}
-
-func (s *signData) addSignature(account account.Account, sign []byte) {
-	log.Info("add %x signature.", account.Address)
-	s.signMap[account] = sign
-	s.signatures = append(s.signatures, sign)
-}
-
 type payloadSets struct {
 	block    *types.Block
 	receipts types.Receipts
@@ -51,68 +39,15 @@ type payloadSets struct {
 func NewFBFTCore(local account.Account, result chan *messages.ConsensusResult) *fbftCore {
 	return &fbftCore{
 		local: local,
-		signature: &signData{
-			signatures: make([][]byte, 0),
-			signMap:    make(map[account.Account][]byte),
+		signature: &tools.SignData{
+			Signatures: make([][]byte, 0),
+			SignMap:    make(map[account.Account][]byte),
 		},
 		result:    result,
 		tunnel:    make(chan int),
 		validator: make(map[types.Hash]*payloadSets),
 		payloads:  make(map[types.Hash]*types.Block),
 	}
-}
-
-func sendMsgByUrl(url string, msgPayload []byte) error {
-	log.Info("send msg to url %s.", url)
-	tcpAddr, err := net.ResolveTCPAddr("tcp4", url)
-	if err != nil {
-		log.Error("resolve tcp address %s occur fatal error: %v", url, err)
-		return err
-	}
-	conn, err := net.DialTCP("tcp", nil, tcpAddr)
-	if err != nil {
-		log.Error("dial tcp with %s occur error: %s", url, err)
-		return err
-	}
-	log.Info("connect success, send to url %s with payload %x.", url, msgPayload)
-	conn.Write(msgPayload)
-	return nil
-}
-
-func (instance *fbftCore) broadcast(msgPayload []byte, msgType messages.MessageType, digest types.Hash) {
-	peers := instance.peers
-	for id, peer := range peers {
-		log.Info("broadcast from node %d to %d by url %s with message type %v and digest %x.",
-			instance.local.Extension.Id, id, peer.Extension.Url, msgType, digest)
-		err := sendMsgByUrl(peer.Extension.Url, msgPayload)
-		if nil != err {
-			log.Error("broadcast from node %d to %d by url %s with message type %v and digest %x occur error %v.",
-				instance.local.Extension.Id, id, peer.Extension.Url, msgType, digest, err)
-		}
-	}
-}
-
-func (instance *fbftCore) broadcastByOrder(msgPayload []byte, msgType messages.MessageType, digest types.Hash, peers []account.Account) {
-	for _, peer := range peers {
-		log.Info("broadcast from node %d to %d by url %s with message type %v and digest %x.",
-			instance.local.Extension.Id, peer.Extension.Id, peer.Extension.Url, msgType, digest)
-		err := sendMsgByUrl(peer.Extension.Url, msgPayload)
-		if nil != err {
-			log.Error("broadcast from node %d to %d by url %s with message type %v and digest %x occur error %v.",
-				instance.local.Extension.Id, peer.Extension.Id, peer.Extension.Url, msgType, digest, err)
-		}
-	}
-}
-
-func (instance *fbftCore) unicast(account account.Account, msgPayload []byte, msgType messages.MessageType, digest types.Hash) error {
-	log.Info("node %d send msg [type %v, digest %x] to %d with url %s.",
-		instance.local.Extension.Id, msgType, digest, account.Extension.Id, account.Extension.Url)
-	err := sendMsgByUrl(account.Extension.Url, msgPayload)
-	if nil != err {
-		log.Error("node %d send msg [type %v and digest %x] to %d with url %s occurs error %v.",
-			instance.local.Extension.Id, msgType, digest, account.Extension.Id, account.Extension.Url, err)
-	}
-	return err
 }
 
 func (instance *fbftCore) receiveRequest(request *messages.Request) {
@@ -126,12 +61,12 @@ func (instance *fbftCore) receiveRequest(request *messages.Request) {
 		log.Error("request must have signature from producer.")
 		return
 	}
-	receipts, err := instance.verifyPayload(request.Payload)
+	receipts, err := tools.VerifyPayload(request.Payload)
 	if nil != err {
 		log.Error("proposal verified failed with error %v.", err)
 		return
 	}
-	signData, err := instance.signPayload(request.Payload.Header.MixDigest)
+	signData, err := tools.SignPayload(instance.local, request.Payload.Header.MixDigest)
 	if nil != err {
 		log.Error("archive proposal signature failed with error %v.", err)
 		return
@@ -162,14 +97,15 @@ func (instance *fbftCore) receiveRequest(request *messages.Request) {
 		return
 	}
 	instance.digest = request.Payload.Header.MixDigest
-	instance.signature.addSignature(instance.local, signData)
+	instance.signature.AddSignature(instance.local, signData)
 	log.Info("broadcast proposal to peers.")
-	instance.broadcast(msgRaw, messages.ProposalMessageType, instance.digest)
+	messages.BroadcastPeers(msgRaw, messages.ProposalMessageType, instance.digest, instance.peers)
+	go instance.waitResponse()
 }
 
 func (instance *fbftCore) waitResponse() {
 	log.Warn("set timer with 5 second.")
-	timer := time.NewTimer(5 * time.Second)
+	timer := time.NewTimer(2 * time.Second)
 	for {
 		select {
 		case <-timer.C:
@@ -188,14 +124,14 @@ func (instance *fbftCore) waitResponse() {
 		case <-instance.tunnel:
 			log.Info("receive tunnel")
 			signatures, err := instance.maybeCommit()
-			if len(signatures) == len(instance.peers) {
+			if nil != err {
 				instance.commit = true
 				consensusResult := messages.ConsensusResult{
 					Signatures: signatures,
 					Result:     err,
 				}
 				instance.result <- &consensusResult
-				log.Info("receive all response before timeout")
+				log.Info("receive satisfied responses before timeout")
 				return
 			}
 			log.Warn("get %d signatures of %d peers.", len(signatures), len(instance.peers))
@@ -218,17 +154,17 @@ func (instance *fbftCore) receiveProposal(proposal *messages.Proposal) {
 		log.Error("proposal signature not from master, please confirm.")
 		return
 	}
-	receipts, err := instance.verifyPayload(proposal.Payload)
+	receipts, err := tools.VerifyPayload(proposal.Payload)
 	if nil != err {
 		log.Error("proposal verified failed with error %v.", err)
 		return
 	}
-	signData, err := instance.signPayload(proposal.Payload.Header.MixDigest)
+	signData, err := tools.SignPayload(instance.local, proposal.Payload.Header.MixDigest)
 	if nil != err {
 		log.Error("archive proposal signature failed with error %v.", err)
 		return
 	}
-	// ensure reserve receipts must be verified and signed
+
 	if values, ok := instance.validator[proposal.Payload.Header.MixDigest]; !ok {
 		log.Info("add record payload %x.", proposal.Payload.Header.MixDigest)
 		instance.validator[proposal.Payload.Header.MixDigest] = &payloadSets{
@@ -254,46 +190,20 @@ func (instance *fbftCore) receiveProposal(proposal *messages.Proposal) {
 		log.Error("marshal proposal msg failed with %v.", err)
 		return
 	}
-	err = instance.unicast(masterAccount, msgRaw, messages.ResponseMessageType, proposal.Payload.Header.MixDigest)
+	err = messages.Unicast(masterAccount, msgRaw, messages.ResponseMessageType, proposal.Payload.Header.MixDigest)
 	if err != nil {
 		log.Error("unicast to master %x failed with error %v.", masterAccount.Address, err)
 	}
 }
 
-func (instance *fbftCore) verifyPayload(payload *types.Block) (types.Receipts, error) {
-	blockStore, err := blockchain.NewBlockChainByBlockHash(payload.Header.PrevBlockHash)
-	if nil != err {
-		log.Error("Get NewBlockChainByBlockHash failed.")
-		return nil, err
-	}
-	worker := worker.NewWorker(blockStore, payload)
-	err = worker.VerifyBlock()
-	if err != nil {
-		log.Error("The block %d verified failed with err %v.", payload.Header.Height, err)
-		return nil, err
-	}
-
-	return worker.GetReceipts(), nil
-}
-
-func (instance *fbftCore) signPayload(digest types.Hash) ([]byte, error) {
-	sign, err := signature.Sign(&instance.local, digest[:])
-	if nil != err {
-		log.Error("archive signature occur error %x.", err)
-		return nil, err
-	}
-	log.Info("archive signature for %x successfully with sign %x.", digest, sign)
-	return sign, nil
-}
-
 func (instance *fbftCore) maybeCommit() ([][]byte, error) {
 	var reallySignature = make([][]byte, 0)
-	if uint8(len(instance.signature.signatures)) < uint8(len(instance.peers))-instance.tolerance {
+	if uint8(len(instance.signature.Signatures)) < uint8(len(instance.peers))-instance.tolerance {
 		log.Info("commit need %d signature, while now is %d.",
-			uint8(len(instance.peers))-instance.tolerance, len(instance.signature.signatures))
+			uint8(len(instance.peers))-instance.tolerance, len(instance.signature.Signatures))
 	}
-	signData := instance.signature.signatures
-	signMap := instance.signature.signMap
+	signData := instance.signature.Signatures
+	signMap := instance.signature.SignMap
 	if len(signData) != len(signMap) {
 		log.Error("length of signData[%d] and signMap[%d] does not match.", len(signData), len(signMap))
 		return reallySignature, fmt.Errorf("signData and signMap does not match")
@@ -340,8 +250,8 @@ func (instance *fbftCore) receiveResponse(response *messages.Response) {
 			log.Error("signature and response sender not in coincidence.")
 			return
 		}
-		if sign, ok := instance.signature.signMap[peer]; !ok {
-			instance.signature.addSignature(peer, response.Signature)
+		if sign, ok := instance.signature.SignMap[peer]; !ok {
+			instance.signature.AddSignature(peer, response.Signature)
 			log.Info("try to notify toCommit.")
 			instance.tunnel <- 1
 			log.Info("response from %x as been committed success.", response.Account.Address)
@@ -404,7 +314,7 @@ func (instance *fbftCore) SendCommit(commit *messages.Commit, block *types.Block
 	}
 	if !commit.Result {
 		peers := instance.commitFilter(instance.local)
-		instance.broadcastByOrder(msgRaw, messages.CommitMessageType, commit.Digest, peers)
+		messages.BroadcastPeers(msgRaw, messages.CommitMessageType, commit.Digest, peers)
 		log.Info("later to notify local")
 		instance.eventCenter.Notify(types.EventConsensusFailed, nil)
 	} else {
@@ -418,7 +328,7 @@ func (instance *fbftCore) SendCommit(commit *messages.Commit, block *types.Block
 		}
 		peers = append(peers, instance.peers[nextMaster])
 		instance.commitBlock(block)
-		instance.broadcastByOrder(msgRaw, messages.CommitMessageType, commit.Digest, peers)
+		messages.BroadcastPeers(msgRaw, messages.CommitMessageType, commit.Digest, peers)
 	}
 }
 

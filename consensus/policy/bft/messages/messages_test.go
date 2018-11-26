@@ -7,10 +7,10 @@ import (
 	"github.com/DSiSc/monkey"
 	"github.com/DSiSc/validator/tools/account"
 	"github.com/stretchr/testify/assert"
-	"testing"
-	"time"
 	"net"
 	"reflect"
+	"testing"
+	"time"
 )
 
 var mockAccounts = []account.Account{

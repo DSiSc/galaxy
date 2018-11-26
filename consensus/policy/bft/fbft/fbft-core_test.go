@@ -109,8 +109,8 @@ func TestBftCore_ProcessEvent(t *testing.T) {
 		Digest:    mockHash,
 		Signature: mockSignset[0],
 	}
-	fbft.signature.addSignature(fbft.peers[1], mockSignset[1])
-	fbft.signature.addSignature(fbft.peers[2], mockSignset[2])
+	fbft.signature.AddSignature(fbft.peers[1], mockSignset[1])
+	fbft.signature.AddSignature(fbft.peers[2], mockSignset[2])
 	fbft.tolerance = uint8((len(fbft.peers) - 1) / 3)
 	fbft.digest = mockHash
 	go fbft.waitResponse()
@@ -152,7 +152,7 @@ func TestBftCore_Start(t *testing.T) {
 		0xf2, 0xbe, 0xdb, 0x2c, 0xa4, 0xb8, 0xb4, 0xdf, 0x63, 0x3d,
 	}
 	go fbft.Start(account)
-	fbft.unicast(account, fakePayload, "none", mockHash)
+	messages.Unicast(account, fakePayload, "none", mockHash)
 	time.Sleep(1 * time.Second)
 }
 
@@ -234,7 +234,7 @@ func TestNewFBFTCore_broadcast(t *testing.T) {
 	monkey.Patch(net.ResolveTCPAddr, func(string, string) (*net.TCPAddr, error) {
 		return nil, fmt.Errorf("resolve error")
 	})
-	fbft.broadcast(nil, messages.ProposalMessageType, mockHash)
+	messages.BroadcastPeers(nil, messages.ProposalMessageType, mockHash, fbft.peers)
 
 	monkey.Patch(net.ResolveTCPAddr, func(string, string) (*net.TCPAddr, error) {
 		return nil, nil
@@ -242,7 +242,7 @@ func TestNewFBFTCore_broadcast(t *testing.T) {
 	monkey.Patch(net.DialTCP, func(string, *net.TCPAddr, *net.TCPAddr) (*net.TCPConn, error) {
 		return nil, fmt.Errorf("dail error")
 	})
-	fbft.broadcast(nil, messages.ProposalMessageType, mockHash)
+	messages.BroadcastPeers(nil, messages.ProposalMessageType, mockHash, fbft.peers)
 
 	var c net.TCPConn
 	monkey.Patch(net.DialTCP, func(string, *net.TCPAddr, *net.TCPAddr) (*net.TCPConn, error) {
@@ -251,7 +251,7 @@ func TestNewFBFTCore_broadcast(t *testing.T) {
 	monkey.PatchInstanceMethod(reflect.TypeOf(&c), "Write", func(*net.TCPConn, []byte) (int, error) {
 		return 0, nil
 	})
-	fbft.broadcast(nil, messages.ProposalMessageType, mockHash)
+	messages.BroadcastPeers(nil, messages.ProposalMessageType, mockHash, fbft.peers)
 	monkey.Unpatch(net.ResolveTCPAddr)
 	monkey.Unpatch(net.DialTCP)
 	monkey.UnpatchInstanceMethod(reflect.TypeOf(&c), "Write")
@@ -264,7 +264,7 @@ func TestBftCore_unicast(t *testing.T) {
 	monkey.Patch(net.ResolveTCPAddr, func(string, string) (*net.TCPAddr, error) {
 		return nil, fmt.Errorf("resolve error")
 	})
-	err := fbft.unicast(fbft.peers[1], nil, messages.ProposalMessageType, mockHash)
+	err := messages.Unicast(fbft.peers[1], nil, messages.ProposalMessageType, mockHash)
 	assert.Equal(t, fmt.Errorf("resolve error"), err)
 	monkey.Patch(net.ResolveTCPAddr, func(string, string) (*net.TCPAddr, error) {
 		return nil, nil
@@ -276,7 +276,7 @@ func TestBftCore_unicast(t *testing.T) {
 	monkey.PatchInstanceMethod(reflect.TypeOf(&c), "Write", func(*net.TCPConn, []byte) (int, error) {
 		return 0, nil
 	})
-	err = fbft.unicast(fbft.peers[1], nil, messages.ProposalMessageType, mockHash)
+	err = messages.Unicast(fbft.peers[1], nil, messages.ProposalMessageType, mockHash)
 	assert.Nil(t, err)
 	monkey.Unpatch(net.ResolveTCPAddr)
 	monkey.Unpatch(net.DialTCP)
@@ -373,8 +373,8 @@ func TestBftCore_receiveResponse(t *testing.T) {
 		Digest:    mockHash,
 		Signature: mockSignset[2],
 	}
-	fbft.signature.addSignature(mockAccounts[0], mockSignset[0])
-	fbft.signature.addSignature(mockAccounts[1], mockSignset[1])
+	fbft.signature.AddSignature(mockAccounts[0], mockSignset[0])
+	fbft.signature.AddSignature(mockAccounts[1], mockSignset[1])
 	go fbft.waitResponse()
 	monkey.Patch(signature.Verify, func(_ keypair.PublicKey, sign []byte) (types.Address, error) {
 		var address types.Address
