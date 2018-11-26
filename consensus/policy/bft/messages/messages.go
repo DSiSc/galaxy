@@ -154,9 +154,8 @@ func sendMsgByUrl(url string, msgPayload []byte) error {
 		log.Error("dial tcp with %s occur error: %s", url, err)
 		return err
 	}
-	log.Info("connect success, send to url %s with payload %x.", url, msgPayload)
-	conn.Write(msgPayload)
-	return nil
+	_, err = conn.Write(msgPayload)
+	return err
 }
 
 func Unicast(account account.Account, msgPayload []byte, msgType MessageType, digest types.Hash) error {

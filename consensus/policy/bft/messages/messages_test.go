@@ -205,10 +205,10 @@ func TestBftCore_unicast(t *testing.T) {
 		return &c, nil
 	})
 	monkey.PatchInstanceMethod(reflect.TypeOf(&c), "Write", func(*net.TCPConn, []byte) (int, error) {
-		return 0, nil
+		return 10, nil
 	})
 	err = Unicast(mockAccounts[1], nil, ProposalMessageType, mockHash)
-	assert.Nil(t, err)
+	assert.NotNil(t, err)
 
 	monkey.UnpatchAll()
 }

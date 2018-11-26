@@ -33,7 +33,7 @@ func TestBftCore_ProcessEvent(t *testing.T) {
 	assert.NotNil(t, fbft)
 	id := mockAccounts[0].Extension.Id
 	err := fbft.ProcessEvent(nil)
-	assert.Equal(t, fmt.Errorf("un support type <nil>"), err)
+	assert.Equal(t, fmt.Errorf("not support type <nil>"), err)
 
 	var b *blockchain.BlockChain
 	monkey.Patch(blockchain.NewBlockChainByBlockHash, func(types.Hash) (*blockchain.BlockChain, error) {
@@ -277,7 +277,7 @@ func TestBftCore_unicast(t *testing.T) {
 		return 0, nil
 	})
 	err = messages.Unicast(fbft.peers[1], nil, messages.ProposalMessageType, mockHash)
-	assert.Nil(t, err)
+	assert.NotNil(t, err)
 	monkey.Unpatch(net.ResolveTCPAddr)
 	monkey.Unpatch(net.DialTCP)
 	monkey.UnpatchInstanceMethod(reflect.TypeOf(&c), "Write")
@@ -509,24 +509,6 @@ func TestBftCore_SendCommit(t *testing.T) {
 		return 0, nil
 	})
 	fbft.SendCommit(mockCommit, block)
-
-	peers := fbft.getCommitOrder(nil, 0)
-	successOrder := []account.Account{
-		fbft.peers[0],
-		fbft.peers[2],
-		fbft.peers[3],
-		fbft.peers[1],
-	}
-	assert.Equal(t, successOrder, peers)
-
-	peers = fbft.getCommitOrder(fmt.Errorf("error"), 0)
-	failedOrder := []account.Account{
-		fbft.peers[1],
-		fbft.peers[2],
-		fbft.peers[3],
-		fbft.peers[0],
-	}
-	assert.Equal(t, failedOrder, peers)
 
 	commit := &messages.Commit{
 		Account:    mockAccounts[0],
