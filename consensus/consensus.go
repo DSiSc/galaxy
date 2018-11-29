@@ -6,6 +6,7 @@ import (
 	"github.com/DSiSc/galaxy/consensus/common"
 	"github.com/DSiSc/galaxy/consensus/config"
 	"github.com/DSiSc/galaxy/consensus/policy/bft"
+	"github.com/DSiSc/galaxy/consensus/policy/bft/fbft"
 	"github.com/DSiSc/galaxy/consensus/policy/solo"
 	"github.com/DSiSc/galaxy/participates"
 	commonr "github.com/DSiSc/galaxy/role/common"
@@ -30,6 +31,9 @@ func NewConsensus(participates participates.Participates, conf config.ConsensusC
 	case common.BFT_POLICY:
 		log.Info("Get consensus policy is bft.")
 		consensus, err = bft.NewBFTPolicy(account, conf.Timeout)
+	case common.FBFT_POLICY:
+		log.Info("Get consensus policy is fbft.")
+		consensus, err = fbft.NewFBFTPolicy(account, conf.Timeout)
 	default:
 		log.Error("Now, we only support solo policy consensus.")
 	}

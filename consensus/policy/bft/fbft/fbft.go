@@ -23,7 +23,7 @@ type FBFTPolicy struct {
 
 func NewFBFTPolicy(account account.Account, timeout int64) (*FBFTPolicy, error) {
 	policy := &FBFTPolicy{
-		name:    common.BFT_POLICY,
+		name:    common.FBFT_POLICY,
 		account: account,
 		timeout: time.Duration(timeout),
 		result:  make(chan *messages.ConsensusResult),

@@ -44,4 +44,8 @@ func Test_NewConsensus(t *testing.T) {
 	conf = mockConf("bft")
 	consensus, err = NewConsensus(nil, conf, mockAccount)
 	asserts.Equal("bft", consensus.PolicyName())
+
+	conf = mockConf("fbft")
+	consensus, err = NewConsensus(nil, conf, mockAccount)
+	asserts.Equal("fbft", consensus.PolicyName())
 }
