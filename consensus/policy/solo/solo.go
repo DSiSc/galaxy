@@ -19,6 +19,7 @@ type SoloPolicy struct {
 	version   common.Version
 	peers     []account.Account
 	role      map[account.Account]commonr.Roler
+	receipts types.Receipts
 }
 
 // SoloProposal that with solo policy
@@ -117,6 +118,7 @@ func (self *SoloPolicy) ToConsensus(p *common.Proposal) error {
 		return fmt.Errorf("consensus status fault")
 	}
 	self.version = proposal.version
+	p.Block.HeaderHash = common.HeaderHash(p.Block)
 	return nil
 }
 
