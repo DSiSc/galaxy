@@ -14,13 +14,14 @@ import (
 )
 
 type SoloPolicy struct {
-	name      string
-	account   account.Account
-	tolerance uint8
-	version   common.Version
-	peers     []account.Account
-	role      map[account.Account]commonr.Roler
-	receipts  types.Receipts
+	name        string
+	account     account.Account
+	tolerance   uint8
+	version     common.Version
+	peers       []account.Account
+	role        map[account.Account]commonr.Roler
+	receipts    types.Receipts
+	eventCenter types.EventCenter
 }
 
 // SoloProposal that with solo policy
@@ -63,6 +64,7 @@ func (self *SoloPolicy) Initialization(role map[account.Account]commonr.Roler, a
 		return fmt.Errorf("solo policy only support one participate")
 	}
 	self.peers = account
+	self.eventCenter = event
 	return nil
 }
 
@@ -79,15 +81,18 @@ func (self *SoloPolicy) toSoloProposal(p *common.Proposal) *SoloProposal {
 
 // to get consensus
 func (self *SoloPolicy) ToConsensus(p *common.Proposal) error {
+	var err error
 	proposal := self.toSoloProposal(p)
-	err := self.prepareConsensus(proposal)
+	err = self.prepareConsensus(proposal)
 	if err != nil {
 		log.Error("Prepare proposal failed.")
+		self.eventCenter.Notify(types.EventConsensusFailed, nil)
 		return fmt.Errorf("prepare proposal failed")
 	}
 	ok := self.toConsensus(proposal)
 	if ok == false {
 		log.Error("Local verify failed.")
+		self.eventCenter.Notify(types.EventConsensusFailed, nil)
 		return fmt.Errorf("local verify failed")
 	}
 	// verify num of sign
@@ -103,23 +108,33 @@ func (self *SoloPolicy) ToConsensus(p *common.Proposal) error {
 	}
 	if uint8(len(validSign)) < common.SOLO_CONSENSUS_NUM {
 		log.Error("Not enough valid signature which is %d.", len(validSign))
+		self.eventCenter.Notify(types.EventConsensusFailed, nil)
 		return fmt.Errorf("not enough valid signature")
 	}
 	if _, ok := validSign[self.account.Address]; !ok {
 		log.Error("absence self signature.")
+		self.eventCenter.Notify(types.EventConsensusFailed, nil)
 		return fmt.Errorf("absence self signature")
 	}
 	err = self.submitConsensus(proposal)
 	if err != nil {
 		log.Error("Submit proposal failed.")
+		self.eventCenter.Notify(types.EventConsensusFailed, nil)
 		return fmt.Errorf("submit proposal failed")
 	}
 	if proposal.status != common.Committed {
 		log.Error("Not to consensus.")
+		self.eventCenter.Notify(types.EventConsensusFailed, nil)
 		return fmt.Errorf("consensus status fault")
 	}
 	self.version = proposal.version
-	return self.commitBlock(p.Block)
+	err = self.commitBlock(p.Block)
+	if nil != err {
+		log.Error("commit block failed.")
+		self.eventCenter.Notify(types.EventConsensusFailed, nil)
+		return fmt.Errorf("commit block failed")
+	}
+	return err
 }
 
 func (self *SoloPolicy) commitBlock(block *types.Block) error {
@@ -154,8 +169,8 @@ func (self *SoloPolicy) prepareConsensus(p *SoloProposal) error {
 
 func (self *SoloPolicy) submitConsensus(p *SoloProposal) error {
 	if p.status != common.Propose {
-		log.Error("Proposal status must be Proposaling to submit consensus.")
-		return fmt.Errorf("proposal status must be proposaling")
+		log.Error("Proposal status must be Propose to submit consensus.")
+		return fmt.Errorf("proposal status must be Propose")
 	}
 	p.status = common.Committed
 	return nil

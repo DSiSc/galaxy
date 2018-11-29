@@ -1,8 +1,10 @@
 package solo
 
 import (
+	"errors"
 	"fmt"
 	"github.com/DSiSc/blockchain"
+	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/galaxy/consensus/common"
 	commonr "github.com/DSiSc/galaxy/role/common"
@@ -14,10 +16,117 @@ import (
 	"github.com/stretchr/testify/assert"
 	"math"
 	"reflect"
+	"sync"
 	"testing"
 )
 
 var events types.EventCenter
+
+type Event struct {
+	m           sync.RWMutex
+	Subscribers map[types.EventType]map[types.Subscriber]types.EventFunc
+}
+
+func NewEvent() types.EventCenter {
+	return &Event{
+		Subscribers: make(map[types.EventType]map[types.Subscriber]types.EventFunc),
+	}
+}
+
+//  adds a new subscriber to Event.
+func (e *Event) Subscribe(eventType types.EventType, eventFunc types.EventFunc) types.Subscriber {
+	e.m.Lock()
+	defer e.m.Unlock()
+
+	sub := make(chan interface{})
+	_, ok := e.Subscribers[eventType]
+	if !ok {
+		e.Subscribers[eventType] = make(map[types.Subscriber]types.EventFunc)
+	}
+	e.Subscribers[eventType][sub] = eventFunc
+
+	return sub
+}
+
+func (e *Event) UnSubscribe(eventType types.EventType, subscriber types.Subscriber) (err error) {
+	e.m.Lock()
+	defer e.m.Unlock()
+
+	subEvent, ok := e.Subscribers[eventType]
+	if !ok {
+		err = errors.New("event type not exist")
+		return
+	}
+
+	delete(subEvent, subscriber)
+	close(subscriber)
+
+	return
+}
+
+func (e *Event) Notify(eventType types.EventType, value interface{}) (err error) {
+
+	e.m.RLock()
+	defer e.m.RUnlock()
+
+	subs, ok := e.Subscribers[eventType]
+	if !ok {
+		err = errors.New("event type not register")
+		return
+	}
+
+	switch value.(type) {
+	case error:
+		log.Error("Receive errors is [%v].", value)
+	}
+	log.Info("Receive eventType is [%d].", eventType)
+
+	for _, event := range subs {
+		go e.NotifySubscriber(event, value)
+	}
+	return nil
+}
+
+func (e *Event) NotifySubscriber(eventFunc types.EventFunc, value interface{}) {
+	if eventFunc == nil {
+		return
+	}
+
+	// invoke subscriber event func
+	eventFunc(value)
+
+}
+
+//Notify all event subscribers
+func (e *Event) NotifyAll() (errs []error) {
+	e.m.RLock()
+	defer e.m.RUnlock()
+
+	for eventType, _ := range e.Subscribers {
+		if err := e.Notify(eventType, nil); err != nil {
+			errs = append(errs, err)
+		}
+	}
+
+	return errs
+}
+
+// unsubscribe all event and subscriber elegant
+func (e *Event) UnSubscribeAll() {
+	for eventtype, _ := range e.Subscribers {
+		subs, ok := e.Subscribers[eventtype]
+		if !ok {
+			continue
+		}
+		for subscriber, _ := range subs {
+			delete(subs, subscriber)
+			close(subscriber)
+		}
+	}
+	// TODO: open it when txswitch and blkswith stop complete
+	//e.Subscribers = make(map[types.EventType]map[types.Subscriber]types.EventFunc)
+	return
+}
 
 var mockAccounts = []account.Account{
 	account.Account{
@@ -119,7 +228,7 @@ func Test_submitConsensus(t *testing.T) {
 	sp, _ := NewSoloPolicy(mockAccounts[0])
 	err := sp.submitConsensus(proposal)
 	asserts.NotNil(err)
-	asserts.Equal(err, fmt.Errorf("proposal status must be proposaling"))
+	asserts.Equal(err, fmt.Errorf("proposal status must be Propose"))
 
 	proposal.status = common.Propose
 	err = sp.submitConsensus(proposal)
@@ -129,15 +238,22 @@ func Test_submitConsensus(t *testing.T) {
 
 func TestSoloPolicy_ToConsensus(t *testing.T) {
 	asserts := assert.New(t)
-	proposal := mock_proposal()
-	sp, _ := NewSoloPolicy(mockAccounts[0])
-
-	err := sp.ToConsensus(proposal)
-	asserts.Equal(err, fmt.Errorf("local verify failed"))
-
+	event := NewEvent()
 	var role = make(map[account.Account]commonr.Roler)
 	role[mockAccounts[0]] = commonr.Master
-	err = sp.Initialization(role, mockAccounts[:1], nil)
+	var subscriber1 types.EventFunc = func(v interface{}) {
+		log.Info("TEST: consensus failed event func.")
+	}
+	sub1 := event.Subscribe(types.EventConsensusFailed, subscriber1)
+	assert.NotNil(t, sub1)
+	proposal := mock_proposal()
+	sp, _ := NewSoloPolicy(mockAccounts[0])
+	err := sp.Initialization(role, mockAccounts[:1], event)
+	assert.Nil(t, err)
+
+	err = sp.ToConsensus(proposal)
+	asserts.Equal(err, fmt.Errorf("local verify failed"))
+
 	var v *validator.Validator
 	monkey.PatchInstanceMethod(reflect.TypeOf(v), "ValidateBlock", func(*validator.Validator, *types.Block) (*types.Header, error) {
 		return nil, nil
@@ -163,7 +279,7 @@ func TestSoloPolicy_ToConsensus(t *testing.T) {
 		return mockAccounts[0].Address, nil
 	})
 	err = sp.ToConsensus(proposal)
-	assert.Equal(t, fmt.Errorf("get new block chain by block hash failed"), err)
+	assert.Equal(t, fmt.Errorf("commit block failed"), err)
 
 	var b *blockchain.BlockChain
 	monkey.Patch(blockchain.NewBlockChainByBlockHash, func(types.Hash) (*blockchain.BlockChain, error) {
@@ -173,7 +289,7 @@ func TestSoloPolicy_ToConsensus(t *testing.T) {
 		return fmt.Errorf("write block failed")
 	})
 	err = sp.ToConsensus(proposal)
-	assert.Equal(t, fmt.Errorf("write block with receipts failed"), err)
+	assert.Equal(t, fmt.Errorf("commit block failed"), err)
 
 	monkey.PatchInstanceMethod(reflect.TypeOf(b), "WriteBlockWithReceipts", func(*blockchain.BlockChain, *types.Block, []*types.Receipt) error {
 		return nil
