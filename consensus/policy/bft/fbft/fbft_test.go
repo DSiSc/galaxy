@@ -78,14 +78,14 @@ func TestNewfbftPolicy(t *testing.T) {
 	fbft, err := NewFBFTPolicy(mockAccounts[0], timeout)
 	assert.NotNil(t, fbft)
 	assert.Nil(t, err)
-	assert.Equal(t, common.BFT_POLICY, fbft.name)
+	assert.Equal(t, common.FBFT_POLICY, fbft.name)
 	assert.NotNil(t, fbft.core)
 	assert.Equal(t, mockAccounts[0].Extension.Id, fbft.core.local.Extension.Id)
 }
 
 func TestBFTPolicy_PolicyName(t *testing.T) {
 	fbft, _ := NewFBFTPolicy(mockAccounts[0], timeout)
-	assert.Equal(t, common.BFT_POLICY, fbft.name)
+	assert.Equal(t, common.FBFT_POLICY, fbft.name)
 	assert.Equal(t, fbft.name, fbft.PolicyName())
 	assert.Equal(t, mockAccounts[0].Extension.Id, fbft.core.local.Extension.Id)
 }

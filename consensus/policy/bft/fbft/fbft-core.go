@@ -120,7 +120,7 @@ func (instance *fbftCore) waitResponse() {
 		case <-instance.tunnel:
 			log.Debug("receive tunnel")
 			signatures, err := instance.maybeCommit()
-			if nil != err {
+			if nil == err {
 				instance.commit = true
 				consensusResult := messages.ConsensusResult{
 					Signatures: signatures,
@@ -130,6 +130,7 @@ func (instance *fbftCore) waitResponse() {
 				log.Info("receive satisfied responses before timeout")
 				return
 			}
+			log.Warn("get consensus result is error %v.", err)
 		}
 	}
 }
