@@ -43,12 +43,20 @@ type Commit struct {
 	Result     bool
 }
 
+type SyncBlock struct {
+	Node account.Account
+	Timestamp  int64
+	BlockStart uint64
+	BlockEnd   uint64
+}
+
 type MessageType string
 
 var RequestMessageType MessageType = "RequestMessage"
 var ProposalMessageType MessageType = "ProposalMessage"
 var ResponseMessageType MessageType = "ResponseMessage"
 var CommitMessageType MessageType = "CommitMessage"
+var SyncBlockMessageType MessageType = "SyncBlockMessage"
 
 type RequestMessage struct {
 	Request *Request
@@ -65,6 +73,10 @@ type ResponseMessage struct {
 type CommitMessage struct {
 	Commit *Commit
 }
+
+type SyncBlockMessage struct {
+	SyncBlock *SyncBlock
+} 
 
 type Message struct {
 	MessageType MessageType

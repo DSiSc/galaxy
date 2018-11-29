@@ -229,7 +229,26 @@ func (instance *dbftCore) receiveProposal(proposal *messages.Proposal) {
 	if currentHeight+1 < proposal.Payload.Header.Height {
 		log.Warn("current height is %d which less than proposal %d.",
 			currentHeight, proposal.Payload.Header.Height)
-		// TODO: sync
+		syncBlockMessage := &messages.Message{
+			MessageType: messages.SyncBlockMessageType,
+			Payload: &messages.SyncBlockMessage{
+				SyncBlock: &messages.SyncBlock{
+					Node:       instance.local,
+					Timestamp:  time.Now().Unix(),
+					BlockStart: currentHeight + 1,
+					BlockEnd:   proposal.Payload.Header.Height - 1,
+				},
+			},
+		}
+		msgRaw, err := json.Marshal(syncBlockMessage)
+		if nil != err {
+			log.Error("marshal syncBlock msg failed with %v.", err)
+			return
+		}
+		err = messages.Unicast(masterAccount, msgRaw, messages.SyncBlockMessageType, proposal.Payload.Header.MixDigest)
+		if nil != err {
+			log.Error("unicast sync block message failed with error %v.", err)
+		}
 		return
 	}
 	if currentHeight >= proposal.Payload.Header.Height {

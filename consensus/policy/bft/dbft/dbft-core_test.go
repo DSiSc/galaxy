@@ -317,11 +317,15 @@ func TestDbftCore_receiveProposal(t *testing.T) {
 	})
 	dbft.receiveProposal(proposal)
 
+	// current height less than proposal
 	monkey.Patch(blockchain.NewLatestStateBlockChain, func() (*blockchain.BlockChain, error) {
 		return b, nil
 	})
 	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetCurrentBlockHeight", func(*blockchain.BlockChain) uint64 {
 		return proposalHeight - 2
+	})
+	monkey.Patch(messages.Unicast, func(account.Account, []byte, messages.MessageType, types.Hash) error{
+		return nil
 	})
 	dbft.receiveProposal(proposal)
 
