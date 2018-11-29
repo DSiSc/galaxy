@@ -496,6 +496,22 @@ func (instance *dbftCore) receiveCommit(commit *messages.Commit) {
 	log.Error("payload with digest %x not found, please confirm.", commit.Digest)
 }
 
+func (instance *dbftCore) receiveSyncBlock(syncBlock *messages.SyncBlock) {
+	log.Info("receive commit")
+	blockChain, err := blockchain.NewLatestStateBlockChain()
+	if nil != err {
+		panic("new latest state block chain failed.")
+	}
+	syncBlocks := make([]*types.Block, 0)
+	for index := syncBlock.BlockStart; index <= syncBlock.BlockStart; index++ {
+		block, err := blockChain.GetBlockByHeight(index)
+		if nil != err {
+			panic(fmt.Sprintf("get block by height %d with error %v", index, err))
+		}
+		syncBlocks = append(syncBlocks, block)
+	}
+}
+
 func (instance *dbftCore) commitBlock(block *types.Block) {
 	chain, err := blockchain.NewBlockChainByBlockHash(block.Header.PrevBlockHash)
 	if nil != err {
@@ -529,6 +545,9 @@ func (instance *dbftCore) ProcessEvent(e tools.Event) tools.Event {
 	case *messages.Commit:
 		log.Info("receive commit from replica %d with digest %x.", et.Account.Extension.Id, et.Digest)
 		instance.receiveCommit(et)
+	case *messages.SyncBlock:
+		log.Info("receive sycBlock from replica %d form %d to %d.", et.Node.Extension.Id, et.BlockStart, et.BlockEnd)
+		instance.receiveSyncBlock(et)
 	default:
 		log.Warn("replica %d received an unknown message type %T", instance.local.Extension.Id, et)
 		err = fmt.Errorf("un support type %v", et)
@@ -592,6 +611,10 @@ func handleConnection(tcpListener *net.TCPListener, bft *dbftCore) {
 				continue
 			}
 			tools.SendEvent(bft, response)
+		case messages.SyncBlockMessageType:
+			syncBlock := payload.(*messages.SyncBlockMessage).SyncBlock
+			log.Info("receive sync block message from node %d", syncBlock.Node.Extension.Id)
+			tools.SendEvent(bft, syncBlock)
 		case messages.CommitMessageType:
 			commit := payload.(*messages.CommitMessage).Commit
 			tools.SendEvent(bft, commit)

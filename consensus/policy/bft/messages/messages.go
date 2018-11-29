@@ -44,7 +44,7 @@ type Commit struct {
 }
 
 type SyncBlock struct {
-	Node account.Account
+	Node       account.Account
 	Timestamp  int64
 	BlockStart uint64
 	BlockEnd   uint64
@@ -76,7 +76,7 @@ type CommitMessage struct {
 
 type SyncBlockMessage struct {
 	SyncBlock *SyncBlock
-} 
+}
 
 type Message struct {
 	MessageType MessageType
