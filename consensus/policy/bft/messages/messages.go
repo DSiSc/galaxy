@@ -135,6 +135,13 @@ func (m *Message) UnmarshalJSON(rawData []byte) error {
 			log.Error("unmarshal commit message failed with err %v.", err)
 		}
 		m.Payload = payload
+	case SyncBlockMessageType:
+		payload := &SyncBlockMessage{}
+		err = json.Unmarshal(messageClone.Payload, payload)
+		if nil != err {
+			log.Error("unmarshal commit message failed with err %v.", err)
+		}
+		m.Payload = payload
 	default:
 		log.Error("not support marshal type %v.", m.MessageType)
 		err = fmt.Errorf("not support marshal type")

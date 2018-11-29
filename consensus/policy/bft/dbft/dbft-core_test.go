@@ -599,3 +599,50 @@ func TestDbftCore_SendCommit(t *testing.T) {
 	assert.NotNil(t, result)
 	assert.Equal(t, commit, result)
 }
+
+func TestDbftCore_ProcessEvent3(t *testing.T) {
+	masterAccount := mockAccounts[0]
+	slaveAccount := mockAccounts[1]
+	dbft := NewDBFTCore(mockAccounts[0], sigChannel)
+	assert.NotNil(t, dbft)
+	dbft.peers = mockAccounts
+	go dbft.Start(mockAccounts[0])
+	var currentHeight uint64 = 1
+	syncBlockMessage := &messages.Message{
+		MessageType: messages.SyncBlockMessageType,
+		Payload: &messages.SyncBlockMessage{
+			SyncBlock: &messages.SyncBlock{
+				Node:       slaveAccount,
+				Timestamp:  time.Now().Unix(),
+				BlockStart: currentHeight + 1,
+				BlockEnd:   currentHeight + 2,
+			},
+		},
+	}
+	msgRaw, err := json.Marshal(syncBlockMessage)
+	assert.Nil(t, err)
+	var b *blockchain.BlockChain
+	monkey.Patch(blockchain.NewLatestStateBlockChain, func() (*blockchain.BlockChain, error) {
+		return b, nil
+	})
+	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetBlockByHeight",
+		func(block *blockchain.BlockChain, height uint64) (*types.Block, error) {
+			if currentHeight+1 == height {
+				return &types.Block{
+					Header: &types.Header{
+						Height: currentHeight + 1,
+					},
+				}, nil
+			}
+			if currentHeight+2 == height {
+				return &types.Block{
+					Header: &types.Header{
+						Height: currentHeight + 2,
+					},
+				}, nil
+			}
+			return nil, fmt.Errorf("not reach")
+		})
+	err = messages.Unicast(masterAccount, msgRaw, messages.SyncBlockMessageType, mockHash)
+	time.Sleep(2 * time.Second)
+}

@@ -503,11 +503,12 @@ func (instance *dbftCore) receiveSyncBlock(syncBlock *messages.SyncBlock) {
 		panic("new latest state block chain failed.")
 	}
 	syncBlocks := make([]*types.Block, 0)
-	for index := syncBlock.BlockStart; index <= syncBlock.BlockStart; index++ {
+	for index := syncBlock.BlockStart; index <= syncBlock.BlockEnd; index++ {
 		block, err := blockChain.GetBlockByHeight(index)
 		if nil != err {
 			panic(fmt.Sprintf("get block by height %d with error %v", index, err))
 		}
+		log.Info("sync block from node %x with block height %d.", syncBlock.Node.Address, index)
 		syncBlocks = append(syncBlocks, block)
 	}
 }
