@@ -219,6 +219,25 @@ func (instance *dbftCore) receiveProposal(proposal *messages.Proposal) {
 		log.Error("proposal signature not from master, please confirm.")
 		return
 	}
+
+	currentChain, err := blockchain.NewLatestStateBlockChain()
+	if nil != err {
+		log.Error("new latest state block chain failed with error %v.", err)
+		return
+	}
+	currentHeight := currentChain.GetCurrentBlockHeight()
+	if currentHeight+1 < proposal.Payload.Header.Height {
+		log.Warn("current height is %d which less than proposal %d.",
+			currentHeight, proposal.Payload.Header.Height)
+		// TODO: sync
+		return
+	}
+	if currentHeight >= proposal.Payload.Header.Height {
+		log.Warn("current height is %d which larger than proposal %d.",
+			currentHeight, proposal.Payload.Header.Height)
+		// TODO: change view
+		return
+	}
 	receipts, err := instance.verifyPayload(proposal.Payload)
 	if nil != err {
 		log.Error("proposal verified failed with error %v.", err)

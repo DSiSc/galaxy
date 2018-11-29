@@ -287,19 +287,21 @@ func TestDbftCore_receiveProposal(t *testing.T) {
 	dbft := NewDBFTCore(mockAccounts[0], sigChannel)
 	assert.NotNil(t, dbft)
 	dbft.peers = mockAccounts
+
 	// master receive proposal
+	proposalHeight := uint64(2)
 	proposal := &messages.Proposal{
 		Timestamp: 1535414400,
 		Payload: &types.Block{
 			Header: &types.Header{
-				Height:    0,
+				Height:    proposalHeight,
 				MixDigest: mockHash,
 			},
 		},
 	}
 	dbft.receiveProposal(proposal)
 
-	// verify failed: Get NewBlockChainByBlockHash failed
+	// verify failed
 	dbft.local.Extension.Id = mockAccounts[0].Extension.Id + 1
 	monkey.Patch(signature.Verify, func(keypair.PublicKey, []byte) (types.Address, error) {
 		return mockAccounts[1].Address, nil
@@ -310,6 +312,27 @@ func TestDbftCore_receiveProposal(t *testing.T) {
 		return mockAccounts[0].Address, nil
 	})
 	var b *blockchain.BlockChain
+	monkey.Patch(blockchain.NewLatestStateBlockChain, func() (*blockchain.BlockChain, error) {
+		return b, fmt.Errorf("error")
+	})
+	dbft.receiveProposal(proposal)
+
+	monkey.Patch(blockchain.NewLatestStateBlockChain, func() (*blockchain.BlockChain, error) {
+		return b, nil
+	})
+	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetCurrentBlockHeight", func(*blockchain.BlockChain) uint64 {
+		return proposalHeight - 2
+	})
+	dbft.receiveProposal(proposal)
+
+	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetCurrentBlockHeight", func(*blockchain.BlockChain) uint64 {
+		return proposalHeight
+	})
+	dbft.receiveProposal(proposal)
+
+	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetCurrentBlockHeight", func(*blockchain.BlockChain) uint64 {
+		return proposalHeight - 1
+	})
 	monkey.Patch(blockchain.NewBlockChainByBlockHash, func(types.Hash) (*blockchain.BlockChain, error) {
 		return b, nil
 	})
@@ -353,12 +376,7 @@ func TestDbftCore_receiveProposal(t *testing.T) {
 		return nil, fmt.Errorf("resolve error")
 	})
 	dbft.receiveProposal(proposal)
-	monkey.Unpatch(net.ResolveTCPAddr)
-	monkey.Unpatch(json.Marshal)
-	monkey.Unpatch(blockchain.NewBlockChainByBlockHash)
-	monkey.Unpatch(signature.Sign)
-	monkey.Unpatch(signature.Verify)
-	monkey.UnpatchInstanceMethod(reflect.TypeOf(w), "VerifyBlock")
+	monkey.UnpatchAll()
 }
 
 func TestDbftCore_receiveResponse(t *testing.T) {
