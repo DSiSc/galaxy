@@ -2,6 +2,7 @@ package solo
 
 import (
 	"fmt"
+	"github.com/DSiSc/blockchain"
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/galaxy/consensus/common"
 	commonr "github.com/DSiSc/galaxy/role/common"
@@ -162,7 +163,23 @@ func TestSoloPolicy_ToConsensus(t *testing.T) {
 		return mockAccounts[0].Address, nil
 	})
 	err = sp.ToConsensus(proposal)
-	asserts.Nil(err)
+	assert.Equal(t, fmt.Errorf("get new block chain by block hash failed"), err)
+
+	var b *blockchain.BlockChain
+	monkey.Patch(blockchain.NewBlockChainByBlockHash, func(types.Hash) (*blockchain.BlockChain, error) {
+		return b, nil
+	})
+	monkey.PatchInstanceMethod(reflect.TypeOf(b), "WriteBlockWithReceipts", func(*blockchain.BlockChain, *types.Block, []*types.Receipt) error {
+		return fmt.Errorf("write block failed")
+	})
+	err = sp.ToConsensus(proposal)
+	assert.Equal(t, fmt.Errorf("write block with receipts failed"), err)
+
+	monkey.PatchInstanceMethod(reflect.TypeOf(b), "WriteBlockWithReceipts", func(*blockchain.BlockChain, *types.Block, []*types.Receipt) error {
+		return nil
+	})
+	err = sp.ToConsensus(proposal)
+	assert.Nil(t, err)
 	monkey.UnpatchAll()
 }
 

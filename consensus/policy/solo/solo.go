@@ -2,6 +2,7 @@ package solo
 
 import (
 	"fmt"
+	"github.com/DSiSc/blockchain"
 	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/galaxy/consensus/common"
@@ -19,7 +20,7 @@ type SoloPolicy struct {
 	version   common.Version
 	peers     []account.Account
 	role      map[account.Account]commonr.Roler
-	receipts types.Receipts
+	receipts  types.Receipts
 }
 
 // SoloProposal that with solo policy
@@ -118,7 +119,23 @@ func (self *SoloPolicy) ToConsensus(p *common.Proposal) error {
 		return fmt.Errorf("consensus status fault")
 	}
 	self.version = proposal.version
-	p.Block.HeaderHash = common.HeaderHash(p.Block)
+	return self.commitBlock(p.Block)
+}
+
+func (self *SoloPolicy) commitBlock(block *types.Block) error {
+	chain, err := blockchain.NewBlockChainByBlockHash(block.Header.PrevBlockHash)
+	if nil != err {
+		log.Error("get NewBlockChainByHash by hash %x failed with error %s.", block.Header.PrevBlockHash, err)
+		return fmt.Errorf("get new block chain by block hash failed")
+	}
+	block.HeaderHash = common.HeaderHash(block)
+	log.Info("begin write block %d with hash %x.", block.Header.Height, block.HeaderHash)
+	err = chain.WriteBlockWithReceipts(block, self.receipts)
+	if nil != err {
+		log.Error("call WriteBlockWithReceipts failed with", block.Header.PrevBlockHash, err)
+		return fmt.Errorf("write block with receipts failed")
+	}
+	log.Info("end write block %d with hash %x successful.", block.Header.Height, block.HeaderHash)
 	return nil
 }
 
@@ -158,5 +175,6 @@ func (self *SoloPolicy) toConsensus(p *SoloProposal) bool {
 		return false
 	}
 	log.Info("Consensus reached for block %d.", p.proposal.Block.Header.Height)
+	self.receipts = validators.Receipts
 	return true
 }
