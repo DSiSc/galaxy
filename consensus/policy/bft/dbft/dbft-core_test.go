@@ -609,9 +609,9 @@ func TestDbftCore_ProcessEvent3(t *testing.T) {
 	go dbft.Start(mockAccounts[0])
 	var currentHeight uint64 = 1
 	syncBlockMessage := &messages.Message{
-		MessageType: messages.SyncBlockMessageType,
-		Payload: &messages.SyncBlockMessage{
-			SyncBlock: &messages.SyncBlock{
+		MessageType: messages.SyncBlockReqMessageType,
+		Payload: &messages.SyncBlockReqMessage{
+			SyncBlock: &messages.SyncBlockReq{
 				Node:       slaveAccount,
 				Timestamp:  time.Now().Unix(),
 				BlockStart: currentHeight + 1,
@@ -643,6 +643,6 @@ func TestDbftCore_ProcessEvent3(t *testing.T) {
 			}
 			return nil, fmt.Errorf("not reach")
 		})
-	err = messages.Unicast(masterAccount, msgRaw, messages.SyncBlockMessageType, mockHash)
+	err = messages.Unicast(masterAccount, msgRaw, messages.SyncBlockReqMessageType, mockHash)
 	time.Sleep(2 * time.Second)
 }

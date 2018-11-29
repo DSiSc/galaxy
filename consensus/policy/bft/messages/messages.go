@@ -43,11 +43,16 @@ type Commit struct {
 	Result     bool
 }
 
-type SyncBlock struct {
+type SyncBlockReq struct {
 	Node       account.Account
 	Timestamp  int64
 	BlockStart uint64
 	BlockEnd   uint64
+}
+
+type SyncBlockRes struct {
+	// TODO: add signatures
+	Blocks []*types.Block
 }
 
 type MessageType string
@@ -56,7 +61,8 @@ var RequestMessageType MessageType = "RequestMessage"
 var ProposalMessageType MessageType = "ProposalMessage"
 var ResponseMessageType MessageType = "ResponseMessage"
 var CommitMessageType MessageType = "CommitMessage"
-var SyncBlockMessageType MessageType = "SyncBlockMessage"
+var SyncBlockReqMessageType MessageType = "SyncBlockReqMessage"
+var SyncBlockResMessageType MessageType = "SyncBlockResMessage"
 
 type RequestMessage struct {
 	Request *Request
@@ -74,8 +80,12 @@ type CommitMessage struct {
 	Commit *Commit
 }
 
-type SyncBlockMessage struct {
-	SyncBlock *SyncBlock
+type SyncBlockReqMessage struct {
+	SyncBlock *SyncBlockReq
+}
+
+type SyncBlockResMessage struct {
+	SyncBlock *SyncBlockRes
 }
 
 type Message struct {
@@ -135,8 +145,8 @@ func (m *Message) UnmarshalJSON(rawData []byte) error {
 			log.Error("unmarshal commit message failed with err %v.", err)
 		}
 		m.Payload = payload
-	case SyncBlockMessageType:
-		payload := &SyncBlockMessage{}
+	case SyncBlockReqMessageType:
+		payload := &SyncBlockReqMessage{}
 		err = json.Unmarshal(messageClone.Payload, payload)
 		if nil != err {
 			log.Error("unmarshal commit message failed with err %v.", err)

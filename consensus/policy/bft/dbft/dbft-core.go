@@ -230,9 +230,9 @@ func (instance *dbftCore) receiveProposal(proposal *messages.Proposal) {
 		log.Warn("current height is %d which less than proposal %d.",
 			currentHeight, proposal.Payload.Header.Height)
 		syncBlockMessage := &messages.Message{
-			MessageType: messages.SyncBlockMessageType,
-			Payload: &messages.SyncBlockMessage{
-				SyncBlock: &messages.SyncBlock{
+			MessageType: messages.SyncBlockReqMessageType,
+			Payload: &messages.SyncBlockReqMessage{
+				SyncBlock: &messages.SyncBlockReq{
 					Node:       instance.local,
 					Timestamp:  time.Now().Unix(),
 					BlockStart: currentHeight + 1,
@@ -245,7 +245,7 @@ func (instance *dbftCore) receiveProposal(proposal *messages.Proposal) {
 			log.Error("marshal syncBlock msg failed with %v.", err)
 			return
 		}
-		err = messages.Unicast(masterAccount, msgRaw, messages.SyncBlockMessageType, proposal.Payload.Header.MixDigest)
+		err = messages.Unicast(masterAccount, msgRaw, messages.SyncBlockReqMessageType, proposal.Payload.Header.MixDigest)
 		if nil != err {
 			log.Error("unicast sync block message failed with error %v.", err)
 		}
@@ -496,7 +496,7 @@ func (instance *dbftCore) receiveCommit(commit *messages.Commit) {
 	log.Error("payload with digest %x not found, please confirm.", commit.Digest)
 }
 
-func (instance *dbftCore) receiveSyncBlock(syncBlock *messages.SyncBlock) {
+func (instance *dbftCore) receiveSyncBlock(syncBlock *messages.SyncBlockReq) {
 	log.Info("receive commit")
 	blockChain, err := blockchain.NewLatestStateBlockChain()
 	if nil != err {
@@ -546,7 +546,7 @@ func (instance *dbftCore) ProcessEvent(e tools.Event) tools.Event {
 	case *messages.Commit:
 		log.Info("receive commit from replica %d with digest %x.", et.Account.Extension.Id, et.Digest)
 		instance.receiveCommit(et)
-	case *messages.SyncBlock:
+	case *messages.SyncBlockReq:
 		log.Info("receive sycBlock from replica %d form %d to %d.", et.Node.Extension.Id, et.BlockStart, et.BlockEnd)
 		instance.receiveSyncBlock(et)
 	default:
@@ -612,8 +612,8 @@ func handleConnection(tcpListener *net.TCPListener, bft *dbftCore) {
 				continue
 			}
 			tools.SendEvent(bft, response)
-		case messages.SyncBlockMessageType:
-			syncBlock := payload.(*messages.SyncBlockMessage).SyncBlock
+		case messages.SyncBlockReqMessageType:
+			syncBlock := payload.(*messages.SyncBlockReqMessage).SyncBlock
 			log.Info("receive sync block message from node %d", syncBlock.Node.Extension.Id)
 			tools.SendEvent(bft, syncBlock)
 		case messages.CommitMessageType:
