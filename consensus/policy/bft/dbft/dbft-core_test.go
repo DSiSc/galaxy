@@ -19,6 +19,7 @@ import (
 	"reflect"
 	"testing"
 	"time"
+	`github.com/DSiSc/galaxy/consensus/policy/bft/tools`
 )
 
 func TestNewdbftCore(t *testing.T) {
@@ -645,4 +646,46 @@ func TestDbftCore_ProcessEvent3(t *testing.T) {
 		})
 	err = messages.Unicast(masterAccount, msgRaw, messages.SyncBlockReqMessageType, mockHash)
 	time.Sleep(2 * time.Second)
+}
+
+
+func mockBlocks(blockNum int) []*types.Block{
+	blocks := make([]*types.Block, 0)
+	temp := &types.Block{
+		Header:&types.Header{
+			Height:0,
+			Timestamp:uint64(time.Now().Unix()),
+		},
+	}
+	temp.HeaderHash = commonc.HeaderHash(temp)
+	for index := 0; index < blockNum; index++{
+        block := &types.Block{
+        	Header:&types.Header{
+        		Height:uint64(index + 1),
+        		PrevBlockHash:commonc.HeaderHash(temp),
+			},
+		}
+		block.HeaderHash = commonc.HeaderHash(block)
+		blocks = append(blocks, block)
+	}
+    return blocks[0:]
+}
+
+func TestDbftCore_ProcessEvent4(t *testing.T) {
+	core := NewDBFTCore(mockAccounts[0], sigChannel)
+	syncBlockResp := &messages.SyncBlockResp{
+		Blocks:mockBlocks(2),
+	}
+	var b *blockchain.BlockChain
+	monkey.Patch(blockchain.NewBlockChainByBlockHash, func(types.Hash) (*blockchain.BlockChain, error) {
+		return b, nil
+	})
+	var w *worker.Worker
+	monkey.PatchInstanceMethod(reflect.TypeOf(w), "VerifyBlock", func(*worker.Worker) error {
+		return nil
+	})
+	monkey.PatchInstanceMethod(reflect.TypeOf(b), "WriteBlockWithReceipts", func(*blockchain.BlockChain, *types.Block, []*types.Receipt) error {
+		return nil
+	})
+	tools.SendEvent(core, syncBlockResp)
 }
