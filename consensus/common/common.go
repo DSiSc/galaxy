@@ -37,6 +37,7 @@ const (
 	SOLO_CONSENSUS_NUM = uint8(1)
 	BFT_POLICY         = "bft"
 	FBFT_POLICY        = "fbft"
+	DBFT_POLICY        = "dbft"
 )
 
 type ViewStatus string

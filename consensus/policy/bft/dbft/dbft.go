@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-type BFTPolicy struct {
+type DBFTPolicy struct {
 	name string
 	// local account
 	account account.Account
@@ -21,9 +21,9 @@ type BFTPolicy struct {
 	result  chan *messages.ConsensusResult
 }
 
-func NewBFTPolicy(account account.Account, timeout int64) (*BFTPolicy, error) {
-	policy := &BFTPolicy{
-		name:    common.BFT_POLICY,
+func NewDBFTPolicy(account account.Account, timeout int64) (*DBFTPolicy, error) {
+	policy := &DBFTPolicy{
+		name:    common.DBFT_POLICY,
 		account: account,
 		timeout: time.Duration(timeout),
 		result:  make(chan *messages.ConsensusResult),
@@ -32,9 +32,9 @@ func NewBFTPolicy(account account.Account, timeout int64) (*BFTPolicy, error) {
 	return policy, nil
 }
 
-func (self *BFTPolicy) Initialization(role map[account.Account]commonr.Roler, peers []account.Account, events types.EventCenter) error {
+func (self *DBFTPolicy) Initialization(role map[account.Account]commonr.Roler, peers []account.Account, events types.EventCenter) error {
 	if len(role) != len(peers) {
-		log.Error("bft core has not been initial, please confirm.")
+		log.Error("dbft core has not been initial, please confirm.")
 		return fmt.Errorf("role and peers not in consistent")
 	}
 	var masterExist bool = false
@@ -60,16 +60,16 @@ func (self *BFTPolicy) Initialization(role map[account.Account]commonr.Roler, pe
 	return nil
 }
 
-func (self *BFTPolicy) PolicyName() string {
+func (self *DBFTPolicy) PolicyName() string {
 	return self.name
 }
 
-func (self *BFTPolicy) Start() {
+func (self *DBFTPolicy) Start() {
 	log.Info("start bft policy service.")
 	self.core.Start(self.account)
 }
 
-func (self *BFTPolicy) commit(block *types.Block, result bool) {
+func (self *DBFTPolicy) commit(block *types.Block, result bool) {
 	commit := &messages.Commit{
 		Account:    self.account,
 		Timestamp:  time.Now().Unix(),
@@ -81,7 +81,7 @@ func (self *BFTPolicy) commit(block *types.Block, result bool) {
 	self.core.SendCommit(commit, block)
 }
 
-func (self *BFTPolicy) ToConsensus(p *common.Proposal) error {
+func (self *DBFTPolicy) ToConsensus(p *common.Proposal) error {
 	var err error
 	var result = false
 	request := &messages.Request{
@@ -110,6 +110,6 @@ func (self *BFTPolicy) ToConsensus(p *common.Proposal) error {
 	return err
 }
 
-func (self *BFTPolicy) Halt() {
+func (self *DBFTPolicy) Halt() {
 	return
 }
