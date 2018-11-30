@@ -14,6 +14,7 @@ import (
 	"github.com/DSiSc/validator/tools/signature"
 	"github.com/DSiSc/validator/worker"
 	"net"
+	"sort"
 	"time"
 )
 
@@ -30,6 +31,12 @@ type dbftCore struct {
 	validator   map[types.Hash]*payloadSets
 	payloads    map[types.Hash]*types.Block
 	eventCenter types.EventCenter
+	view        viewChange
+}
+
+type viewChange struct {
+	status   common.ViewStatus
+	requests map[account.Account]uint64
 }
 
 type signData struct {
@@ -59,6 +66,10 @@ func NewDBFTCore(local account.Account, result chan *messages.ConsensusResult) *
 		tunnel:    make(chan int),
 		validator: make(map[types.Hash]*payloadSets),
 		payloads:  make(map[types.Hash]*types.Block),
+		view: viewChange{
+			status:   common.ViewNormal,
+			requests: make(map[account.Account]uint64),
+		},
 	}
 }
 
@@ -551,6 +562,72 @@ func (instance *dbftCore) receiveSyncBlockResp(syncBlockResp *messages.SyncBlock
 	}
 }
 
+func (instance *dbftCore) sendChangeViewReq(nodes []account.Account, newView uint64) {
+	log.Info("send view change request message.")
+	syncBlockResMsg := &messages.Message{
+		MessageType: messages.ViewChangeMessageReqType,
+		Payload: &messages.ViewChangeReqMessage{
+			ViewChange: &messages.ViewChangeReq{
+				Id:        instance.local.Extension.Id,
+				Nodes:     nodes,
+				Timestamp: time.Now().Unix(),
+				ViewNum:   newView,
+			},
+		},
+	}
+	msgRaw, err := json.Marshal(syncBlockResMsg)
+	if nil != err {
+		panic(fmt.Sprintf("marshal syncBlockResMsg msg failed with %v.", err))
+	}
+	// TODO: sign the digest
+	var mockDigest types.Hash
+	instance.view.requests[instance.local] = newView
+	messages.BroadcastPeers(msgRaw, messages.SyncBlockRespMessageType, mockDigest, instance.peers)
+}
+
+func minNode(nodes map[account.Account]uint64) uint64 {
+	var index = make([]int, len(nodes))
+	for account, _ := range nodes {
+		index = append(index, int(account.Extension.Id))
+	}
+	sort.Ints(index)
+	return uint64(index[0])
+}
+
+func (instance *dbftCore) receiveChangeViewReq(viewChangeReq *messages.ViewChangeReq) {
+	log.Info("receive view change request from node %d.", viewChangeReq.Id)
+	if instance.view.status != common.ViewChanging {
+		chain, err := blockchain.NewLatestStateBlockChain()
+		if nil != err {
+			panic("new latest block chain failed.")
+		}
+		currentHeight := chain.GetCurrentBlockHeight()
+		if currentHeight+1 < viewChangeReq.ViewNum {
+			log.Warn("need change view for view num is %d while receive is %d.", viewChangeReq.ViewNum, currentHeight)
+			instance.view.status = common.ViewChanging
+		}
+	}
+	if instance.view.status == common.ViewChanging {
+		for _, node := range viewChangeReq.Nodes {
+			if _, ok := instance.view.requests[node]; !ok {
+				log.Info("receive view change request from node %x and reserve it now.", node.Address)
+				instance.view.requests[node] = viewChangeReq.ViewNum
+			}
+		}
+		if len(instance.view.requests) >= len(instance.peers)-int(instance.tolerance) {
+			instance.master = minNode(instance.view.requests)
+			instance.view.status = common.ViewNormal
+			log.Info("view change success and new master num is %d.", instance.master)
+			return
+		}
+		var nodes = make([]account.Account, 0)
+		for key, _ := range instance.view.requests {
+			nodes = append(nodes, key)
+		}
+		instance.sendChangeViewReq(nodes, instance.view.requests[nodes[0]])
+	}
+}
+
 func (instance *dbftCore) commitBlock(block *types.Block) {
 	chain, err := blockchain.NewBlockChainByBlockHash(block.Header.PrevBlockHash)
 	if nil != err {
@@ -588,10 +665,13 @@ func (instance *dbftCore) ProcessEvent(e tools.Event) tools.Event {
 		log.Info("receive sycBlockReq from replica %d form %d to %d.", et.Node.Extension.Id, et.BlockStart, et.BlockEnd)
 		instance.receiveSyncBlockReq(et)
 	case *messages.SyncBlockResp:
-		log.Info("receive sycBlockRes from master")
+		log.Info("receive sycBlockResp len is %d.", len(et.Blocks))
 		instance.receiveSyncBlockResp(et)
+	case *messages.ViewChangeReq:
+		log.Info("receive viewChangeReq from node %d", et.Id)
+		instance.receiveChangeViewReq(et)
 	default:
-		log.Warn("replica %d received an unknown message type %T", instance.local.Extension.Id, et)
+		log.Warn("replica %d received an unknown message type %v", instance.local.Extension.Id, et)
 		err = fmt.Errorf("un support type %v", et)
 	}
 	if err != nil {
@@ -664,6 +744,9 @@ func handleConnection(tcpListener *net.TCPListener, bft *dbftCore) {
 		case messages.CommitMessageType:
 			commit := payload.(*messages.CommitMessage).Commit
 			tools.SendEvent(bft, commit)
+		case messages.ViewChangeMessageReqType:
+			viewChange := payload.(*messages.ViewChangeReqMessage).ViewChange
+			tools.SendEvent(bft, viewChange)
 		default:
 			if nil == payload {
 				log.Info("receive handshake, omit it.")

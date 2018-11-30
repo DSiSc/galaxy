@@ -220,11 +220,7 @@ func TestDftCore_receiveRequest(t *testing.T) {
 		return 0, nil
 	})
 	dbft.receiveRequest(request)
-	monkey.Unpatch(net.ResolveTCPAddr)
-	monkey.Unpatch(net.DialTCP)
-	monkey.Unpatch(signature.Sign)
-	monkey.UnpatchInstanceMethod(reflect.TypeOf(w), "VerifyBlock")
-	monkey.UnpatchInstanceMethod(reflect.TypeOf(&c), "Write")
+	monkey.UnpatchAll()
 }
 
 func TestNewDBFTCore_broadcast(t *testing.T) {
@@ -253,9 +249,7 @@ func TestNewDBFTCore_broadcast(t *testing.T) {
 		return 0, nil
 	})
 	dbft.broadcast(nil, messages.ProposalMessageType, mockHash)
-	monkey.Unpatch(net.ResolveTCPAddr)
-	monkey.Unpatch(net.DialTCP)
-	monkey.UnpatchInstanceMethod(reflect.TypeOf(&c), "Write")
+	monkey.UnpatchAll()
 }
 
 func TestDbftCore_unicast(t *testing.T) {
@@ -279,9 +273,7 @@ func TestDbftCore_unicast(t *testing.T) {
 	})
 	err = dbft.unicast(dbft.peers[1], nil, messages.ProposalMessageType, mockHash)
 	assert.Nil(t, err)
-	monkey.Unpatch(net.ResolveTCPAddr)
-	monkey.Unpatch(net.DialTCP)
-	monkey.UnpatchInstanceMethod(reflect.TypeOf(&c), "Write")
+	monkey.UnpatchAll()
 }
 
 func TestDbftCore_receiveProposal(t *testing.T) {
@@ -443,6 +435,7 @@ func TestDbftCore_receiveResponse(t *testing.T) {
 	ch = <-dbft.result
 	assert.Equal(t, len(mockSignset[:4]), len(ch.Signatures))
 	monkey.Unpatch(signature.Verify)
+	monkey.UnpatchAll()
 }
 
 func TestDbftCore_ProcessEvent2(t *testing.T) {
@@ -599,6 +592,7 @@ func TestDbftCore_SendCommit(t *testing.T) {
 	result = payload.(*messages.CommitMessage).Commit
 	assert.NotNil(t, result)
 	assert.Equal(t, commit, result)
+	monkey.UnpatchAll()
 }
 
 func TestDbftCore_ProcessEvent3(t *testing.T) {
@@ -646,6 +640,7 @@ func TestDbftCore_ProcessEvent3(t *testing.T) {
 		})
 	err = messages.Unicast(masterAccount, msgRaw, messages.SyncBlockReqMessageType, mockHash)
 	time.Sleep(2 * time.Second)
+	monkey.UnpatchAll()
 }
 
 func mockBlocks(blockNum int) []*types.Block {
@@ -688,6 +683,7 @@ func TestDbftCore_ProcessEvent4(t *testing.T) {
 		return nil
 	})
 	tools.SendEvent(core, syncBlockResp)
+	monkey.UnpatchAll()
 }
 
 // test receiveSyncBlockResp
@@ -714,4 +710,44 @@ func TestDbftCore_ProcessEvent5(t *testing.T) {
 		return nil
 	})
 	tools.SendEvent(core, syncBlockReq)
+	monkey.UnpatchAll()
+}
+
+func TestDbftCore_ProcessEvent6(t *testing.T) {
+	core := NewDBFTCore(mockAccounts[0], sigChannel)
+	core.peers = mockAccounts
+	core.tolerance = 1
+	core.master = uint64(2)
+	currentHeight := uint64(2)
+	viewChangeReq := &messages.ViewChangeReq{
+		Nodes:     mockAccounts[:1],
+		Timestamp: time.Now().Unix(),
+		ViewNum:   currentHeight + 1,
+	}
+	var b *blockchain.BlockChain
+	monkey.Patch(blockchain.NewLatestStateBlockChain, func() (*blockchain.BlockChain, error) {
+		return b, nil
+	})
+	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetCurrentBlockHeight", func(*blockchain.BlockChain) uint64 {
+		return currentHeight
+	})
+	tools.SendEvent(core, viewChangeReq)
+
+	monkey.Patch(messages.BroadcastPeers, func([]byte, messages.MessageType, types.Hash, []account.Account) {
+		return
+	})
+	viewChangeReq = &messages.ViewChangeReq{
+		Nodes:     mockAccounts[:2],
+		Timestamp: time.Now().Unix(),
+		ViewNum:   currentHeight + 2,
+	}
+	tools.SendEvent(core, viewChangeReq)
+
+	viewChangeReq = &messages.ViewChangeReq{
+		Nodes:     mockAccounts[:3],
+		Timestamp: time.Now().Unix(),
+		ViewNum:   currentHeight + 2,
+	}
+	tools.SendEvent(core, viewChangeReq)
+	monkey.UnpatchAll()
 }

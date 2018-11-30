@@ -39,6 +39,11 @@ const (
 	FBFT_POLICY        = "fbft"
 )
 
+type ViewStatus string
+
+const ViewChanging = "ViewChanging"
+const ViewNormal = "ViewNormal"
+
 func Sum(bz []byte) []byte {
 	hash := sha256.Sum256(bz)
 	return hash[:types.HashLength]

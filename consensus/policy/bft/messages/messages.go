@@ -55,6 +55,13 @@ type SyncBlockResp struct {
 	Blocks []*types.Block
 }
 
+type ViewChangeReq struct {
+	Id        uint64
+	Nodes     []account.Account
+	Timestamp int64
+	ViewNum   uint64
+}
+
 type MessageType string
 
 var RequestMessageType MessageType = "RequestMessage"
@@ -63,6 +70,7 @@ var ResponseMessageType MessageType = "ResponseMessage"
 var CommitMessageType MessageType = "CommitMessage"
 var SyncBlockReqMessageType MessageType = "SyncBlockReqMessage"
 var SyncBlockRespMessageType MessageType = "SyncBlockResMessage"
+var ViewChangeMessageReqType MessageType = "ViewChangeReqMessage"
 
 type RequestMessage struct {
 	Request *Request
@@ -86,6 +94,10 @@ type SyncBlockReqMessage struct {
 
 type SyncBlockRespMessage struct {
 	SyncBlock *SyncBlockResp
+}
+
+type ViewChangeReqMessage struct {
+	ViewChange *ViewChangeReq
 }
 
 type Message struct {
