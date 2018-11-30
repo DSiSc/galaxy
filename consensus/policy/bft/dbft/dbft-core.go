@@ -63,7 +63,6 @@ func NewDBFTCore(local account.Account, result chan *messages.ConsensusResult) *
 }
 
 func sendMsgByUrl(url string, msgPayload []byte) error {
-	log.Info("send msg to url %s.", url)
 	tcpAddr, err := net.ResolveTCPAddr("tcp4", url)
 	if err != nil {
 		log.Error("resolve tcp address %s occur fatal error: %v", url, err)
@@ -74,7 +73,7 @@ func sendMsgByUrl(url string, msgPayload []byte) error {
 		log.Error("dial tcp with %s occur error: %s", url, err)
 		return err
 	}
-	log.Info("connect success, send to url %s with payload %x.", url, msgPayload)
+	log.Info("connect success, send to url %s.", url)
 	conn.Write(msgPayload)
 	return nil
 }
@@ -496,20 +495,44 @@ func (instance *dbftCore) receiveCommit(commit *messages.Commit) {
 	log.Error("payload with digest %x not found, please confirm.", commit.Digest)
 }
 
-func (instance *dbftCore) receiveSyncBlock(syncBlock *messages.SyncBlockReq) {
-	log.Info("receive commit")
+func (instance *dbftCore) receiveSyncBlockReq(syncBlockReq *messages.SyncBlockReq) {
+	log.Info("receive sync block request")
 	blockChain, err := blockchain.NewLatestStateBlockChain()
 	if nil != err {
 		panic("new latest state block chain failed.")
 	}
 	syncBlocks := make([]*types.Block, 0)
-	for index := syncBlock.BlockStart; index <= syncBlock.BlockEnd; index++ {
+	for index := syncBlockReq.BlockStart; index <= syncBlockReq.BlockEnd; index++ {
 		block, err := blockChain.GetBlockByHeight(index)
 		if nil != err {
 			panic(fmt.Sprintf("get block by height %d with error %v", index, err))
 		}
-		log.Info("sync block from node %x with block height %d.", syncBlock.Node.Address, index)
+		log.Info("sync block from node %x with block height %d.", syncBlockReq.Node.Address, index)
 		syncBlocks = append(syncBlocks, block)
+	}
+	syncBlockResMsg := &messages.Message{
+		MessageType: messages.SyncBlockRespMessageType,
+		Payload: &messages.SyncBlockResp{
+			Blocks: syncBlocks,
+		},
+	}
+	msgRaw, err := json.Marshal(syncBlockResMsg)
+	if nil != err {
+		panic(fmt.Sprintf("marshal syncBlockResMsg msg failed with %v.", err))
+	}
+	// TODO: sign the digest
+	var mockDigest types.Hash
+	err = messages.Unicast(syncBlockReq.Node, msgRaw, messages.SyncBlockRespMessageType, mockDigest)
+	if nil != err {
+		log.Error("unicast sync block message failed with error %v.", err)
+	}
+}
+
+func (instance *dbftCore) receiveSyncBlockResp(syncBlockRes *messages.SyncBlockResp) {
+	log.Info("receive sync block response")
+	_, err := blockchain.NewLatestStateBlockChain()
+	if nil != err {
+		panic("new latest state block chain failed.")
 	}
 }
 
@@ -547,8 +570,11 @@ func (instance *dbftCore) ProcessEvent(e tools.Event) tools.Event {
 		log.Info("receive commit from replica %d with digest %x.", et.Account.Extension.Id, et.Digest)
 		instance.receiveCommit(et)
 	case *messages.SyncBlockReq:
-		log.Info("receive sycBlock from replica %d form %d to %d.", et.Node.Extension.Id, et.BlockStart, et.BlockEnd)
-		instance.receiveSyncBlock(et)
+		log.Info("receive sycBlockReq from replica %d form %d to %d.", et.Node.Extension.Id, et.BlockStart, et.BlockEnd)
+		instance.receiveSyncBlockReq(et)
+	case *messages.SyncBlockResp:
+		log.Info("receive sycBlockRes from master")
+		instance.receiveSyncBlockResp(et)
 	default:
 		log.Warn("replica %d received an unknown message type %T", instance.local.Extension.Id, et)
 		err = fmt.Errorf("un support type %v", et)
@@ -615,6 +641,10 @@ func handleConnection(tcpListener *net.TCPListener, bft *dbftCore) {
 		case messages.SyncBlockReqMessageType:
 			syncBlock := payload.(*messages.SyncBlockReqMessage).SyncBlock
 			log.Info("receive sync block message from node %d", syncBlock.Node.Extension.Id)
+			tools.SendEvent(bft, syncBlock)
+		case messages.SyncBlockRespMessageType:
+			syncBlock := payload.(*messages.SyncBlockRespMessage).SyncBlock
+			log.Info("receive sync blocks from master.")
 			tools.SendEvent(bft, syncBlock)
 		case messages.CommitMessageType:
 			commit := payload.(*messages.CommitMessage).Commit

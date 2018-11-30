@@ -50,7 +50,7 @@ type SyncBlockReq struct {
 	BlockEnd   uint64
 }
 
-type SyncBlockRes struct {
+type SyncBlockResp struct {
 	// TODO: add signatures
 	Blocks []*types.Block
 }
@@ -62,7 +62,7 @@ var ProposalMessageType MessageType = "ProposalMessage"
 var ResponseMessageType MessageType = "ResponseMessage"
 var CommitMessageType MessageType = "CommitMessage"
 var SyncBlockReqMessageType MessageType = "SyncBlockReqMessage"
-var SyncBlockResMessageType MessageType = "SyncBlockResMessage"
+var SyncBlockRespMessageType MessageType = "SyncBlockResMessage"
 
 type RequestMessage struct {
 	Request *Request
@@ -84,8 +84,8 @@ type SyncBlockReqMessage struct {
 	SyncBlock *SyncBlockReq
 }
 
-type SyncBlockResMessage struct {
-	SyncBlock *SyncBlockRes
+type SyncBlockRespMessage struct {
+	SyncBlock *SyncBlockResp
 }
 
 type Message struct {
@@ -149,7 +149,14 @@ func (m *Message) UnmarshalJSON(rawData []byte) error {
 		payload := &SyncBlockReqMessage{}
 		err = json.Unmarshal(messageClone.Payload, payload)
 		if nil != err {
-			log.Error("unmarshal commit message failed with err %v.", err)
+			log.Error("unmarshal sync block request message failed with err %v.", err)
+		}
+		m.Payload = payload
+	case SyncBlockRespMessageType:
+		payload := &SyncBlockRespMessage{}
+		err = json.Unmarshal(messageClone.Payload, payload)
+		if nil != err {
+			log.Error("unmarshal sync block response message failed with err %v.", err)
 		}
 		m.Payload = payload
 	default:
