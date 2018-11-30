@@ -528,11 +528,25 @@ func (instance *dbftCore) receiveSyncBlockReq(syncBlockReq *messages.SyncBlockRe
 	}
 }
 
-func (instance *dbftCore) receiveSyncBlockResp(syncBlockRes *messages.SyncBlockResp) {
-	log.Info("receive sync block response")
-	_, err := blockchain.NewLatestStateBlockChain()
-	if nil != err {
-		panic("new latest state block chain failed.")
+func (instance *dbftCore) receiveSyncBlockResp(syncBlockResp *messages.SyncBlockResp) {
+	log.Info("receive sync block response, try to sync block %v", syncBlockResp.Blocks)
+	for _, block := range syncBlockResp.Blocks {
+		chain, err := blockchain.NewBlockChainByBlockHash(block.Header.PrevBlockHash)
+		if nil != err {
+			log.Error("get NewBlockChainByHash by hash %x failed with error %s.", block.Header.PrevBlockHash, err)
+			return
+		}
+		worker := worker.NewWorker(chain, block)
+		err = worker.VerifyBlock()
+		if nil != err {
+			log.Error("verify block failed with error %v.", err)
+			return
+		}
+		err = chain.WriteBlockWithReceipts(block, worker.GetReceipts())
+		if nil != err {
+			log.Error("write block %d failed with error %v.", block.Header.Height, err)
+			return
+		}
 	}
 }
 
