@@ -542,7 +542,8 @@ func (instance *dbftCore) receiveSyncBlockResp(syncBlockResp *messages.SyncBlock
 			log.Error("verify block failed with error %v.", err)
 			return
 		}
-		err = chain.WriteBlockWithReceipts(block, worker.GetReceipts())
+		// there no need to issue any events
+		err = chain.EventWriteBlockWithReceipts(block, worker.GetReceipts(), false)
 		if nil != err {
 			log.Error("write block %d failed with error %v.", block.Header.Height, err)
 			return

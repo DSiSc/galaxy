@@ -8,6 +8,7 @@ import (
 	"github.com/DSiSc/craft/types"
 	commonc "github.com/DSiSc/galaxy/consensus/common"
 	"github.com/DSiSc/galaxy/consensus/policy/bft/messages"
+	"github.com/DSiSc/galaxy/consensus/policy/bft/tools"
 	"github.com/DSiSc/monkey"
 	"github.com/DSiSc/validator/tools/account"
 	"github.com/DSiSc/validator/tools/signature"
@@ -19,7 +20,6 @@ import (
 	"reflect"
 	"testing"
 	"time"
-	`github.com/DSiSc/galaxy/consensus/policy/bft/tools`
 )
 
 func TestNewdbftCore(t *testing.T) {
@@ -648,33 +648,33 @@ func TestDbftCore_ProcessEvent3(t *testing.T) {
 	time.Sleep(2 * time.Second)
 }
 
-
-func mockBlocks(blockNum int) []*types.Block{
+func mockBlocks(blockNum int) []*types.Block {
 	blocks := make([]*types.Block, 0)
 	temp := &types.Block{
-		Header:&types.Header{
-			Height:0,
-			Timestamp:uint64(time.Now().Unix()),
+		Header: &types.Header{
+			Height:    0,
+			Timestamp: uint64(time.Now().Unix()),
 		},
 	}
 	temp.HeaderHash = commonc.HeaderHash(temp)
-	for index := 0; index < blockNum; index++{
-        block := &types.Block{
-        	Header:&types.Header{
-        		Height:uint64(index + 1),
-        		PrevBlockHash:commonc.HeaderHash(temp),
+	for index := 0; index < blockNum; index++ {
+		block := &types.Block{
+			Header: &types.Header{
+				Height:        uint64(index + 1),
+				PrevBlockHash: commonc.HeaderHash(temp),
 			},
 		}
 		block.HeaderHash = commonc.HeaderHash(block)
 		blocks = append(blocks, block)
 	}
-    return blocks[0:]
+	return blocks[0:]
 }
 
+// test receiveSyncBlockResp
 func TestDbftCore_ProcessEvent4(t *testing.T) {
 	core := NewDBFTCore(mockAccounts[0], sigChannel)
 	syncBlockResp := &messages.SyncBlockResp{
-		Blocks:mockBlocks(2),
+		Blocks: mockBlocks(2),
 	}
 	var b *blockchain.BlockChain
 	monkey.Patch(blockchain.NewBlockChainByBlockHash, func(types.Hash) (*blockchain.BlockChain, error) {
@@ -684,8 +684,34 @@ func TestDbftCore_ProcessEvent4(t *testing.T) {
 	monkey.PatchInstanceMethod(reflect.TypeOf(w), "VerifyBlock", func(*worker.Worker) error {
 		return nil
 	})
-	monkey.PatchInstanceMethod(reflect.TypeOf(b), "WriteBlockWithReceipts", func(*blockchain.BlockChain, *types.Block, []*types.Receipt) error {
+	monkey.PatchInstanceMethod(reflect.TypeOf(b), "EventWriteBlockWithReceipts", func(*blockchain.BlockChain, *types.Block, []*types.Receipt, bool) error {
 		return nil
 	})
 	tools.SendEvent(core, syncBlockResp)
+}
+
+// test receiveSyncBlockResp
+func TestDbftCore_ProcessEvent5(t *testing.T) {
+	core := NewDBFTCore(mockAccounts[0], sigChannel)
+	syncBlockReq := &messages.SyncBlockReq{
+		Node:       mockAccounts[1],
+		Timestamp:  time.Now().Unix(),
+		BlockStart: uint64(1),
+		BlockEnd:   uint64(2),
+	}
+	var b *blockchain.BlockChain
+	monkey.Patch(blockchain.NewLatestStateBlockChain, func() (*blockchain.BlockChain, error) {
+		return b, nil
+	})
+	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetBlockByHeight", func(_ *blockchain.BlockChain, height uint64) (*types.Block, error) {
+		return &types.Block{
+			Header: &types.Header{
+				Height: height,
+			},
+		}, nil
+	})
+	monkey.Patch(messages.Unicast, func(account.Account, []byte, messages.MessageType, types.Hash) error {
+		return nil
+	})
+	tools.SendEvent(core, syncBlockReq)
 }
