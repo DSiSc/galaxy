@@ -134,17 +134,18 @@ func (e *Event) UnSubscribeAll() {
 }
 
 func TestNewdbftCore(t *testing.T) {
-	ddbft := NewDBFTCore(mockAccounts[0], sigChannel)
-	assert.NotNil(t, ddbft)
-	assert.Equal(t, mockAccounts[0], ddbft.local)
+	dbft := NewDBFTCore(mockAccounts[0], sigChannel)
+	assert.NotNil(t, dbft)
+	assert.Equal(t, mockAccounts[0], dbft.local)
 }
 
 func TestDbftCore_ProcessEvent(t *testing.T) {
 	var sigChannel = make(chan *messages.ConsensusResult)
-	ddbft := NewDBFTCore(mockAccounts[0], sigChannel)
-	assert.NotNil(t, ddbft)
+	dbft := NewDBFTCore(mockAccounts[0], sigChannel)
+	dbft.masterTimeout = time.NewTimer(10 * time.Second)
+	assert.NotNil(t, dbft)
 	id := mockAccounts[0].Extension.Id
-	err := ddbft.ProcessEvent(nil)
+	err := dbft.ProcessEvent(nil)
 	assert.Equal(t, fmt.Errorf("un support type <nil>"), err)
 
 	var b *blockchain.BlockChain
@@ -159,7 +160,7 @@ func TestDbftCore_ProcessEvent(t *testing.T) {
 		return mockAccounts[0].Address, nil
 	})
 
-	ddbft.peers = mockAccounts
+	dbft.peers = mockAccounts
 	var mock_request = &messages.Request{
 		Timestamp: time.Now().Unix(),
 		Payload: &types.Block{
@@ -181,7 +182,7 @@ func TestDbftCore_ProcessEvent(t *testing.T) {
 	monkey.PatchInstanceMethod(reflect.TypeOf(&c), "Write", func(*net.TCPConn, []byte) (int, error) {
 		return 0, nil
 	})
-	err = ddbft.ProcessEvent(mock_request)
+	err = dbft.ProcessEvent(mock_request)
 	assert.Nil(t, err)
 
 	var mock_proposal = &messages.Proposal{
@@ -193,8 +194,8 @@ func TestDbftCore_ProcessEvent(t *testing.T) {
 			},
 		},
 	}
-	ddbft.master = id + 1
-	err = ddbft.ProcessEvent(mock_proposal)
+	dbft.master = id + 1
+	err = dbft.ProcessEvent(mock_proposal)
 	assert.Nil(t, err)
 
 	monkey.Patch(signature.Verify, func(_ keypair.PublicKey, sign []byte) (types.Address, error) {
@@ -214,23 +215,23 @@ func TestDbftCore_ProcessEvent(t *testing.T) {
 		return address, nil
 	})
 
-	ddbft.master = id
+	dbft.master = id
 	mockResponse := &messages.Response{
 		Account:   mockAccounts[0],
 		Timestamp: time.Now().Unix(),
 		Digest:    mockHash,
 		Signature: mockSignset[0],
 	}
-	ddbft.signature.addSignature(ddbft.peers[1], mockSignset[1])
-	ddbft.signature.addSignature(ddbft.peers[2], mockSignset[2])
-	ddbft.tolerance = uint8((len(ddbft.peers) - 1) / 3)
-	ddbft.digest = mockHash
-	go ddbft.waitResponse()
+	dbft.signature.addSignature(dbft.peers[1], mockSignset[1])
+	dbft.signature.addSignature(dbft.peers[2], mockSignset[2])
+	dbft.tolerance = uint8((len(dbft.peers) - 1) / 3)
+	dbft.digest = mockHash
+	go dbft.waitResponse()
 	go func() {
-		err = ddbft.ProcessEvent(mockResponse)
+		err = dbft.ProcessEvent(mockResponse)
 		assert.Nil(t, err)
 	}()
-	ch := <-ddbft.result
+	ch := <-dbft.result
 	assert.NotNil(t, ch)
 	assert.Equal(t, 3, len(ch.Signatures))
 
@@ -242,7 +243,7 @@ func TestDbftCore_ProcessEvent(t *testing.T) {
 		BlockHash:  mockHash,
 		Result:     true,
 	}
-	ddbft.ProcessEvent(mockCommit)
+	dbft.ProcessEvent(mockCommit)
 	monkey.Unpatch(net.ResolveTCPAddr)
 	monkey.Unpatch(net.DialTCP)
 	monkey.Unpatch(signature.Verify)
@@ -252,8 +253,9 @@ func TestDbftCore_ProcessEvent(t *testing.T) {
 }
 
 func TestDbftCore_Start(t *testing.T) {
-	ddbft := NewDBFTCore(mockAccounts[0], sigChannel)
-	assert.NotNil(t, ddbft)
+	dbft := NewDBFTCore(mockAccounts[0], sigChannel)
+	dbft.masterTimeout = time.NewTimer(10 * time.Second)
+	assert.NotNil(t, dbft)
 	var account = account.Account{
 		Extension: account.AccountExtension{
 			Url: "127.0.0.1:8080",
@@ -263,8 +265,8 @@ func TestDbftCore_Start(t *testing.T) {
 		0x33, 0x3c, 0x33, 0x10, 0x82, 0x4b, 0x7c, 0x68, 0x51, 0x33,
 		0xf2, 0xbe, 0xdb, 0x2c, 0xa4, 0xb8, 0xb4, 0xdf, 0x63, 0x3d,
 	}
-	go ddbft.Start(account)
-	ddbft.unicast(account, fakePayload, "none", mockHash)
+	go dbft.Start(account)
+	dbft.unicast(account, fakePayload, "none", mockHash)
 	time.Sleep(1 * time.Second)
 }
 
@@ -275,6 +277,7 @@ var fakeSignature = []byte{
 
 func TestDftCore_receiveRequest(t *testing.T) {
 	dbft := NewDBFTCore(mockAccounts[0], sigChannel)
+	dbft.masterTimeout = time.NewTimer(10 * time.Second)
 	id := mockAccounts[0].Extension.Id
 	assert.NotNil(t, dbft)
 	dbft.peers = mockAccounts
@@ -336,6 +339,7 @@ func TestDftCore_receiveRequest(t *testing.T) {
 
 func TestNewDBFTCore_broadcast(t *testing.T) {
 	dbft := NewDBFTCore(mockAccounts[0], sigChannel)
+	dbft.masterTimeout = time.NewTimer(10 * time.Second)
 	assert.NotNil(t, dbft)
 	dbft.peers = mockAccounts
 	// resolve error
@@ -365,6 +369,7 @@ func TestNewDBFTCore_broadcast(t *testing.T) {
 
 func TestDbftCore_unicast(t *testing.T) {
 	dbft := NewDBFTCore(mockAccounts[0], sigChannel)
+	dbft.masterTimeout = time.NewTimer(10 * time.Second)
 	assert.NotNil(t, dbft)
 	dbft.peers = mockAccounts
 	monkey.Patch(net.ResolveTCPAddr, func(string, string) (*net.TCPAddr, error) {
@@ -389,6 +394,7 @@ func TestDbftCore_unicast(t *testing.T) {
 
 func TestDbftCore_receiveProposal(t *testing.T) {
 	dbft := NewDBFTCore(mockAccounts[0], sigChannel)
+	dbft.masterTimeout = time.NewTimer(10 * time.Second)
 	assert.NotNil(t, dbft)
 	dbft.peers = mockAccounts
 
@@ -490,6 +496,7 @@ func TestDbftCore_receiveProposal(t *testing.T) {
 func TestDbftCore_receiveResponse(t *testing.T) {
 	var sigChannel = make(chan *messages.ConsensusResult)
 	dbft := NewDBFTCore(mockAccounts[0], sigChannel)
+	dbft.masterTimeout = time.NewTimer(10 * time.Second)
 	assert.NotNil(t, dbft)
 	dbft.peers = mockAccounts
 	dbft.digest = mockHash
@@ -551,6 +558,7 @@ func TestDbftCore_receiveResponse(t *testing.T) {
 
 func TestDbftCore_ProcessEvent2(t *testing.T) {
 	dbft := NewDBFTCore(mockAccounts[0], sigChannel)
+	dbft.masterTimeout = time.NewTimer(10 * time.Second)
 	assert.NotNil(t, dbft)
 	block0 := &types.Block{
 		Header: &types.Header{
@@ -611,6 +619,7 @@ func TestDbftCore_ProcessEvent2(t *testing.T) {
 
 func TestDbftCore_SendCommit(t *testing.T) {
 	dbft := NewDBFTCore(mockAccounts[0], sigChannel)
+	dbft.masterTimeout = time.NewTimer(10 * time.Second)
 	assert.NotNil(t, dbft)
 	dbft.peers = mockAccounts
 	block := &types.Block{
@@ -711,6 +720,7 @@ func TestDbftCore_ProcessEvent3(t *testing.T) {
 	slaveAccount := mockAccounts[1]
 	dbft := NewDBFTCore(mockAccounts[0], sigChannel)
 	assert.NotNil(t, dbft)
+	dbft.masterTimeout = time.NewTimer(10 * time.Second)
 	dbft.peers = mockAccounts
 	go dbft.Start(mockAccounts[0])
 	var currentHeight uint64 = 1
@@ -779,6 +789,7 @@ func mockBlocks(blockNum int) []*types.Block {
 // test receiveSyncBlockResp
 func TestDbftCore_ProcessEvent4(t *testing.T) {
 	core := NewDBFTCore(mockAccounts[0], sigChannel)
+	core.masterTimeout = time.NewTimer(10 * time.Second)
 	syncBlockResp := &messages.SyncBlockResp{
 		Blocks: mockBlocks(2),
 	}
@@ -800,6 +811,7 @@ func TestDbftCore_ProcessEvent4(t *testing.T) {
 // test receiveSyncBlockResp
 func TestDbftCore_ProcessEvent5(t *testing.T) {
 	core := NewDBFTCore(mockAccounts[0], sigChannel)
+	core.masterTimeout = time.NewTimer(10 * time.Second)
 	syncBlockReq := &messages.SyncBlockReq{
 		Node:       mockAccounts[1],
 		Timestamp:  time.Now().Unix(),
@@ -826,6 +838,7 @@ func TestDbftCore_ProcessEvent5(t *testing.T) {
 
 func TestDbftCore_ProcessEvent6(t *testing.T) {
 	core := NewDBFTCore(mockAccounts[0], sigChannel)
+	core.masterTimeout = time.NewTimer(10 * time.Second)
 	core.peers = mockAccounts
 	core.tolerance = 1
 	core.master = uint64(2)
@@ -871,6 +884,7 @@ func TestDbftCore_ProcessEvent6(t *testing.T) {
 
 func TestDbftCore_ProcessEvent7(t *testing.T) {
 	core := NewDBFTCore(mockAccounts[0], sigChannel)
+	core.masterTimeout = time.NewTimer(10 * time.Second)
 	core.peers = mockAccounts
 	core.tolerance = 1
 	core.master = uint64(3)

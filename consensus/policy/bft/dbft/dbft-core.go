@@ -20,19 +20,20 @@ import (
 )
 
 type dbftCore struct {
-	local       account.Account
-	master      uint64
-	peers       []account.Account
-	signature   *signData
-	tolerance   uint8
-	commit      bool
-	digest      types.Hash
-	result      chan *messages.ConsensusResult
-	tunnel      chan int
-	validator   map[types.Hash]*payloadSets
-	payloads    map[types.Hash]*types.Block
-	eventCenter types.EventCenter
-	views       viewChange
+	local         account.Account
+	master        uint64
+	peers         []account.Account
+	signature     *signData
+	tolerance     uint8
+	commit        bool
+	digest        types.Hash
+	result        chan *messages.ConsensusResult
+	tunnel        chan int
+	validator     map[types.Hash]*payloadSets
+	payloads      map[types.Hash]*types.Block
+	eventCenter   types.EventCenter
+	views         viewChange
+	masterTimeout *time.Timer
 }
 
 type viewChange struct {
@@ -135,6 +136,7 @@ func (instance *dbftCore) unicast(account account.Account, msgPayload []byte, ms
 }
 
 func (instance *dbftCore) receiveRequest(request *messages.Request) {
+	instance.masterTimeout.Stop()
 	isMaster := instance.local.Extension.Id == instance.master
 	if !isMaster {
 		log.Info("only master process request.")
@@ -226,6 +228,7 @@ func (instance *dbftCore) waitResponse() {
 }
 
 func (instance *dbftCore) receiveProposal(proposal *messages.Proposal) {
+	instance.masterTimeout.Stop()
 	isMaster := instance.local.Extension.Id == instance.master
 	if isMaster {
 		log.Info("master not need to process proposal.")
@@ -683,6 +686,32 @@ func (instance *dbftCore) commitBlock(block *types.Block) {
 		log.Error("call WriteBlockWithReceipts failed with", block.Header.PrevBlockHash, err)
 	}
 	log.Info("end write block %d with hash %x with success.", block.Header.Height, block.HeaderHash)
+}
+
+func (self *dbftCore) waitMasterTimeOut(timer *time.Timer) {
+	for {
+		select {
+		case <-timer.C:
+			log.Info("wait master timeout, so change view begin.")
+			viewChangeReqMsg := &messages.Message{
+				MessageType: messages.ViewChangeMessageReqType,
+				Payload: &messages.ViewChangeReqMessage{
+					ViewChange: &messages.ViewChangeReq{
+						Nodes:     []account.Account{self.local},
+						Timestamp: time.Now().Unix(),
+						ViewNum:   self.views.viewNum + 1,
+					},
+				},
+			}
+			msgRaw, err := json.Marshal(viewChangeReqMsg)
+			if nil != err {
+				log.Error("marshal proposal msg failed with %v.", err)
+				return
+			}
+			messages.BroadcastPeers(msgRaw, viewChangeReqMsg.MessageType, types.Hash{}, self.peers)
+			return
+		}
+	}
 }
 
 func (instance *dbftCore) ProcessEvent(e tools.Event) tools.Event {

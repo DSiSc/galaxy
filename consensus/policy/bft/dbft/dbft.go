@@ -60,7 +60,8 @@ func (self *DBFTPolicy) Initialization(role map[account.Account]commonr.Roler, p
 	}
 	// Add timer
 	timer := time.NewTimer(15 * time.Second)
-	go self.waitMasterTimeOut(timer)
+	self.core.masterTimeout = timer
+	go self.core.waitMasterTimeOut(timer)
 	return nil
 }
 
