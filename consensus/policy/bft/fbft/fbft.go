@@ -108,3 +108,12 @@ func (instance *FBFTPolicy) ToConsensus(p *common.Proposal) error {
 func (instance *FBFTPolicy) Halt() {
 	return
 }
+
+// TODO: update view number
+func (self *FBFTPolicy) GetConsensusResult() common.ConsensusResult {
+	return common.ConsensusResult{
+		View:        uint64(0),
+		Participate: self.core.peers,
+		Roles:       make(map[account.Account]commonr.Roler),
+	}
+}

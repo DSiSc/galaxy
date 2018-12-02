@@ -18,6 +18,7 @@ type Consensus interface {
 	PolicyName() string
 	Initialization(map[account.Account]commonr.Roler, []account.Account, types.EventCenter) error
 	ToConsensus(p *common.Proposal) error
+	GetConsensusResult() common.ConsensusResult
 	Start()
 	Halt()
 }

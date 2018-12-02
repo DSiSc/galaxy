@@ -200,3 +200,20 @@ func TestBFTPolicy_commit(t *testing.T) {
 	bft.bftCore.peers = append(bft.bftCore.peers, mockAccount)
 	bft.commit(block, true)
 }
+
+func TestFBFTPolicy_GetConsensusResult(t *testing.T) {
+	var timeout = int64(10)
+	bft, err := NewBFTPolicy(mockAccounts[0], timeout)
+	assert.Nil(t, err)
+
+	var assignment = make(map[account.Account]commonr.Roler)
+	assignment[mockAccounts[0]] = commonr.Master
+	assignment[mockAccounts[1]] = commonr.Slave
+	assignment[mockAccounts[2]] = commonr.Slave
+	assignment[mockAccounts[3]] = commonr.Slave
+	bft.Initialization(assignment, mockAccounts, nil)
+
+	bft.bftCore.master = 1
+	result := bft.GetConsensusResult()
+	assert.Equal(t, uint64(0), result.View)
+}

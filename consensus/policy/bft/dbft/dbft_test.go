@@ -254,3 +254,22 @@ func TestBFTPolicy_commit(t *testing.T) {
 	dbft.core.peers = append(dbft.core.peers, mockAccount)
 	dbft.commit(block, true)
 }
+
+func TestDBFTPolicy_GetConsensusResult(t *testing.T) {
+	dbft, err := NewDBFTPolicy(mockAccounts[0], timeout)
+	assert.Nil(t, err)
+
+	var assignment = make(map[account.Account]commonr.Roler)
+	assignment[mockAccounts[0]] = commonr.Master
+	assignment[mockAccounts[1]] = commonr.Slave
+	assignment[mockAccounts[2]] = commonr.Slave
+	assignment[mockAccounts[3]] = commonr.Slave
+	dbft.Initialization(assignment, mockAccounts, nil)
+
+	dbft.core.views.viewNum = 1
+	dbft.core.master = 1
+	result := dbft.GetConsensusResult()
+	assert.Equal(t, commonr.Master, result.Roles[mockAccounts[1]])
+	assert.Equal(t, commonr.Slave, result.Roles[mockAccounts[0]])
+	assert.Equal(t, uint64(1), result.View)
+}

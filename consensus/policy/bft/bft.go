@@ -113,3 +113,11 @@ func (self *BFTPolicy) ToConsensus(p *common.Proposal) error {
 func (self *BFTPolicy) Halt() {
 	return
 }
+
+func (self *BFTPolicy) GetConsensusResult() common.ConsensusResult {
+	return common.ConsensusResult{
+		View:        uint64(0),
+		Participate: self.bftCore.peers,
+		Roles:       make(map[account.Account]commonr.Roler),
+	}
+}

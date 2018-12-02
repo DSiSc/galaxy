@@ -145,3 +145,19 @@ func (self *DBFTPolicy) ToConsensus(p *common.Proposal) error {
 func (self *DBFTPolicy) Halt() {
 	return
 }
+
+func (self *DBFTPolicy) GetConsensusResult() common.ConsensusResult {
+	var assignment = make(map[account.Account]commonr.Roler)
+	for _, node := range self.core.peers {
+		if node.Extension.Id == self.core.master {
+			assignment[node] = commonr.Master
+			continue
+		}
+		assignment[node] = commonr.Slave
+	}
+	return common.ConsensusResult{
+		View:        self.core.views.viewNum,
+		Participate: self.core.peers,
+		Roles:       assignment,
+	}
+}

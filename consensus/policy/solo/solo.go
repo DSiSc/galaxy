@@ -193,3 +193,11 @@ func (self *SoloPolicy) toConsensus(p *SoloProposal) bool {
 	self.receipts = validators.Receipts
 	return true
 }
+
+func (self *SoloPolicy) GetConsensusResult() common.ConsensusResult {
+	return common.ConsensusResult{
+		View:        uint64(0),
+		Participate: self.peers,
+		Roles:       self.role,
+	}
+}

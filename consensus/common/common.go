@@ -5,6 +5,8 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"github.com/DSiSc/craft/types"
+	"github.com/DSiSc/galaxy/role/common"
+	"github.com/DSiSc/validator/tools/account"
 )
 
 type Version uint64
@@ -49,6 +51,12 @@ type ViewState string
 
 const Viewing ViewState = "Viewing"
 const ViewEnd ViewState = "ViewEnd"
+
+type ConsensusResult struct {
+	View        uint64
+	Participate []account.Account
+	Roles       map[account.Account]common.Roler
+}
 
 func Sum(bz []byte) []byte {
 	hash := sha256.Sum256(bz)

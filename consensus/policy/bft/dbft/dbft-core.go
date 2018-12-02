@@ -653,7 +653,6 @@ func (instance *dbftCore) receiveChangeViewReq(viewChangeReq *messages.ViewChang
 		} else {
 			log.Info("view change request %d not enough to change it.", len(instance.views.viewSets[viewChangeReq.ViewNum].requestNodes))
 		}
-
 		instance.sendChangeViewReq(instance.views.viewSets[viewChangeReq.ViewNum].requestNodes, viewChangeReq.ViewNum)
 		if common.ViewEnd == instance.views.viewSets[viewChangeReq.ViewNum].status {
 			// TODO: start a new round
