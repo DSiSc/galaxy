@@ -98,7 +98,7 @@ func (instance *fbftCore) receiveRequest(request *messages.Request) {
 	instance.signature.AddSignature(instance.local, signData)
 	// filter master
 	peers := tools.AccountFilter([]account.Account{instance.local}, instance.peers)
-	messages.BroadcastPeers(msgRaw, messages.ProposalMessageType, instance.digest, peers)
+	messages.BroadcastPeers(msgRaw, proposal.MessageType, instance.digest, peers)
 	go instance.waitResponse()
 }
 
@@ -268,11 +268,11 @@ func (instance *fbftCore) SendCommit(commit *messages.Commit, block *types.Block
 	peers := tools.AccountFilter([]account.Account{instance.local}, instance.peers)
 	if !commit.Result {
 		log.Error("send the failed consensus.")
-		messages.BroadcastPeers(msgRaw, messages.CommitMessageType, commit.Digest, peers)
+		messages.BroadcastPeers(msgRaw, committed.MessageType, commit.Digest, peers)
 		instance.eventCenter.Notify(types.EventConsensusFailed, nil)
 	} else {
 		log.Info("receive the successful consensus")
-		messages.BroadcastPeers(msgRaw, messages.CommitMessageType, commit.Digest, peers)
+		messages.BroadcastPeers(msgRaw, committed.MessageType, commit.Digest, peers)
 		instance.commitBlock(block)
 	}
 }

@@ -185,7 +185,7 @@ func (instance *dbftCore) receiveRequest(request *messages.Request) {
 	log.Info("broadcast proposal to peers.")
 	instance.broadcast(msgRaw, messages.ProposalMessageType, instance.digest)
 	peers := tools.AccountFilter([]account.Account{instance.local}, instance.peers)
-	messages.BroadcastPeers(msgRaw, messages.ProposalMessageType, instance.digest, peers)
+	messages.BroadcastPeers(msgRaw, proposal.MessageType, instance.digest, peers)
 	go instance.waitResponse()
 }
 
@@ -592,7 +592,7 @@ func (instance *dbftCore) sendChangeViewReq(nodes []account.Account, newView uin
 	}
 	// TODO: sign the digest
 	peers := tools.AccountFilter([]account.Account{instance.local}, instance.peers)
-	messages.BroadcastPeers(msgRaw, messages.SyncBlockRespMessageType, types.Hash{}, peers)
+	messages.BroadcastPeers(msgRaw, syncBlockResMsg.MessageType, types.Hash{}, peers)
 }
 
 func minNode(nodes []account.Account) uint64 {

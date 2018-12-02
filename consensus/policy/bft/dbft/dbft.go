@@ -84,7 +84,7 @@ func (self *DBFTPolicy) waitMasterTimeOut(timer *time.Timer) {
 				log.Error("marshal proposal msg failed with %v.", err)
 				return
 			}
-			messages.BroadcastPeers(msgRaw, messages.ViewChangeMessageReqType, types.Hash{}, self.core.peers)
+			messages.BroadcastPeers(msgRaw, viewChangeReqMsg.MessageType, types.Hash{}, self.core.peers)
 			return
 		}
 	}
