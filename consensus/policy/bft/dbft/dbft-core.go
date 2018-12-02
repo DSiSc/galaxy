@@ -638,11 +638,13 @@ func (instance *dbftCore) receiveChangeViewReq(viewChangeReq *messages.ViewChang
 			log.Warn("has been complete view change for num %d, ignore the request.", viewChangeReq.ViewNum)
 			return
 		}
+
 		instance.views.viewSets[viewChangeReq.ViewNum].requestNodes = addChangeViewAccounts(instance.views.viewSets[viewChangeReq.ViewNum].requestNodes, instance.local)
 		for _, node := range viewChangeReq.Nodes {
 			log.Info("try to reserve view %d request form node %d.", viewChangeReq.ViewNum, node.Extension.Id)
 			instance.views.viewSets[viewChangeReq.ViewNum].requestNodes = addChangeViewAccounts(instance.views.viewSets[viewChangeReq.ViewNum].requestNodes, node)
 		}
+
 		if len(instance.views.viewSets[viewChangeReq.ViewNum].requestNodes) >= len(instance.peers)-int(instance.tolerance) {
 			instance.master = minNode(instance.views.viewSets[viewChangeReq.ViewNum].requestNodes)
 			instance.views.viewSets[viewChangeReq.ViewNum].status = common.ViewEnd
@@ -651,6 +653,7 @@ func (instance *dbftCore) receiveChangeViewReq(viewChangeReq *messages.ViewChang
 		} else {
 			log.Info("view change request %d not enough to change it.", len(instance.views.viewSets[viewChangeReq.ViewNum].requestNodes))
 		}
+
 		instance.sendChangeViewReq(instance.views.viewSets[viewChangeReq.ViewNum].requestNodes, viewChangeReq.ViewNum)
 		if common.ViewEnd == instance.views.viewSets[viewChangeReq.ViewNum].status {
 			// TODO: start a new round

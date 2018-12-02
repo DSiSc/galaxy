@@ -48,3 +48,14 @@ func (self *SoloPolicy) GetRoles(address account.Account) (common.Roler, error) 
 func (self *SoloPolicy) PolicyName() string {
 	return self.name
 }
+
+func (self *SoloPolicy) ChangeRoleAssignment(assignments map[account.Account]common.Roler, master uint64) {
+	for account, _ := range assignments {
+		if account.Extension.Id == master {
+			assignments[account] = common.Master
+			continue
+		}
+		assignments[account] = common.Slave
+	}
+	self.assignments = assignments
+}

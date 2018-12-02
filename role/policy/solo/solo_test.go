@@ -83,3 +83,19 @@ func TestSoloPolicy_GetRoles(t *testing.T) {
 	asserts.Equal(common.AssignmentNotBeExecute, err)
 	asserts.Equal(common.UnKnown, role)
 }
+
+func TestSoloPolicy_ChangeRoleAssignment(t *testing.T) {
+	asserts := assert.New(t)
+
+	policy, err := NewSoloPolicy()
+	asserts.Nil(err)
+	asserts.NotNil(policy)
+	fmt.Println()
+	roles, err := policy.RoleAssignments(mockAccounts[:1])
+	asserts.Equal(common.Master, roles[mockAccounts[0]])
+
+	asserts.Nil(err)
+	asserts.NotNil(roles)
+	policy.ChangeRoleAssignment(roles, uint64(1))
+	asserts.Equal(common.Slave, roles[mockAccounts[0]])
+}

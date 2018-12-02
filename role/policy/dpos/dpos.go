@@ -85,3 +85,14 @@ func (self *DPOSPolicy) AppointRole(master account.Account) error {
 	self.assignments[preMaster] = common.Slave
 	return nil
 }
+
+func (self *DPOSPolicy) ChangeRoleAssignment(assignments map[account.Account]common.Roler, master uint64) {
+	for account, _ := range assignments {
+		if account.Extension.Id == master {
+			assignments[account] = common.Master
+			continue
+		}
+		assignments[account] = common.Slave
+	}
+	self.assignments = assignments
+}

@@ -20,7 +20,7 @@ var mockAccounts = []account.Account{
 			0x51, 0x33, 0xf2, 0xbe, 0xdb, 0x2c, 0xa4, 0xb8, 0xb4, 0xdf, 0x63, 0x3d},
 		Extension: account.AccountExtension{
 			Id:  0,
-			Url: "172.0.0.1:8080",
+			Url: "127.0.0.1:8080",
 		},
 	},
 	account.Account{
@@ -28,7 +28,22 @@ var mockAccounts = []account.Account{
 			0x51, 0x33, 0xf2, 0xbe, 0xdb, 0x2c, 0xa4, 0xb8, 0xb4, 0xdf, 0x63, 0x3d},
 		Extension: account.AccountExtension{
 			Id:  1,
-			Url: "172.0.0.1:8081"},
+			Url: "127.0.0.1:8081"},
+	},
+	account.Account{
+		Address: types.Address{0x35, 0x3c, 0x33, 0x10, 0x82, 0x4b, 0x7c, 0x68, 0x51, 0x33, 0xf2, 0xbe, 0xdb, 0x2c, 0xa4, 0xb8, 0xb4, 0xdf, 0x63, 0x3d},
+		Extension: account.AccountExtension{
+			Id:  2,
+			Url: "127.0.0.1:8082",
+		},
+	},
+
+	account.Account{
+		Address: types.Address{0x36, 0x3c, 0x33, 0x10, 0x82, 0x4b, 0x7c, 0x68, 0x51, 0x33, 0xf2, 0xbe, 0xdb, 0x2c, 0xa4, 0xb8, 0xb4, 0xdf, 0x63, 0x3d},
+		Extension: account.AccountExtension{
+			Id:  3,
+			Url: "127.0.0.1:8083",
+		},
 	},
 }
 
@@ -166,4 +181,38 @@ func TestDPOSPolicy_GetRoles(t *testing.T) {
 	role, err = dposPolicy.GetRoles(fakeAccount)
 	assert.Equal(t, common.UnKnown, role)
 	monkey.UnpatchAll()
+}
+
+func TestSoloPolicy_ChangeRoleAssignment(t *testing.T) {
+	asserts := assert.New(t)
+
+	participate, err := participates.NewParticipates(participateConf)
+	asserts.NotNil(participate)
+	asserts.Nil(err)
+
+	dposPolicy, err := NewDPOSPolicy()
+	asserts.NotNil(dposPolicy)
+	asserts.Nil(err)
+
+	monkey.Patch(blockchain.NewLatestStateBlockChain, func() (*blockchain.BlockChain, error) {
+		var temp blockchain.BlockChain
+		return &temp, nil
+	})
+	var b *blockchain.BlockChain
+	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetCurrentBlock", func(*blockchain.BlockChain) *types.Block {
+		return &types.Block{
+			Header: &types.Header{
+				Height: 0,
+			},
+		}
+	})
+	dposPolicy.participates = mockAccounts
+	assignment, err := dposPolicy.RoleAssignments(dposPolicy.participates)
+	asserts.NotNil(assignment)
+	asserts.Nil(err)
+	asserts.Equal(common.Master, assignment[mockAccounts[1]])
+
+	dposPolicy.ChangeRoleAssignment(assignment, uint64(0))
+	asserts.Equal(common.Master, assignment[mockAccounts[0]])
+	asserts.Equal(common.Slave, assignment[mockAccounts[1]])
 }

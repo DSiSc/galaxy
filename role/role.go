@@ -13,6 +13,7 @@ import (
 type Role interface {
 	PolicyName() string
 	RoleAssignments(accounts []account.Account) (map[account.Account]common.Roler, error)
+	ChangeRoleAssignment(map[account.Account]common.Roler, uint64)
 	GetRoles(address account.Account) (common.Roler, error)
 }
 

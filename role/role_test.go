@@ -75,3 +75,24 @@ func Test_NewRole(t *testing.T) {
 	asserts.Equal(fmt.Errorf("unkonwn policy type"), err)
 	asserts.Nil(role)
 }
+
+func changeAssign(assignments map[account.Account]common.Roler, master uint64) {
+	for account, _ := range assignments {
+		if account.Extension.Id == master {
+			assignments[account] = common.Master
+			continue
+		}
+		assignments[account] = common.Slave
+	}
+}
+
+func TestNewRole(t *testing.T) {
+	var assignment map[account.Account]common.Roler
+	assignment = make(map[account.Account]common.Roler)
+	assignment[mockAccounts[0]] = common.Master
+	assignment[mockAccounts[1]] = common.Slave
+
+	changeAssign(assignment, 1)
+	assert.Equal(t, common.Slave, assignment[mockAccounts[0]])
+	assert.Equal(t, common.Master, assignment[mockAccounts[1]])
+}
