@@ -582,9 +582,8 @@ func (instance *dbftCore) sendChangeViewReq(nodes []account.Account, newView uin
 		panic(fmt.Sprintf("marshal syncBlockResMsg msg failed with %v.", err))
 	}
 	// TODO: sign the digest
-	var mockDigest types.Hash
 	instance.view.requests[instance.local] = newView
-	messages.BroadcastPeers(msgRaw, messages.SyncBlockRespMessageType, mockDigest, instance.peers)
+	messages.BroadcastPeers(msgRaw, messages.SyncBlockRespMessageType, types.Hash{}, instance.peers)
 }
 
 func minNode(nodes map[account.Account]uint64) uint64 {

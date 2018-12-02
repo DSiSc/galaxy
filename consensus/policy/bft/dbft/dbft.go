@@ -1,6 +1,7 @@
 package dbft
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/craft/types"
@@ -19,6 +20,7 @@ type DBFTPolicy struct {
 	core    *dbftCore
 	timeout time.Duration
 	result  chan *messages.ConsensusResult
+	viewNum uint64
 }
 
 func NewDBFTPolicy(account account.Account, timeout int64) (*DBFTPolicy, error) {
@@ -27,6 +29,7 @@ func NewDBFTPolicy(account account.Account, timeout int64) (*DBFTPolicy, error) 
 		account: account,
 		timeout: time.Duration(timeout),
 		result:  make(chan *messages.ConsensusResult),
+		viewNum: uint64(0),
 	}
 	policy.core = NewDBFTCore(account, policy.result)
 	return policy, nil
@@ -57,7 +60,36 @@ func (self *DBFTPolicy) Initialization(role map[account.Account]commonr.Roler, p
 		signatures: make([][]byte, 0),
 		signMap:    make(map[account.Account][]byte),
 	}
+	// Add timer
+	timer := time.NewTimer(10 * time.Second)
+	go self.waitMasterTimeOut(timer)
 	return nil
+}
+
+func (self *DBFTPolicy) waitMasterTimeOut(timer *time.Timer) {
+	for {
+		select {
+		case <-timer.C:
+			log.Info("wait master timeout, so change view begin.")
+			viewChangeReqMsg := &messages.Message{
+				MessageType: messages.ViewChangeMessageReqType,
+				Payload: &messages.ViewChangeReqMessage{
+					ViewChange: &messages.ViewChangeReq{
+						Nodes:     []account.Account{self.core.local},
+						Timestamp: time.Now().Unix(),
+						ViewNum:   self.viewNum + 1,
+					},
+				},
+			}
+			msgRaw, err := json.Marshal(viewChangeReqMsg)
+			if nil != err {
+				log.Error("marshal proposal msg failed with %v.", err)
+				return
+			}
+			messages.BroadcastPeers(msgRaw, messages.ViewChangeMessageReqType, types.Hash{}, self.core.peers)
+			return
+		}
+	}
 }
 
 func (self *DBFTPolicy) PolicyName() string {
@@ -102,10 +134,12 @@ func (self *DBFTPolicy) ToConsensus(p *common.Proposal) error {
 			log.Info("consensus for %x successfully with signature %x.", p.Block.Header.MixDigest, consensusResult.Signatures)
 		}
 		go self.commit(p.Block, result)
+		timer.Stop()
 	case <-timer.C:
 		log.Error("consensus for %x timeout in %d seconds.", p.Block.Header.MixDigest, self.timeout)
 		err = fmt.Errorf("timeout for consensus")
 		go self.commit(p.Block, result)
+		timer.Stop()
 	}
 	return err
 }
