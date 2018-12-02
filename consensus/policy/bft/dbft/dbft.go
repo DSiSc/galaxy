@@ -20,7 +20,6 @@ type DBFTPolicy struct {
 	core    *dbftCore
 	timeout time.Duration
 	result  chan *messages.ConsensusResult
-	viewNum uint64
 }
 
 func NewDBFTPolicy(account account.Account, timeout int64) (*DBFTPolicy, error) {
@@ -29,7 +28,6 @@ func NewDBFTPolicy(account account.Account, timeout int64) (*DBFTPolicy, error) 
 		account: account,
 		timeout: time.Duration(timeout),
 		result:  make(chan *messages.ConsensusResult),
-		viewNum: uint64(0),
 	}
 	policy.core = NewDBFTCore(account, policy.result)
 	return policy, nil
@@ -77,7 +75,7 @@ func (self *DBFTPolicy) waitMasterTimeOut(timer *time.Timer) {
 					ViewChange: &messages.ViewChangeReq{
 						Nodes:     []account.Account{self.core.local},
 						Timestamp: time.Now().Unix(),
-						ViewNum:   self.viewNum + 1,
+						ViewNum:   self.core.views.viewNum + 1,
 					},
 				},
 			}

@@ -751,3 +751,53 @@ func TestDbftCore_ProcessEvent6(t *testing.T) {
 	tools.SendEvent(core, viewChangeReq)
 	monkey.UnpatchAll()
 }
+
+func TestDBFTPolicy_PolicyName(t *testing.T) {
+	core := NewDBFTCore(mockAccounts[0], sigChannel)
+	core.peers = mockAccounts
+	core.tolerance = 1
+	core.master = uint64(3)
+
+	// receive change view request from node 1
+	assert.Equal(t, uint64(0), core.views.viewNum)
+	viewChangeReq := &messages.ViewChangeReq{
+		Id:        mockAccounts[1].Extension.Id,
+		Nodes:     mockAccounts[1:2],
+		Timestamp: time.Now().Unix(),
+		ViewNum:   uint64(1),
+	}
+	monkey.Patch(messages.BroadcastPeers, func([]byte, messages.MessageType, types.Hash, []account.Account) {
+		return
+	})
+	core.receiveChangeViewReq(viewChangeReq)
+
+	assert.Equal(t, uint64(0), core.views.viewNum)
+	assert.Equal(t, commonc.ViewChanging, core.views.status)
+	assert.Equal(t, 2, len(core.views.viewSets[viewChangeReq.ViewNum].requestNodes))
+	assert.Equal(t, commonc.Viewing, core.views.viewSets[viewChangeReq.ViewNum].status)
+
+	viewChangeReq = &messages.ViewChangeReq{
+		Id:        mockAccounts[1].Extension.Id,
+		Nodes:     mockAccounts[0:1],
+		Timestamp: time.Now().Unix(),
+		ViewNum:   uint64(1),
+	}
+	core.receiveChangeViewReq(viewChangeReq)
+	assert.Equal(t, uint64(0), core.views.viewNum)
+	assert.Equal(t, commonc.ViewChanging, core.views.status)
+	assert.Equal(t, 2, len(core.views.viewSets[viewChangeReq.ViewNum].requestNodes))
+	assert.Equal(t, commonc.Viewing, core.views.viewSets[viewChangeReq.ViewNum].status)
+
+	viewChangeReq = &messages.ViewChangeReq{
+		Id:        mockAccounts[1].Extension.Id,
+		Nodes:     mockAccounts[0:3],
+		Timestamp: time.Now().Unix(),
+		ViewNum:   uint64(1),
+	}
+	core.receiveChangeViewReq(viewChangeReq)
+	assert.Equal(t, uint64(1), core.views.viewNum)
+	assert.Equal(t, commonc.ViewChanging, core.views.status)
+	assert.Equal(t, 3, len(core.views.viewSets[viewChangeReq.ViewNum].requestNodes))
+	assert.Equal(t, commonc.ViewEnd, core.views.viewSets[viewChangeReq.ViewNum].status)
+	assert.Equal(t, uint64(0), core.master)
+}

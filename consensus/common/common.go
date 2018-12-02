@@ -42,8 +42,13 @@ const (
 
 type ViewStatus string
 
-const ViewChanging = "ViewChanging"
-const ViewNormal = "ViewNormal"
+const ViewChanging ViewStatus = "ViewChanging"
+const ViewNormal ViewStatus = "ViewNormal"
+
+type ViewState string
+
+const Viewing ViewState = "Viewing"
+const ViewEnd ViewState = "ViewEnd"
 
 func Sum(bz []byte) []byte {
 	hash := sha256.Sum256(bz)

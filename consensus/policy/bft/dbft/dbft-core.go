@@ -31,12 +31,18 @@ type dbftCore struct {
 	validator   map[types.Hash]*payloadSets
 	payloads    map[types.Hash]*types.Block
 	eventCenter types.EventCenter
-	view        viewChange
+	views       viewChange
 }
 
 type viewChange struct {
 	status   common.ViewStatus
-	requests map[account.Account]uint64
+	viewNum  uint64
+	viewSets map[uint64]*viewNumStatus
+}
+
+type viewNumStatus struct {
+	status       common.ViewState
+	requestNodes []account.Account
 }
 
 type signData struct {
@@ -66,9 +72,10 @@ func NewDBFTCore(local account.Account, result chan *messages.ConsensusResult) *
 		tunnel:    make(chan int),
 		validator: make(map[types.Hash]*payloadSets),
 		payloads:  make(map[types.Hash]*types.Block),
-		view: viewChange{
+		views: viewChange{
 			status:   common.ViewNormal,
-			requests: make(map[account.Account]uint64),
+			viewNum:  uint64(0),
+			viewSets: make(map[uint64]*viewNumStatus),
 		},
 	}
 }
@@ -565,7 +572,7 @@ func (instance *dbftCore) receiveSyncBlockResp(syncBlockResp *messages.SyncBlock
 }
 
 func (instance *dbftCore) sendChangeViewReq(nodes []account.Account, newView uint64) {
-	log.Info("send view change request message.")
+	log.Info("send view change request message to node %x.", nodes)
 	syncBlockResMsg := &messages.Message{
 		MessageType: messages.ViewChangeMessageReqType,
 		Payload: &messages.ViewChangeReqMessage{
@@ -582,50 +589,72 @@ func (instance *dbftCore) sendChangeViewReq(nodes []account.Account, newView uin
 		panic(fmt.Sprintf("marshal syncBlockResMsg msg failed with %v.", err))
 	}
 	// TODO: sign the digest
-	instance.view.requests[instance.local] = newView
-	messages.BroadcastPeers(msgRaw, messages.SyncBlockRespMessageType, types.Hash{}, instance.peers)
+	peers := tools.AccountFilter([]account.Account{instance.local}, instance.peers)
+	messages.BroadcastPeers(msgRaw, messages.SyncBlockRespMessageType, types.Hash{}, peers)
 }
 
-func minNode(nodes map[account.Account]uint64) uint64 {
-	var index = make([]int, len(nodes))
-	for account, _ := range nodes {
-		index = append(index, int(account.Extension.Id))
+func minNode(nodes []account.Account) uint64 {
+	var order = make([]int, 0)
+	for _, node := range nodes {
+		order = append(order, int(node.Extension.Id))
 	}
-	sort.Ints(index)
-	return uint64(index[0])
+	sort.Ints(order)
+	return uint64(order[0])
+}
+
+func addChangeViewAccounts(accounts []account.Account, account2 account.Account) []account.Account {
+	var exist = false
+	for _, account := range accounts {
+		if account == account2 {
+			exist = true
+		}
+	}
+	if !exist {
+		log.Info("add %d to view change accounts.", account2.Extension.Id)
+		accounts = append(accounts, account2)
+	}
+	return accounts
 }
 
 func (instance *dbftCore) receiveChangeViewReq(viewChangeReq *messages.ViewChangeReq) {
 	log.Info("receive view change request from node %d.", viewChangeReq.Id)
-	if instance.view.status != common.ViewChanging {
-		chain, err := blockchain.NewLatestStateBlockChain()
-		if nil != err {
-			panic("new latest block chain failed.")
-		}
-		currentHeight := chain.GetCurrentBlockHeight()
-		if currentHeight+1 < viewChangeReq.ViewNum {
-			log.Warn("need change view for view num is %d while receive is %d.", viewChangeReq.ViewNum, currentHeight)
-			instance.view.status = common.ViewChanging
+	if instance.views.status != common.ViewChanging {
+		if instance.views.viewNum < viewChangeReq.ViewNum {
+			log.Warn("need change view for local view num is %d while receive is %d.",
+				viewChangeReq.ViewNum, instance.views.viewNum)
+			instance.views.status = common.ViewChanging
 		}
 	}
-	if instance.view.status == common.ViewChanging {
-		for _, node := range viewChangeReq.Nodes {
-			if _, ok := instance.view.requests[node]; !ok {
-				log.Info("receive view change request from node %x and reserve it now.", node.Address)
-				instance.view.requests[node] = viewChangeReq.ViewNum
+	if instance.views.status == common.ViewChanging {
+		if _, ok := instance.views.viewSets[viewChangeReq.ViewNum]; !ok {
+			// if has not receive view change request before
+			instance.views.viewSets[viewChangeReq.ViewNum] = &viewNumStatus{
+				status:       common.Viewing,
+				requestNodes: make([]account.Account, 0),
 			}
 		}
-		if len(instance.view.requests) >= len(instance.peers)-int(instance.tolerance) {
-			instance.master = minNode(instance.view.requests)
-			instance.view.status = common.ViewNormal
-			log.Info("view change success and new master num is %d.", instance.master)
+
+		if instance.views.viewSets[viewChangeReq.ViewNum].status == common.ViewEnd {
+			log.Warn("has been complete view change for num %d, ignore the request.", viewChangeReq.ViewNum)
 			return
 		}
-		var nodes = make([]account.Account, 0)
-		for key, _ := range instance.view.requests {
-			nodes = append(nodes, key)
+		instance.views.viewSets[viewChangeReq.ViewNum].requestNodes = addChangeViewAccounts(instance.views.viewSets[viewChangeReq.ViewNum].requestNodes, instance.local)
+		for _, node := range viewChangeReq.Nodes {
+			log.Info("try to reserve view %d request form node %d.", viewChangeReq.ViewNum, node.Extension.Id)
+			instance.views.viewSets[viewChangeReq.ViewNum].requestNodes = addChangeViewAccounts(instance.views.viewSets[viewChangeReq.ViewNum].requestNodes, node)
 		}
-		instance.sendChangeViewReq(nodes, instance.view.requests[nodes[0]])
+		if len(instance.views.viewSets[viewChangeReq.ViewNum].requestNodes) >= len(instance.peers)-int(instance.tolerance) {
+			instance.master = minNode(instance.views.viewSets[viewChangeReq.ViewNum].requestNodes)
+			instance.views.viewSets[viewChangeReq.ViewNum].status = common.ViewEnd
+			instance.views.viewNum = viewChangeReq.ViewNum
+			log.Info("view change success and new master num is %d.", instance.master)
+		} else {
+			log.Info("view change request %d not enough to change it.", len(instance.views.viewSets[viewChangeReq.ViewNum].requestNodes))
+		}
+		instance.sendChangeViewReq(instance.views.viewSets[viewChangeReq.ViewNum].requestNodes, viewChangeReq.ViewNum)
+		if common.ViewEnd == instance.views.viewSets[viewChangeReq.ViewNum].status {
+			// TODO: start a new round
+		}
 	}
 }
 
