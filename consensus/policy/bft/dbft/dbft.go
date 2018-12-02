@@ -59,7 +59,7 @@ func (self *DBFTPolicy) Initialization(role map[account.Account]commonr.Roler, p
 		signMap:    make(map[account.Account][]byte),
 	}
 	// Add timer
-	timer := time.NewTimer(10 * time.Second)
+	timer := time.NewTimer(15 * time.Second)
 	go self.waitMasterTimeOut(timer)
 	return nil
 }

@@ -621,7 +621,7 @@ func (instance *dbftCore) receiveChangeViewReq(viewChangeReq *messages.ViewChang
 	if instance.views.status != common.ViewChanging {
 		if instance.views.viewNum < viewChangeReq.ViewNum {
 			log.Warn("need change view for local view num is %d while receive is %d.",
-				viewChangeReq.ViewNum, instance.views.viewNum)
+				instance.views.viewNum, viewChangeReq.ViewNum)
 			instance.views.status = common.ViewChanging
 		}
 	}
@@ -641,7 +641,6 @@ func (instance *dbftCore) receiveChangeViewReq(viewChangeReq *messages.ViewChang
 
 		instance.views.viewSets[viewChangeReq.ViewNum].requestNodes = addChangeViewAccounts(instance.views.viewSets[viewChangeReq.ViewNum].requestNodes, instance.local)
 		for _, node := range viewChangeReq.Nodes {
-			log.Info("try to reserve view %d request form node %d.", viewChangeReq.ViewNum, node.Extension.Id)
 			instance.views.viewSets[viewChangeReq.ViewNum].requestNodes = addChangeViewAccounts(instance.views.viewSets[viewChangeReq.ViewNum].requestNodes, node)
 		}
 
