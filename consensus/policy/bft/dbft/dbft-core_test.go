@@ -3,8 +3,10 @@ package dbft
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/DSiSc/blockchain"
+	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/craft/types"
 	commonc "github.com/DSiSc/galaxy/consensus/common"
 	"github.com/DSiSc/galaxy/consensus/policy/bft/messages"
@@ -18,9 +20,118 @@ import (
 	"github.com/stretchr/testify/assert"
 	"net"
 	"reflect"
+	"sync"
 	"testing"
 	"time"
 )
+
+var events types.EventCenter
+
+type Event struct {
+	m           sync.RWMutex
+	Subscribers map[types.EventType]map[types.Subscriber]types.EventFunc
+}
+
+func NewEvent() types.EventCenter {
+	return &Event{
+		Subscribers: make(map[types.EventType]map[types.Subscriber]types.EventFunc),
+	}
+}
+
+//  adds a new subscriber to Event.
+func (e *Event) Subscribe(eventType types.EventType, eventFunc types.EventFunc) types.Subscriber {
+	e.m.Lock()
+	defer e.m.Unlock()
+
+	sub := make(chan interface{})
+	_, ok := e.Subscribers[eventType]
+	if !ok {
+		e.Subscribers[eventType] = make(map[types.Subscriber]types.EventFunc)
+	}
+	e.Subscribers[eventType][sub] = eventFunc
+
+	return sub
+}
+
+func (e *Event) UnSubscribe(eventType types.EventType, subscriber types.Subscriber) (err error) {
+	e.m.Lock()
+	defer e.m.Unlock()
+
+	subEvent, ok := e.Subscribers[eventType]
+	if !ok {
+		err = errors.New("event type not exist")
+		return
+	}
+
+	delete(subEvent, subscriber)
+	close(subscriber)
+
+	return
+}
+
+func (e *Event) Notify(eventType types.EventType, value interface{}) (err error) {
+
+	e.m.RLock()
+	defer e.m.RUnlock()
+
+	subs, ok := e.Subscribers[eventType]
+	if !ok {
+		err = errors.New("event type not register")
+		return
+	}
+
+	switch value.(type) {
+	case error:
+		log.Error("Receive errors is [%v].", value)
+	}
+	log.Info("Receive eventType is [%d].", eventType)
+
+	for _, event := range subs {
+		go e.NotifySubscriber(event, value)
+	}
+	return nil
+}
+
+func (e *Event) NotifySubscriber(eventFunc types.EventFunc, value interface{}) {
+	if eventFunc == nil {
+		return
+	}
+
+	// invoke subscriber event func
+	eventFunc(value)
+
+}
+
+//Notify all event subscribers
+func (e *Event) NotifyAll() (errs []error) {
+	e.m.RLock()
+	defer e.m.RUnlock()
+
+	for eventType, _ := range e.Subscribers {
+		if err := e.Notify(eventType, nil); err != nil {
+			errs = append(errs, err)
+		}
+	}
+
+	return errs
+}
+
+// unsubscribe all event and subscriber elegant
+func (e *Event) UnSubscribeAll() {
+	for eventtype, _ := range e.Subscribers {
+		subs, ok := e.Subscribers[eventtype]
+		if !ok {
+			continue
+		}
+		for subscriber, _ := range subs {
+			delete(subs, subscriber)
+			close(subscriber)
+		}
+	}
+	// TODO: open it when txswitch and blkswith stop complete
+	//e.Subscribers = make(map[types.EventType]map[types.Subscriber]types.EventFunc)
+	return
+}
 
 func TestNewdbftCore(t *testing.T) {
 	ddbft := NewDBFTCore(mockAccounts[0], sigChannel)
@@ -719,6 +830,12 @@ func TestDbftCore_ProcessEvent6(t *testing.T) {
 	core.tolerance = 1
 	core.master = uint64(2)
 	currentHeight := uint64(2)
+	event := NewEvent()
+	event.Subscribe(types.EventMasterChange, func(v interface{}) {
+		log.Error("receive view change event.")
+		return
+	})
+	core.eventCenter = event
 	viewChangeReq := &messages.ViewChangeReq{
 		Nodes:     mockAccounts[:1],
 		Timestamp: time.Now().Unix(),
@@ -752,11 +869,17 @@ func TestDbftCore_ProcessEvent6(t *testing.T) {
 	monkey.UnpatchAll()
 }
 
-func TestDBFTPolicy_PolicyName(t *testing.T) {
+func TestDbftCore_ProcessEvent7(t *testing.T) {
 	core := NewDBFTCore(mockAccounts[0], sigChannel)
 	core.peers = mockAccounts
 	core.tolerance = 1
 	core.master = uint64(3)
+	event := NewEvent()
+	event.Subscribe(types.EventMasterChange, func(v interface{}) {
+		log.Error("receive view change event.")
+		return
+	})
+	core.eventCenter = event
 
 	// receive change view request from node 1
 	assert.Equal(t, uint64(0), core.views.viewNum)

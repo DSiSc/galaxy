@@ -655,6 +655,7 @@ func (instance *dbftCore) receiveChangeViewReq(viewChangeReq *messages.ViewChang
 		instance.sendChangeViewReq(instance.views.viewSets[viewChangeReq.ViewNum].requestNodes, viewChangeReq.ViewNum)
 		if common.ViewEnd == instance.views.viewSets[viewChangeReq.ViewNum].status {
 			// TODO: start a new round
+			instance.eventCenter.Notify(types.EventMasterChange, nil)
 		}
 	}
 }
