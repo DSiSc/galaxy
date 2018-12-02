@@ -171,6 +171,13 @@ func (m *Message) UnmarshalJSON(rawData []byte) error {
 			log.Error("unmarshal sync block response message failed with err %v.", err)
 		}
 		m.Payload = payload
+	case ViewChangeMessageReqType:
+		payload := &ViewChangeReqMessage{}
+		err = json.Unmarshal(messageClone.Payload, payload)
+		if nil != err {
+			log.Error("unmarshal view change request message failed with err %v.", err)
+		}
+		m.Payload = payload
 	default:
 		log.Error("not support marshal type %v.", m.MessageType)
 		err = fmt.Errorf("not support marshal type")
