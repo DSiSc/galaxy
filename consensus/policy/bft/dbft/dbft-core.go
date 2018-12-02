@@ -15,6 +15,7 @@ import (
 	"github.com/DSiSc/validator/worker"
 	"net"
 	"sort"
+	"sync"
 	"time"
 )
 
@@ -41,6 +42,7 @@ type viewChange struct {
 }
 
 type viewNumStatus struct {
+	mu           sync.RWMutex
 	status       common.ViewState
 	requestNodes []account.Account
 }
@@ -625,6 +627,7 @@ func (instance *dbftCore) receiveChangeViewReq(viewChangeReq *messages.ViewChang
 			instance.views.status = common.ViewChanging
 		}
 	}
+
 	if instance.views.status == common.ViewChanging {
 		if _, ok := instance.views.viewSets[viewChangeReq.ViewNum]; !ok {
 			// if has not receive view change request before
@@ -633,11 +636,12 @@ func (instance *dbftCore) receiveChangeViewReq(viewChangeReq *messages.ViewChang
 				requestNodes: make([]account.Account, 0),
 			}
 		}
-
+		instance.views.viewSets[viewChangeReq.ViewNum].mu.RLock()
 		if instance.views.viewSets[viewChangeReq.ViewNum].status == common.ViewEnd {
 			log.Warn("has been complete view change for num %d, ignore the request.", viewChangeReq.ViewNum)
 			return
 		}
+		instance.views.viewSets[viewChangeReq.ViewNum].mu.RUnlock()
 
 		instance.views.viewSets[viewChangeReq.ViewNum].requestNodes = addChangeViewAccounts(instance.views.viewSets[viewChangeReq.ViewNum].requestNodes, instance.local)
 		for _, node := range viewChangeReq.Nodes {
@@ -646,17 +650,21 @@ func (instance *dbftCore) receiveChangeViewReq(viewChangeReq *messages.ViewChang
 
 		if len(instance.views.viewSets[viewChangeReq.ViewNum].requestNodes) >= len(instance.peers)-int(instance.tolerance) {
 			instance.master = minNode(instance.views.viewSets[viewChangeReq.ViewNum].requestNodes)
+			instance.views.viewSets[viewChangeReq.ViewNum].mu.Lock()
 			instance.views.viewSets[viewChangeReq.ViewNum].status = common.ViewEnd
+			instance.views.viewSets[viewChangeReq.ViewNum].mu.Unlock()
 			instance.views.viewNum = viewChangeReq.ViewNum
 			log.Info("view change success and new master num is %d.", instance.master)
 		} else {
 			log.Info("view change request %d not enough to change it.", len(instance.views.viewSets[viewChangeReq.ViewNum].requestNodes))
 		}
 		instance.sendChangeViewReq(instance.views.viewSets[viewChangeReq.ViewNum].requestNodes, viewChangeReq.ViewNum)
+		instance.views.viewSets[viewChangeReq.ViewNum].mu.RLock()
 		if common.ViewEnd == instance.views.viewSets[viewChangeReq.ViewNum].status {
 			// TODO: start a new round
 			instance.eventCenter.Notify(types.EventMasterChange, nil)
 		}
+		instance.views.viewSets[viewChangeReq.ViewNum].mu.RUnlock()
 	}
 }
 
@@ -700,7 +708,7 @@ func (instance *dbftCore) ProcessEvent(e tools.Event) tools.Event {
 		log.Info("receive sycBlockResp len is %d.", len(et.Blocks))
 		instance.receiveSyncBlockResp(et)
 	case *messages.ViewChangeReq:
-		log.Info("receive viewChangeReq from node %d", et.Id)
+		log.Info("receive viewChangeReq from node %d and viewNum %d.", et.Id, et.ViewNum)
 		instance.receiveChangeViewReq(et)
 	default:
 		log.Warn("replica %d received an unknown message type %v", instance.local.Extension.Id, et)
