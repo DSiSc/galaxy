@@ -45,6 +45,7 @@ type viewChange struct {
 type viewNumStatus struct {
 	mu           sync.RWMutex
 	status       common.ViewState
+	notify       bool
 	requestNodes []account.Account
 }
 
@@ -646,12 +647,10 @@ func (instance *dbftCore) receiveChangeViewReq(viewChangeReq *messages.ViewChang
 			return
 		}
 		instance.views.viewSets[viewChangeReq.ViewNum].mu.RUnlock()
-
 		instance.views.viewSets[viewChangeReq.ViewNum].requestNodes = addChangeViewAccounts(instance.views.viewSets[viewChangeReq.ViewNum].requestNodes, instance.local)
 		for _, node := range viewChangeReq.Nodes {
 			instance.views.viewSets[viewChangeReq.ViewNum].requestNodes = addChangeViewAccounts(instance.views.viewSets[viewChangeReq.ViewNum].requestNodes, node)
 		}
-
 		if len(instance.views.viewSets[viewChangeReq.ViewNum].requestNodes) >= len(instance.peers)-int(instance.tolerance) {
 			instance.master = minNode(instance.views.viewSets[viewChangeReq.ViewNum].requestNodes)
 			instance.views.viewSets[viewChangeReq.ViewNum].mu.Lock()
@@ -668,9 +667,11 @@ func (instance *dbftCore) receiveChangeViewReq(viewChangeReq *messages.ViewChang
 		}
 		instance.views.viewSets[viewChangeReq.ViewNum].mu.RLock()
 		if common.ViewEnd == instance.views.viewSets[viewChangeReq.ViewNum].status {
-			// TODO: start a new round
 			log.Warn("view change %d end, so notify.", viewChangeReq.ViewNum)
-			instance.eventCenter.Notify(types.EventMasterChange, nil)
+			if !instance.views.viewSets[viewChangeReq.ViewNum].notify {
+				instance.eventCenter.Notify(types.EventMasterChange, nil)
+				instance.views.viewSets[viewChangeReq.ViewNum].notify = true
+			}
 		}
 		instance.views.viewSets[viewChangeReq.ViewNum].mu.RUnlock()
 	}
@@ -826,6 +827,10 @@ func handleClient(conn net.Conn, bft *dbftCore) {
 		tools.SendEvent(bft, commit)
 	case messages.ViewChangeMessageReqType:
 		viewChange := payload.(*messages.ViewChangeReqMessage).ViewChange
+		if bft.views.viewNum >= viewChange.ViewNum {
+			log.Warn("local view is %d while receive is %d.", bft.views.viewNum, viewChange.ViewNum)
+			return
+		}
 		tools.SendEvent(bft, viewChange)
 	default:
 		if nil == payload {
