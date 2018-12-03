@@ -366,7 +366,13 @@ func (instance *fbftCore) Start(account account.Account) {
 		tcpListener.Close()
 	}()
 	log.Info("service start and waiting to be connected ...")
-	handleConnection(tcpListener, instance)
+	for {
+		conn, err := tcpListener.Accept()
+		if err != nil {
+			continue
+		}
+		go handleClient(conn, instance)
+	}
 }
 
 func handleConnection(tcpListener *net.TCPListener, fbft *fbftCore) {
@@ -416,5 +422,62 @@ func handleConnection(tcpListener *net.TCPListener, fbft *fbftCore) {
 			}
 			return
 		}
+	}
+}
+
+func handleClient(conn net.Conn, bft *fbftCore) {
+	log.Info("receive messages form other node.")
+	buffer := make([]byte, 2048)
+	n, err := conn.Read(buffer)
+	defer conn.Close()
+	if err != nil {
+		log.Error("error when read connector %x.", err)
+		return
+	}
+	var msg messages.Message
+	err = json.Unmarshal(buffer[:n], &msg)
+	payload := msg.Payload
+	switch msg.MessageType {
+	case messages.RequestMessageType:
+		log.Info("receive request message from producer")
+		// TODO: separate producer and master, so client need send request to master
+		request := payload.(*messages.RequestMessage).Request
+		tools.SendEvent(bft, request)
+	case messages.ProposalMessageType:
+		proposal := payload.(*messages.ProposalMessage).Proposal
+		log.Info("receive proposal message form node %d with payload %x.",
+			proposal.Id, proposal.Payload.Header.MixDigest)
+		if proposal.Id != bft.master {
+			log.Warn("only master can issue a proposal.")
+			return
+		}
+		tools.SendEvent(bft, proposal)
+	case messages.ResponseMessageType:
+		response := payload.(*messages.ResponseMessage).Response
+		log.Info("receive response message from node %d with payload %x.",
+			response.Account.Extension.Id, response.Digest)
+		if response.Account.Extension.Id == bft.master {
+			log.Warn("master will not receive response message from itself.")
+			return
+		}
+		tools.SendEvent(bft, response)
+	case messages.SyncBlockReqMessageType:
+		syncBlock := payload.(*messages.SyncBlockReqMessage).SyncBlock
+		log.Info("receive sync block message from node %d", syncBlock.Node.Extension.Id)
+		tools.SendEvent(bft, syncBlock)
+	case messages.SyncBlockRespMessageType:
+		syncBlock := payload.(*messages.SyncBlockRespMessage).SyncBlock
+		log.Info("receive sync blocks from master.")
+		tools.SendEvent(bft, syncBlock)
+	case messages.CommitMessageType:
+		commit := payload.(*messages.CommitMessage).Commit
+		tools.SendEvent(bft, commit)
+	default:
+		if nil == payload {
+			log.Info("receive handshake, omit it.")
+		} else {
+			log.Error("not support type for %v.", payload)
+		}
+		return
 	}
 }
