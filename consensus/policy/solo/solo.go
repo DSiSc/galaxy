@@ -63,6 +63,7 @@ func (self *SoloPolicy) Initialization(role map[account.Account]commonr.Roler, a
 	if common.SOLO_CONSENSUS_NUM != uint8(len(account)) {
 		return fmt.Errorf("solo policy only support one participate")
 	}
+	self.role = role
 	self.peers = account
 	self.eventCenter = event
 	return nil
