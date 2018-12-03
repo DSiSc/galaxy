@@ -663,6 +663,7 @@ func (instance *dbftCore) receiveChangeViewReq(viewChangeReq *messages.ViewChang
 			log.Info("view change request %d not enough to change it.", len(instance.views.viewSets[viewChangeReq.ViewNum].requestNodes))
 		}
 		if len(instance.views.viewSets[viewChangeReq.ViewNum].requestNodes) > 1 {
+			log.Info("try to send view change to %d nodes.", len(instance.views.viewSets[viewChangeReq.ViewNum].requestNodes))
 			instance.sendChangeViewReq(instance.views.viewSets[viewChangeReq.ViewNum].requestNodes, viewChangeReq.ViewNum)
 		}
 		instance.views.viewSets[viewChangeReq.ViewNum].mu.RLock()
