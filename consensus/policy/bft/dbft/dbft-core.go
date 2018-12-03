@@ -104,7 +104,7 @@ func (instance *dbftCore) broadcast(msgPayload []byte, msgType messages.MessageT
 	peers := instance.peers
 	for id, peer := range peers {
 		log.Info("broadcast from node %d to %d by url %s with message type %v and digest %x.",
-			instance.local.Extension.Id, id, peer.Extension.Url, msgType, digest)
+			instance.local.Extension.Id, peer.Extension.Id, peer.Extension.Url, msgType, digest)
 		err := sendMsgByUrl(peer.Extension.Url, msgPayload)
 		if nil != err {
 			log.Error("broadcast from node %d to %d by url %s with message type %v and digest %x occur error %v.",
