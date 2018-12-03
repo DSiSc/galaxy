@@ -59,7 +59,7 @@ func (self *DBFTPolicy) Initialization(role map[account.Account]commonr.Roler, p
 		signMap:    make(map[account.Account][]byte),
 	}
 	// Add timer
-	timer := time.NewTimer(15 * time.Second)
+	timer := time.NewTimer(30 * time.Second)
 	self.core.masterTimeout = timer
 	go self.core.waitMasterTimeOut(timer)
 	return nil
@@ -96,7 +96,7 @@ func (self *DBFTPolicy) PolicyName() string {
 }
 
 func (self *DBFTPolicy) Start() {
-	log.Info("start bft policy service.")
+	log.Info("start dbft policy service.")
 	self.core.Start(self.account)
 }
 

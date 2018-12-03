@@ -174,7 +174,7 @@ func (instance *bftCore) waitResponse() {
 	for {
 		select {
 		case <-timer.C:
-			log.Info("wait response timeout.")
+			log.Info("response timeout.")
 			signatures, err := instance.maybeCommit()
 			if nil != err {
 				log.Warn("maybe commit errors %s.", err)

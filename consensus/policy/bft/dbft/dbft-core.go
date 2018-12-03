@@ -197,7 +197,7 @@ func (instance *dbftCore) waitResponse() {
 	for {
 		select {
 		case <-timer.C:
-			log.Info("wait response timeout.")
+			log.Info("response timeout.")
 			signatures, err := instance.maybeCommit()
 			if nil != err {
 				log.Warn("maybe commit errors %s.", err)
@@ -623,6 +623,7 @@ func addChangeViewAccounts(accounts []account.Account, account2 account.Account)
 
 func (instance *dbftCore) receiveChangeViewReq(viewChangeReq *messages.ViewChangeReq) {
 	log.Info("receive view change request from node %d.", viewChangeReq.Id)
+	instance.masterTimeout.Stop()
 	if instance.views.status != common.ViewChanging {
 		if instance.views.viewNum < viewChangeReq.ViewNum {
 			log.Warn("need change view for local view num is %d while receive is %d.",
@@ -665,6 +666,7 @@ func (instance *dbftCore) receiveChangeViewReq(viewChangeReq *messages.ViewChang
 		instance.views.viewSets[viewChangeReq.ViewNum].mu.RLock()
 		if common.ViewEnd == instance.views.viewSets[viewChangeReq.ViewNum].status {
 			// TODO: start a new round
+			log.Warn("view change %d end, so notify.", viewChangeReq.ViewNum)
 			instance.eventCenter.Notify(types.EventMasterChange, nil)
 		}
 		instance.views.viewSets[viewChangeReq.ViewNum].mu.RUnlock()
@@ -703,6 +705,7 @@ func (self *dbftCore) waitMasterTimeOut(timer *time.Timer) {
 					},
 				},
 			}
+			log.Info("view change from local %d to expect %d.", self.views.viewNum, self.views.viewNum+1)
 			msgRaw, err := json.Marshal(viewChangeReqMsg)
 			if nil != err {
 				log.Error("marshal proposal msg failed with %v.", err)
