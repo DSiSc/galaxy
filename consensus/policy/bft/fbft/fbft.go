@@ -109,11 +109,18 @@ func (instance *FBFTPolicy) Halt() {
 	return
 }
 
-// TODO: update view number
 func (self *FBFTPolicy) GetConsensusResult() common.ConsensusResult {
+	role := make(map[account.Account]commonr.Roler)
+	for _, peer := range self.core.peers {
+		if self.core.master == peer.Extension.Id {
+			role[peer] = commonr.Master
+			continue
+		}
+		role[peer] = commonr.Slave
+	}
 	return common.ConsensusResult{
 		View:        uint64(0),
 		Participate: self.core.peers,
-		Roles:       make(map[account.Account]commonr.Roler),
+		Roles:       role,
 	}
 }

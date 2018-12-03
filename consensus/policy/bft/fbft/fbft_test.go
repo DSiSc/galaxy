@@ -249,14 +249,10 @@ func TestFBFTPolicy_GetConsensusResult(t *testing.T) {
 	fbft, err := NewFBFTPolicy(mockAccounts[0], timeout)
 	assert.Nil(t, err)
 
-	var assignment = make(map[account.Account]commonr.Roler)
-	assignment[mockAccounts[0]] = commonr.Master
-	assignment[mockAccounts[1]] = commonr.Slave
-	assignment[mockAccounts[2]] = commonr.Slave
-	assignment[mockAccounts[3]] = commonr.Slave
-	fbft.Initialization(assignment, mockAccounts, nil)
-
 	fbft.core.master = 1
+	fbft.core.peers = mockAccounts
 	result := fbft.GetConsensusResult()
 	assert.Equal(t, uint64(0), result.View)
+	assert.Equal(t, commonr.Master, result.Roles[mockAccounts[1]])
+	assert.Equal(t, len(mockAccounts), len(result.Participate))
 }
