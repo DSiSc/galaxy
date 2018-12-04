@@ -130,6 +130,7 @@ func (self *SoloPolicy) ToConsensus(p *common.Proposal) error {
 		return fmt.Errorf("consensus status fault")
 	}
 	self.version = proposal.version
+	p.Block.HeaderHash = common.HeaderHash(p.Block)
 	self.commitBlock(p.Block)
 	return err
 }
