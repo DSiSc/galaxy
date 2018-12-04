@@ -31,7 +31,6 @@ func TestBftCore_ProcessEvent(t *testing.T) {
 	var sigChannel = make(chan *messages.ConsensusResult)
 	fbft := NewFBFTCore(mockAccounts[0], sigChannel, nil)
 	assert.NotNil(t, fbft)
-	id := mockAccounts[0].Extension.Id
 	err := fbft.ProcessEvent(nil)
 	assert.Equal(t, fmt.Errorf("not support type <nil>"), err)
 
@@ -81,7 +80,7 @@ func TestBftCore_ProcessEvent(t *testing.T) {
 			},
 		},
 	}
-	fbft.master = id + 1
+	fbft.master = mockAccounts[1]
 	err = fbft.ProcessEvent(mock_proposal)
 	assert.Nil(t, err)
 
@@ -102,7 +101,7 @@ func TestBftCore_ProcessEvent(t *testing.T) {
 		return address, nil
 	})
 
-	fbft.master = id
+	fbft.master = mockAccounts[0]
 	mockResponse := &messages.Response{
 		Account:   mockAccounts[0],
 		Timestamp: time.Now().Unix(),
@@ -163,7 +162,6 @@ var fakeSignature = []byte{
 
 func TestBftCore_receiveRequest(t *testing.T) {
 	fbft := NewFBFTCore(mockAccounts[0], sigChannel, nil)
-	id := mockAccounts[0].Extension.Id
 	assert.NotNil(t, fbft)
 	fbft.peers = mockAccounts
 	// only master process request
@@ -176,10 +174,10 @@ func TestBftCore_receiveRequest(t *testing.T) {
 			},
 		},
 	}
-	fbft.master = id + 1
+	fbft.master = mockAccounts[1]
 	fbft.receiveRequest(request)
 	// absence of signature
-	fbft.master = id
+	fbft.master = mockAccounts[0]
 	fbft.receiveRequest(request)
 
 	request.Payload.Header.SigData = append(request.Payload.Header.SigData, fakeSignature)
@@ -287,6 +285,7 @@ func TestBftCore_receiveProposal(t *testing.T) {
 	fbft := NewFBFTCore(mockAccounts[0], sigChannel, nil)
 	assert.NotNil(t, fbft)
 	fbft.peers = mockAccounts
+	fbft.master = mockAccounts[0]
 	// master receive proposal
 	proposal := &messages.Proposal{
 		Timestamp: 1535414400,
@@ -367,6 +366,7 @@ func TestBftCore_receiveResponse(t *testing.T) {
 	assert.NotNil(t, fbft)
 	fbft.peers = mockAccounts
 	fbft.digest = mockHash
+	fbft.master = mockAccounts[0]
 	response := &messages.Response{
 		Account:   mockAccounts[1],
 		Timestamp: time.Now().Unix(),

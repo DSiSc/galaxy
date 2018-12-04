@@ -9,7 +9,6 @@ import (
 	"github.com/DSiSc/galaxy/consensus/policy/bft/tools"
 	commonr "github.com/DSiSc/galaxy/role/common"
 	"github.com/DSiSc/validator/tools/account"
-	"math"
 	"time"
 )
 
@@ -33,15 +32,16 @@ func NewFBFTPolicy(account account.Account, timeout int64, blockSwitch chan<- in
 }
 
 func (instance *FBFTPolicy) Initialization(role map[account.Account]commonr.Roler, peers []account.Account, events types.EventCenter) error {
-	instance.core.master = math.MaxUint64
+	var masterExist = false
 	for delegate, role := range role {
 		if commonr.Master == role {
-			instance.core.master = delegate.Extension.Id
+			instance.core.master = delegate
+			masterExist = true
 		}
 	}
-	if instance.core.master == math.MaxUint64 {
-		log.Error("no master exist in delegates")
-		return fmt.Errorf("no master")
+	if !masterExist {
+		log.Error("no master exist, please confirm.")
+		return fmt.Errorf("no master exist")
 	}
 	instance.core.commit = false
 	instance.core.peers = peers
@@ -112,7 +112,7 @@ func (instance *FBFTPolicy) Halt() {
 func (self *FBFTPolicy) GetConsensusResult() common.ConsensusResult {
 	role := make(map[account.Account]commonr.Roler)
 	for _, peer := range self.core.peers {
-		if self.core.master == peer.Extension.Id {
+		if self.core.master == peer {
 			role[peer] = commonr.Master
 			log.Warn("now master is %d.", peer.Extension.Id)
 			continue

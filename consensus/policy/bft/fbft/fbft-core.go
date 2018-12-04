@@ -18,7 +18,7 @@ import (
 
 type fbftCore struct {
 	local       account.Account
-	master      uint64
+	master      account.Account
 	peers       []account.Account
 	signature   *tools.SignData
 	tolerance   uint8
@@ -51,7 +51,7 @@ func NewFBFTCore(local account.Account, result chan *messages.ConsensusResult, b
 }
 
 func (instance *fbftCore) receiveRequest(request *messages.Request) {
-	isMaster := instance.local.Extension.Id == instance.master
+	isMaster := instance.local == instance.master
 	if !isMaster {
 		log.Info("only master process request.")
 		return
@@ -138,17 +138,16 @@ func (instance *fbftCore) waitResponse() {
 }
 
 func (instance *fbftCore) receiveProposal(proposal *messages.Proposal) {
-	isMaster := instance.local.Extension.Id == instance.master
+	isMaster := instance.local == instance.master
 	if isMaster {
 		log.Info("master not need to process proposal.")
 		return
 	}
-	if instance.master != proposal.Id {
-		log.Error("proposal must from master %d, while it from %d in fact.", instance.master, proposal.Id)
+	if instance.master.Extension.Id != proposal.Id {
+		log.Error("proposal must from master %d, while it from %d in fact.", instance.master.Extension.Id, proposal.Id)
 		return
 	}
-	masterAccount := tools.GetAccountById(instance.peers, instance.master)
-	if !signDataVerify(masterAccount, proposal.Signature, proposal.Payload.Header.MixDigest) {
+	if !signDataVerify(instance.master, proposal.Signature, proposal.Payload.Header.MixDigest) {
 		log.Error("proposal signature not from master, please confirm.")
 		return
 	}
@@ -188,7 +187,7 @@ func (instance *fbftCore) receiveProposal(proposal *messages.Proposal) {
 		log.Error("marshal proposal msg failed with %v.", err)
 		return
 	}
-	messages.Unicast(masterAccount, msgRaw, messages.ResponseMessageType, proposal.Payload.Header.MixDigest)
+	messages.Unicast(instance.master, msgRaw, messages.ResponseMessageType, proposal.Payload.Header.MixDigest)
 }
 
 func (instance *fbftCore) maybeCommit() ([][]byte, error) {
@@ -224,7 +223,7 @@ func signDataVerify(account account.Account, sign []byte, digest types.Hash) boo
 
 func (instance *fbftCore) receiveResponse(response *messages.Response) {
 	if !instance.commit {
-		isMaster := instance.local.Extension.Id == instance.master
+		isMaster := instance.local == instance.master
 		if !isMaster {
 			log.Info("only master need to process response.")
 			return
@@ -388,7 +387,7 @@ func handleConnection(tcpListener *net.TCPListener, fbft *fbftCore) {
 			proposal := payload.(*messages.ProposalMessage).Proposal
 			log.Info("receive a proposal message form node %d with payload %x.",
 				proposal.Id, proposal.Payload.Header.MixDigest)
-			if proposal.Id != fbft.master {
+			if proposal.Id != fbft.master.Extension.Id {
 				log.Warn("only master can issue a proposal.")
 				continue
 			}
@@ -397,7 +396,7 @@ func handleConnection(tcpListener *net.TCPListener, fbft *fbftCore) {
 			response := payload.(*messages.ResponseMessage).Response
 			log.Info("receive response message from node %d with payload %x.",
 				response.Account.Extension.Id, response.Digest)
-			if response.Account.Extension.Id == fbft.master {
+			if response.Account.Extension.Id == fbft.master.Extension.Id {
 				log.Warn("master will not receive response message from itself.")
 				continue
 			}
@@ -438,7 +437,7 @@ func handleClient(conn net.Conn, bft *fbftCore) {
 		proposal := payload.(*messages.ProposalMessage).Proposal
 		log.Info("receive proposal message form node %d with payload %x.",
 			proposal.Id, proposal.Payload.Header.MixDigest)
-		if proposal.Id != bft.master {
+		if proposal.Id != bft.master.Extension.Id {
 			log.Warn("only master can issue a proposal.")
 			return
 		}
@@ -447,7 +446,7 @@ func handleClient(conn net.Conn, bft *fbftCore) {
 		response := payload.(*messages.ResponseMessage).Response
 		log.Info("receive response message from node %d with payload %x.",
 			response.Account.Extension.Id, response.Digest)
-		if response.Account.Extension.Id == bft.master {
+		if response.Account.Extension.Id == bft.master.Extension.Id {
 			log.Warn("master will not receive response message from itself.")
 			return
 		}
