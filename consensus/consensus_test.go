@@ -27,7 +27,7 @@ var mockAccount = account.Account{
 func Test_NewConsensus(t *testing.T) {
 	asserts := assert.New(t)
 	conf := mockConf("solo")
-	consensus, err := NewConsensus(nil, conf, mockAccount)
+	consensus, err := NewConsensus(nil, conf, mockAccount, nil)
 	asserts.Nil(err)
 	asserts.NotNil(consensus)
 	asserts.Equal("solo", consensus.PolicyName())
@@ -42,10 +42,10 @@ func Test_NewConsensus(t *testing.T) {
 	asserts.True(exist)
 
 	conf = mockConf("bft")
-	consensus, err = NewConsensus(nil, conf, mockAccount)
+	consensus, err = NewConsensus(nil, conf, mockAccount, nil)
 	asserts.Equal("bft", consensus.PolicyName())
 
 	conf = mockConf("fbft")
-	consensus, err = NewConsensus(nil, conf, mockAccount)
+	consensus, err = NewConsensus(nil, conf, mockAccount, nil)
 	asserts.Equal("fbft", consensus.PolicyName())
 }

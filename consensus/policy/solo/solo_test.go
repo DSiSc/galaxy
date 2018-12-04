@@ -182,7 +182,7 @@ func mock_solo_proposal() *SoloProposal {
 
 func TestNewSoloPolicy(t *testing.T) {
 	asserts := assert.New(t)
-	sp, err := NewSoloPolicy(mockAccounts[0])
+	sp, err := NewSoloPolicy(mockAccounts[0], nil)
 	asserts.Nil(err)
 	asserts.Equal(uint8(common.SOLO_CONSENSUS_NUM), sp.tolerance)
 	asserts.Equal(common.SOLO_POLICY, sp.name)
@@ -191,7 +191,7 @@ func TestNewSoloPolicy(t *testing.T) {
 func Test_toSoloProposal(t *testing.T) {
 	asserts := assert.New(t)
 	p := mock_proposal()
-	sp, _ := NewSoloPolicy(mockAccounts[0])
+	sp, _ := NewSoloPolicy(mockAccounts[0], nil)
 	proposal := sp.toSoloProposal(p)
 	asserts.NotNil(proposal)
 	asserts.Equal(common.Proposing, proposal.status)
@@ -201,7 +201,7 @@ func Test_toSoloProposal(t *testing.T) {
 
 func Test_prepareConsensus(t *testing.T) {
 	asserts := assert.New(t)
-	sp, _ := NewSoloPolicy(mockAccounts[0])
+	sp, _ := NewSoloPolicy(mockAccounts[0], nil)
 	proposal := mock_solo_proposal()
 
 	err := sp.prepareConsensus(proposal)
@@ -225,7 +225,7 @@ func Test_prepareConsensus(t *testing.T) {
 func Test_submitConsensus(t *testing.T) {
 	asserts := assert.New(t)
 	proposal := mock_solo_proposal()
-	sp, _ := NewSoloPolicy(mockAccounts[0])
+	sp, _ := NewSoloPolicy(mockAccounts[0], nil)
 	err := sp.submitConsensus(proposal)
 	asserts.NotNil(err)
 	asserts.Equal(err, fmt.Errorf("proposal status must be Propose"))
@@ -247,7 +247,7 @@ func TestSoloPolicy_ToConsensus(t *testing.T) {
 	sub1 := event.Subscribe(types.EventConsensusFailed, subscriber1)
 	assert.NotNil(t, sub1)
 	proposal := mock_proposal()
-	sp, _ := NewSoloPolicy(mockAccounts[0])
+	sp, _ := NewSoloPolicy(mockAccounts[0], nil)
 	err := sp.Initialization(role, mockAccounts[:1], event)
 	assert.Nil(t, err)
 
@@ -279,7 +279,7 @@ func TestSoloPolicy_ToConsensus(t *testing.T) {
 		return mockAccounts[0].Address, nil
 	})
 	err = sp.ToConsensus(proposal)
-	assert.Equal(t, fmt.Errorf("commit block failed"), err)
+	assert.Equal(t, common.ErrorsNewBlockChainByBlockHash, err)
 
 	var b *blockchain.BlockChain
 	monkey.Patch(blockchain.NewBlockChainByBlockHash, func(types.Hash) (*blockchain.BlockChain, error) {
@@ -289,7 +289,7 @@ func TestSoloPolicy_ToConsensus(t *testing.T) {
 		return fmt.Errorf("write block failed")
 	})
 	err = sp.ToConsensus(proposal)
-	assert.Equal(t, fmt.Errorf("commit block failed"), err)
+	assert.Equal(t, fmt.Errorf("write block with receipts failed"), err)
 
 	monkey.PatchInstanceMethod(reflect.TypeOf(b), "WriteBlockWithReceipts", func(*blockchain.BlockChain, *types.Block, []*types.Receipt) error {
 		return nil
@@ -301,7 +301,7 @@ func TestSoloPolicy_ToConsensus(t *testing.T) {
 
 func TestSolo_prepareConsensus(t *testing.T) {
 	asserts := assert.New(t)
-	sp, _ := NewSoloPolicy(mockAccounts[0])
+	sp, _ := NewSoloPolicy(mockAccounts[0], nil)
 	sp.version = math.MaxUint64
 	proposal := sp.toSoloProposal(nil)
 	err := sp.prepareConsensus(proposal)
@@ -309,30 +309,30 @@ func TestSolo_prepareConsensus(t *testing.T) {
 }
 
 func TestSoloPolicy_PolicyName(t *testing.T) {
-	sp, err := NewSoloPolicy(mockAccounts[0])
+	sp, err := NewSoloPolicy(mockAccounts[0], nil)
 	assert.Nil(t, err)
 	assert.NotNil(t, sp)
 	assert.Equal(t, common.SOLO_POLICY, sp.PolicyName())
 }
 
 func Test_toConsensus(t *testing.T) {
-	sp, _ := NewSoloPolicy(mockAccounts[0])
+	sp, _ := NewSoloPolicy(mockAccounts[0], nil)
 	err := sp.toConsensus(nil)
 	assert.Equal(t, false, err)
 }
 
 func TestSoloPolicy_Start(t *testing.T) {
-	sp, _ := NewSoloPolicy(mockAccounts[0])
+	sp, _ := NewSoloPolicy(mockAccounts[0], nil)
 	sp.Start()
 }
 
 func TestSoloPolicy_Halt(t *testing.T) {
-	sp, _ := NewSoloPolicy(mockAccounts[0])
+	sp, _ := NewSoloPolicy(mockAccounts[0], nil)
 	sp.Halt()
 }
 
 func TestSoloPolicy_Initialization(t *testing.T) {
-	sp, _ := NewSoloPolicy(mockAccounts[0])
+	sp, _ := NewSoloPolicy(mockAccounts[0], nil)
 	var role = make(map[account.Account]commonr.Roler)
 	role[mockAccounts[0]] = commonr.Master
 	err := sp.Initialization(role, mockAccounts[:2], nil)

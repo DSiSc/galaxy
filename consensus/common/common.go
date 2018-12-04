@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/galaxy/role/common"
 	"github.com/DSiSc/validator/tools/account"
@@ -40,6 +41,10 @@ const (
 	BFT_POLICY         = "bft"
 	FBFT_POLICY        = "fbft"
 	DBFT_POLICY        = "dbft"
+)
+
+var (
+	ErrorsNewBlockChainByBlockHash = errors.New("get block chain by hash failed")
 )
 
 type ViewStatus string

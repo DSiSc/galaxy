@@ -23,13 +23,13 @@ type Consensus interface {
 	Halt()
 }
 
-func NewConsensus(participates participates.Participates, conf config.ConsensusConfig, account account.Account) (Consensus, error) {
+func NewConsensus(participates participates.Participates, conf config.ConsensusConfig, account account.Account, blockSwitch chan<- interface{}) (Consensus, error) {
 	var err error
 	var consensus Consensus
 	switch conf.PolicyName {
 	case common.SOLO_POLICY:
 		log.Info("Get consensus policy is solo.")
-		consensus, err = solo.NewSoloPolicy(account)
+		consensus, err = solo.NewSoloPolicy(account, blockSwitch)
 	case common.BFT_POLICY:
 		log.Info("Get consensus policy is bft.")
 		consensus, err = bft.NewBFTPolicy(account, conf.Timeout)

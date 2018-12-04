@@ -22,6 +22,7 @@ type SoloPolicy struct {
 	role        map[account.Account]commonr.Roler
 	receipts    types.Receipts
 	eventCenter types.EventCenter
+	blockSwitch chan<- interface{}
 }
 
 // SoloProposal that with solo policy
@@ -31,11 +32,12 @@ type SoloProposal struct {
 	status   common.ConsensusStatus
 }
 
-func NewSoloPolicy(account account.Account) (*SoloPolicy, error) {
+func NewSoloPolicy(account account.Account, blkSwitch chan<- interface{}) (*SoloPolicy, error) {
 	policy := &SoloPolicy{
-		name:      common.SOLO_POLICY,
-		account:   account,
-		tolerance: common.SOLO_CONSENSUS_NUM,
+		name:        common.SOLO_POLICY,
+		account:     account,
+		tolerance:   common.SOLO_CONSENSUS_NUM,
+		blockSwitch: blkSwitch,
 	}
 	return policy, nil
 }
@@ -131,9 +133,10 @@ func (self *SoloPolicy) ToConsensus(p *common.Proposal) error {
 	self.version = proposal.version
 	err = self.commitBlock(p.Block)
 	if nil != err {
-		log.Error("commit block failed.")
-		self.eventCenter.Notify(types.EventConsensusFailed, nil)
-		return fmt.Errorf("commit block failed")
+		log.Error("commit block failed with error %v.", err)
+		if common.ErrorsNewBlockChainByBlockHash == err {
+			self.eventCenter.Notify(types.EventConsensusFailed, nil)
+		}
 	}
 	return err
 }
@@ -142,13 +145,13 @@ func (self *SoloPolicy) commitBlock(block *types.Block) error {
 	chain, err := blockchain.NewBlockChainByBlockHash(block.Header.PrevBlockHash)
 	if nil != err {
 		log.Error("get NewBlockChainByHash by hash %x failed with error %s.", block.Header.PrevBlockHash, err)
-		return fmt.Errorf("get new block chain by block hash failed")
+		return common.ErrorsNewBlockChainByBlockHash
 	}
 	block.HeaderHash = common.HeaderHash(block)
 	log.Info("begin write block %d with hash %x.", block.Header.Height, block.HeaderHash)
 	err = chain.WriteBlockWithReceipts(block, self.receipts)
 	if nil != err {
-		log.Error("call WriteBlockWithReceipts failed with", block.Header.PrevBlockHash, err)
+		log.Error("call write block with receipts failed with %v", err)
 		return fmt.Errorf("write block with receipts failed")
 	}
 	log.Info("end write block %d with hash %x successful.", block.Header.Height, block.HeaderHash)
