@@ -228,16 +228,6 @@ func (instance *dbftCore) waitResponse() {
 	}
 }
 
-func (instance *dbftCore) masterAccount() account.Account {
-	var temp account.Account
-	for _, peer := range instance.peers {
-		if peer.Extension.Id == instance.master {
-			temp = peer
-		}
-	}
-	return temp
-}
-
 func (instance *dbftCore) receiveProposal(proposal *messages.Proposal) {
 	instance.masterTimeout.Stop()
 	isMaster := instance.local.Extension.Id == instance.master
@@ -249,7 +239,7 @@ func (instance *dbftCore) receiveProposal(proposal *messages.Proposal) {
 		log.Error("proposal must from master %d, while it from %d in fact.", instance.master, proposal.Id)
 		return
 	}
-	masterAccount := instance.masterAccount()
+	masterAccount := tools.GetAccountById(instance.peers, instance.master)
 	if !signDataVerify(masterAccount, proposal.Signature, proposal.Payload.Header.MixDigest) {
 		log.Error("proposal signature not from master, please confirm.")
 		return
@@ -409,7 +399,7 @@ func (instance *dbftCore) receiveResponse(response *messages.Response) {
 				instance.digest, response.Digest)
 			return
 		}
-		peer := instance.peers[response.Account.Extension.Id]
+		peer := tools.GetAccountById(instance.peers, response.Account.Extension.Id)
 		if !signDataVerify(peer, response.Signature, instance.digest) {
 			log.Error("signature and response sender not in coincidence.")
 			return
