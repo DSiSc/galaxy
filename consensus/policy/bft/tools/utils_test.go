@@ -29,3 +29,8 @@ func TestAccountFilter(t *testing.T) {
 	}
 	assert.Equal(t, false, exist)
 }
+
+func TestGetAccountById(t *testing.T) {
+	account := GetAccountById(mockAccounts, mockAccounts[1].Extension.Id)
+	assert.Equal(t, account, mockAccounts[1])
+}
