@@ -3,7 +3,6 @@ package solo
 import (
 	"errors"
 	"fmt"
-	"github.com/DSiSc/blockchain"
 	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/galaxy/consensus/common"
@@ -239,6 +238,7 @@ func Test_submitConsensus(t *testing.T) {
 func TestSoloPolicy_ToConsensus(t *testing.T) {
 	asserts := assert.New(t)
 	event := NewEvent()
+	blockSwitch := make(chan interface{})
 	var role = make(map[account.Account]commonr.Roler)
 	role[mockAccounts[0]] = commonr.Master
 	var subscriber1 types.EventFunc = func(v interface{}) {
@@ -247,7 +247,7 @@ func TestSoloPolicy_ToConsensus(t *testing.T) {
 	sub1 := event.Subscribe(types.EventConsensusFailed, subscriber1)
 	assert.NotNil(t, sub1)
 	proposal := mock_proposal()
-	sp, _ := NewSoloPolicy(mockAccounts[0], nil)
+	sp, _ := NewSoloPolicy(mockAccounts[0], blockSwitch)
 	err := sp.Initialization(role, mockAccounts[:1], event)
 	assert.Nil(t, err)
 
@@ -278,25 +278,14 @@ func TestSoloPolicy_ToConsensus(t *testing.T) {
 	monkey.Patch(signature.Verify, func(keypair.PublicKey, []byte) (types.Address, error) {
 		return mockAccounts[0].Address, nil
 	})
-	err = sp.ToConsensus(proposal)
-	assert.Equal(t, common.ErrorsNewBlockChainByBlockHash, err)
-
-	var b *blockchain.BlockChain
-	monkey.Patch(blockchain.NewBlockChainByBlockHash, func(types.Hash) (*blockchain.BlockChain, error) {
-		return b, nil
-	})
-	monkey.PatchInstanceMethod(reflect.TypeOf(b), "WriteBlockWithReceipts", func(*blockchain.BlockChain, *types.Block, []*types.Receipt) error {
-		return fmt.Errorf("write block failed")
-	})
-	err = sp.ToConsensus(proposal)
-	assert.Equal(t, fmt.Errorf("write block with receipts failed"), err)
-
-	monkey.PatchInstanceMethod(reflect.TypeOf(b), "WriteBlockWithReceipts", func(*blockchain.BlockChain, *types.Block, []*types.Receipt) error {
-		return nil
-	})
-	err = sp.ToConsensus(proposal)
-	assert.Nil(t, err)
+	go func() {
+		err = sp.ToConsensus(proposal)
+		assert.Nil(t, err)
+	}()
+	block := <-blockSwitch
+	asserts.NotNil(block)
 	monkey.UnpatchAll()
+
 }
 
 func TestSolo_prepareConsensus(t *testing.T) {
