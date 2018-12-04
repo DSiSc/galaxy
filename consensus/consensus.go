@@ -35,7 +35,7 @@ func NewConsensus(participates participates.Participates, conf config.ConsensusC
 		consensus, err = bft.NewBFTPolicy(account, conf.Timeout)
 	case common.FBFT_POLICY:
 		log.Info("Get consensus policy is fbft.")
-		consensus, err = fbft.NewFBFTPolicy(account, conf.Timeout)
+		consensus, err = fbft.NewFBFTPolicy(account, conf.Timeout, blockSwitch)
 	case common.DBFT_POLICY:
 		log.Info("Get consensus policy is dbft.")
 		consensus, err = dbft.NewDBFTPolicy(account, conf.Timeout)

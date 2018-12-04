@@ -28,6 +28,7 @@ type fbftCore struct {
 	tunnel      chan int
 	validator   map[types.Hash]*payloadSets
 	eventCenter types.EventCenter
+	blockSwitch chan<- interface{}
 }
 
 type payloadSets struct {
@@ -35,16 +36,17 @@ type payloadSets struct {
 	receipts types.Receipts
 }
 
-func NewFBFTCore(local account.Account, result chan *messages.ConsensusResult) *fbftCore {
+func NewFBFTCore(local account.Account, result chan *messages.ConsensusResult, blockSwitch chan<- interface{}) *fbftCore {
 	return &fbftCore{
 		local: local,
 		signature: &tools.SignData{
 			Signatures: make([][]byte, 0),
 			SignMap:    make(map[account.Account][]byte),
 		},
-		result:    result,
-		tunnel:    make(chan int),
-		validator: make(map[types.Hash]*payloadSets),
+		result:      result,
+		tunnel:      make(chan int),
+		validator:   make(map[types.Hash]*payloadSets),
+		blockSwitch: blockSwitch,
 	}
 }
 
@@ -313,19 +315,8 @@ func (instance *fbftCore) receiveCommit(commit *messages.Commit) {
 }
 
 func (instance *fbftCore) commitBlock(block *types.Block) {
-	chain, err := blockchain.NewBlockChainByBlockHash(block.Header.PrevBlockHash)
-	if nil != err {
-		block.Header.SigData = make([][]byte, 0)
-		log.Error("get NewBlockChainByHash by hash %x failed with error %s.", block.Header.PrevBlockHash, err)
-		return
-	}
-	block.HeaderHash = common.HeaderHash(block)
-	err = chain.WriteBlockWithReceipts(block, instance.validator[block.Header.MixDigest].receipts)
-	if nil != err {
-		block.Header.SigData = make([][]byte, 0)
-		log.Error("write block %x failed with %v.", block.HeaderHash, err)
-	}
-	log.Info("write block %d with hash %x with success.", block.Header.Height, block.HeaderHash)
+	instance.blockSwitch <- block
+	log.Info("write block %d with hash %x success.", block.Header.Height, block.HeaderHash)
 }
 
 func (instance *fbftCore) ProcessEvent(e tools.Event) tools.Event {

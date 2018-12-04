@@ -75,7 +75,7 @@ func mock_conf(policy string) config.ParticipateConfig {
 var timeout = int64(10)
 
 func TestNewfbftPolicy(t *testing.T) {
-	fbft, err := NewFBFTPolicy(mockAccounts[0], timeout)
+	fbft, err := NewFBFTPolicy(mockAccounts[0], timeout, nil)
 	assert.NotNil(t, fbft)
 	assert.Nil(t, err)
 	assert.Equal(t, common.FBFT_POLICY, fbft.name)
@@ -84,7 +84,7 @@ func TestNewfbftPolicy(t *testing.T) {
 }
 
 func TestBFTPolicy_PolicyName(t *testing.T) {
-	fbft, _ := NewFBFTPolicy(mockAccounts[0], timeout)
+	fbft, _ := NewFBFTPolicy(mockAccounts[0], timeout, nil)
 	assert.Equal(t, common.FBFT_POLICY, fbft.name)
 	assert.Equal(t, fbft.name, fbft.PolicyName())
 	assert.Equal(t, mockAccounts[0].Extension.Id, fbft.core.local.Extension.Id)
@@ -104,7 +104,7 @@ func mockRoleAssignment(master account.Account, accounts []account.Account) map[
 }
 
 func TestBFTPolicy_Initialization(t *testing.T) {
-	fbft, err := NewFBFTPolicy(mockAccounts[0], timeout)
+	fbft, err := NewFBFTPolicy(mockAccounts[0], timeout, nil)
 	assert.NotNil(t, fbft)
 	assert.Nil(t, err)
 
@@ -124,7 +124,7 @@ func TestBFTPolicy_Initialization(t *testing.T) {
 }
 
 func TestBFTPolicy_Start(t *testing.T) {
-	fbft, _ := NewFBFTPolicy(mockAccounts[0], timeout)
+	fbft, _ := NewFBFTPolicy(mockAccounts[0], timeout, nil)
 	var b *fbftCore
 	monkey.PatchInstanceMethod(reflect.TypeOf(b), "Start", func(*fbftCore, account.Account) {
 		log.Info("pass it.")
@@ -174,7 +174,7 @@ var mockConsensusResult = &messages.ConsensusResult{
 }
 
 func TestBFTPolicy_ToConsensus(t *testing.T) {
-	fbft, err := NewFBFTPolicy(mockAccounts[0], timeout)
+	fbft, err := NewFBFTPolicy(mockAccounts[0], timeout, nil)
 	assert.NotNil(t, fbft)
 	assert.Nil(t, err)
 	fbft.core.peers = mockAccounts
@@ -223,7 +223,7 @@ func TestBFTPolicy_commit(t *testing.T) {
 			Url: "127.0.0.1:8080",
 		},
 	}
-	fbft, err := NewFBFTPolicy(mockAccount, timeout)
+	fbft, err := NewFBFTPolicy(mockAccount, timeout, nil)
 	go fbft.Start()
 	assert.NotNil(t, fbft)
 	assert.Nil(t, err)
@@ -246,7 +246,7 @@ func TestBFTPolicy_commit(t *testing.T) {
 
 func TestFBFTPolicy_GetConsensusResult(t *testing.T) {
 	var timeout = int64(10)
-	fbft, err := NewFBFTPolicy(mockAccounts[0], timeout)
+	fbft, err := NewFBFTPolicy(mockAccounts[0], timeout, nil)
 	assert.Nil(t, err)
 
 	fbft.core.master = 1

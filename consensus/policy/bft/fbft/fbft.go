@@ -21,14 +21,14 @@ type FBFTPolicy struct {
 	result  chan *messages.ConsensusResult
 }
 
-func NewFBFTPolicy(account account.Account, timeout int64) (*FBFTPolicy, error) {
+func NewFBFTPolicy(account account.Account, timeout int64, blockSwitch chan<- interface{}) (*FBFTPolicy, error) {
 	policy := &FBFTPolicy{
 		name:    common.FBFT_POLICY,
 		account: account,
 		timeout: time.Duration(timeout),
 		result:  make(chan *messages.ConsensusResult),
 	}
-	policy.core = NewFBFTCore(account, policy.result)
+	policy.core = NewFBFTCore(account, policy.result, blockSwitch)
 	return policy, nil
 }
 
