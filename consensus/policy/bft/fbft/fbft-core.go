@@ -137,6 +137,16 @@ func (instance *fbftCore) waitResponse() {
 	}
 }
 
+func (instance *fbftCore) masterAccount() account.Account {
+	var temp account.Account
+	for _, peer := range instance.peers {
+		if peer.Extension.Id == instance.master {
+			temp = peer
+		}
+	}
+	return temp
+}
+
 func (instance *fbftCore) receiveProposal(proposal *messages.Proposal) {
 	isMaster := instance.local.Extension.Id == instance.master
 	if isMaster {
@@ -147,7 +157,7 @@ func (instance *fbftCore) receiveProposal(proposal *messages.Proposal) {
 		log.Error("proposal must from master %d, while it from %d in fact.", instance.master, proposal.Id)
 		return
 	}
-	masterAccount := instance.peers[instance.master]
+	masterAccount := instance.masterAccount()
 	if !signDataVerify(masterAccount, proposal.Signature, proposal.Payload.Header.MixDigest) {
 		log.Error("proposal signature not from master, please confirm.")
 		return
