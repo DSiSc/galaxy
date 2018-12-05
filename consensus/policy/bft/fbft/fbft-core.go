@@ -322,7 +322,7 @@ func (instance *fbftCore) ProcessEvent(e tools.Event) tools.Event {
 	var err error
 	switch et := e.(type) {
 	case *messages.Request:
-		log.Info("receive request from replica %d.", instance.local.Extension.Id)
+		log.Info("receive request %x from replica %d.", et.Payload.Header.MixDigest, instance.local.Extension.Id)
 		instance.receiveRequest(et)
 	case *messages.Proposal:
 		log.Info("receive proposal from replica %d with digest %x.", et.Id, et.Payload.Header.MixDigest)
