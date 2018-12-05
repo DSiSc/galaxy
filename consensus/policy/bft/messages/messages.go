@@ -6,7 +6,6 @@ import (
 	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/validator/tools/account"
-	"net"
 )
 
 type ConsensusResult struct {
@@ -185,44 +184,6 @@ func (m *Message) UnmarshalJSON(rawData []byte) error {
 	default:
 		log.Error("not support marshal type %v.", m.MessageType)
 		err = fmt.Errorf("not support marshal type")
-	}
-	return err
-}
-
-func BroadcastPeers(msgPayload []byte, msgType MessageType, digest types.Hash, peers []account.Account) {
-	for _, peer := range peers {
-		log.Info("broadcast to %d by url %s with message type %v and digest %x.",
-			peer.Extension.Id, peer.Extension.Url, msgType, digest)
-		err := sendMsgByUrl(peer.Extension.Url, msgPayload)
-		if nil != err {
-			log.Error("broadcast to %d by url %s with message type %v and digest %x occur error %v.",
-				peer.Extension.Id, peer.Extension.Url, msgType, digest, err)
-		}
-	}
-}
-
-func sendMsgByUrl(url string, msgPayload []byte) error {
-	log.Info("send msg to url %s.", url)
-	tcpAddr, err := net.ResolveTCPAddr("tcp4", url)
-	if err != nil {
-		log.Error("resolve tcp address %s occur fatal error: %v", url, err)
-		return err
-	}
-	conn, err := net.DialTCP("tcp", nil, tcpAddr)
-	if err != nil {
-		log.Error("dial tcp with %s occur error: %s", url, err)
-		return err
-	}
-	_, err = conn.Write(msgPayload)
-	return err
-}
-
-func Unicast(account account.Account, msgPayload []byte, msgType MessageType, digest types.Hash) error {
-	log.Info("send msg [type %v, digest %x] to %d with url %s.", msgType, digest, account.Extension.Id, account.Extension.Url)
-	err := sendMsgByUrl(account.Extension.Url, msgPayload)
-	if nil != err {
-		log.Error("send msg [type %v and digest %x] to %d with url %s occurs error %v.",
-			msgType, digest, account.Extension.Id, account.Extension.Url, err)
 	}
 	return err
 }
