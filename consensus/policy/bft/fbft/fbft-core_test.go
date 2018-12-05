@@ -423,7 +423,8 @@ func TestBftCore_receiveResponse(t *testing.T) {
 }
 
 func TestBftCore_ProcessEvent2(t *testing.T) {
-	fbft := NewFBFTCore(mockAccounts[0], sigChannel, nil)
+	var blkSwitch = make(chan interface{})
+	fbft := NewFBFTCore(mockAccounts[0], sigChannel, blkSwitch)
 	assert.NotNil(t, fbft)
 	block0 := &types.Block{
 		Header: &types.Header{
@@ -461,24 +462,10 @@ func TestBftCore_ProcessEvent2(t *testing.T) {
 			},
 		},
 	}
-	fbft.ProcessEvent(mockCommit)
-	assert.Equal(t, 0, len(fbft.validator[mockHash].block.Header.SigData))
-
-	var b *blockchain.BlockChain
-	monkey.Patch(blockchain.NewBlockChainByBlockHash, func(types.Hash) (*blockchain.BlockChain, error) {
-		return b, nil
-	})
-	monkey.PatchInstanceMethod(reflect.TypeOf(b), "WriteBlockWithReceipts", func(*blockchain.BlockChain, *types.Block, []*types.Receipt) error {
-		return fmt.Errorf("write failed")
-	})
-	fbft.ProcessEvent(mockCommit)
-	assert.Equal(t, 0, len(fbft.validator[mockHash].block.Header.SigData))
-
-	monkey.PatchInstanceMethod(reflect.TypeOf(b), "WriteBlockWithReceipts", func(*blockchain.BlockChain, *types.Block, []*types.Receipt) error {
-		return nil
-	})
-	fbft.ProcessEvent(mockCommit)
-	assert.Equal(t, len(mockSignset), len(fbft.validator[mockHash].block.Header.SigData))
+	go fbft.ProcessEvent(mockCommit)
+	blk := <-blkSwitch
+	assert.NotNil(t, blk)
+	assert.Equal(t, blk, fbft.validator[mockHash].block)
 	monkey.UnpatchAll()
 }
 

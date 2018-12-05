@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/DSiSc/blockchain"
 	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/galaxy/consensus/common"
@@ -294,20 +293,9 @@ func (instance *fbftCore) receiveCommit(commit *messages.Commit) {
 			return
 		}
 		// TODO: verify signature loop
-		chain, err := blockchain.NewBlockChainByBlockHash(payload.block.Header.PrevBlockHash)
-		if nil != err {
-			payload.block.Header.SigData = make([][]byte, 0)
-			log.Error("get NewBlockChainByHash by hash %x failed with error %s.", payload.block.Header.PrevBlockHash, err)
-			return
-		}
-		payload.block.HeaderHash = common.HeaderHash(payload.block)
-		log.Info("begin write block %d with hash %x.", payload.block.Header.Height, payload.block.HeaderHash)
-		err = chain.WriteBlockWithReceipts(payload.block, payload.receipts)
-		if nil != err {
-			payload.block.Header.SigData = make([][]byte, 0)
-			log.Error("call WriteBlockWithReceipts failed with", payload.block.Header.PrevBlockHash, err)
-		}
-		log.Info("end write block %d with hash %x with success.", payload.block.Header.Height, payload.block.HeaderHash)
+		payload.block.HeaderHash = commit.BlockHash
+		log.Info("send block %d with hash %x to blk_switch .", payload.block.Header.Height, payload.block.HeaderHash)
+		instance.commitBlock(payload.block)
 		return
 	}
 	log.Error("payload with digest %x not found, please confirm.", commit.Digest)
