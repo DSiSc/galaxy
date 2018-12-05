@@ -126,7 +126,11 @@ func (m *Message) MarshalJSON() ([]byte, error) {
 func (m *Message) UnmarshalJSON(rawData []byte) error {
 	var err error
 	messageClone := MessageClone{}
-	json.Unmarshal(rawData, &messageClone)
+	err = json.Unmarshal(rawData, &messageClone)
+	if err != nil {
+		log.Error("default unmarshal messageClone failed with error %v.", err)
+		return err
+	}
 	m.MessageType = messageClone.MessageType
 	switch m.MessageType {
 	case RequestMessageType:

@@ -106,7 +106,7 @@ func (instance *fbftCore) receiveRequest(request *messages.Request) {
 
 func (instance *fbftCore) waitResponse() {
 	log.Warn("set timer with 2 second.")
-	timer := time.NewTimer(2 * time.Second)
+	timer := time.NewTimer(5 * time.Second)
 	for {
 		select {
 		case <-timer.C:
@@ -417,15 +417,23 @@ func handleConnection(tcpListener *net.TCPListener, fbft *fbftCore) {
 
 func handleClient(conn net.Conn, bft *fbftCore) {
 	log.Info("receive messages form other node.")
-	buffer := make([]byte, 2048)
-	n, err := conn.Read(buffer)
 	defer conn.Close()
+	buffer := make([]byte, 20480)
+	len, err := conn.Read(buffer)
 	if err != nil {
-		log.Error("error when read connector %x.", err)
+		log.Error("error when read connector %v.", err)
+		return
+	}
+	if len == 0 {
+		log.Error("read data length is 0.")
 		return
 	}
 	var msg messages.Message
-	err = json.Unmarshal(buffer[:n], &msg)
+	err = json.Unmarshal(buffer[:len], &msg)
+	if err != nil {
+		log.Error("unmarshal failed with error %v.", err)
+		return
+	}
 	payload := msg.Payload
 	switch msg.MessageType {
 	case messages.RequestMessageType:
@@ -464,10 +472,9 @@ func handleClient(conn net.Conn, bft *fbftCore) {
 		tools.SendEvent(bft, commit)
 	default:
 		if nil == payload {
-			log.Info("receive handshake, omit it.")
+			log.Info("receive handshake, omit it %v.", payload)
 		} else {
 			log.Error("not support type for %v.", payload)
 		}
-		return
 	}
 }
