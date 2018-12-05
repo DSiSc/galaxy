@@ -43,6 +43,10 @@ const (
 	DBFT_POLICY        = "dbft"
 )
 
+const (
+	MAX_BUF_LEN = 1024 * 256
+)
+
 var (
 	ErrorsNewBlockChainByBlockHash = errors.New("get block chain by hash failed")
 )

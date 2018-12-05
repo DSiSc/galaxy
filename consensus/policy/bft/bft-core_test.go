@@ -195,12 +195,25 @@ func TestBftCore_Start(t *testing.T) {
 			Url: "127.0.0.1:8080",
 		},
 	}
-	var fakePayload = []byte{
-		0x33, 0x3c, 0x33, 0x10, 0x82, 0x4b, 0x7c, 0x68, 0x51, 0x33,
-		0xf2, 0xbe, 0xdb, 0x2c, 0xa4, 0xb8, 0xb4, 0xdf, 0x63, 0x3d,
+	commit := &messages.Commit{
+		Account:    mockAccounts[0],
+		Timestamp:  time.Now().Unix(),
+		Digest:     mockHash,
+		Signatures: mockSignset,
+		BlockHash:  mockHash,
+		Result:     true,
 	}
+	committed := messages.Message{
+		MessageType: messages.CommitMessageType,
+		PayLoad: &messages.CommitMessage{
+			Commit: commit,
+		},
+	}
+	msgRaw, err := messages.EncodeMessage(committed)
+	assert.Nil(t, err)
+	assert.NotNil(t, msgRaw)
 	go bft.Start(account)
-	bft.unicast(account, fakePayload, "none", mockHash)
+	messages.Unicast(account, msgRaw, messages.CommitMessageType, mockHash)
 	time.Sleep(1 * time.Second)
 }
 
@@ -584,19 +597,18 @@ func TestBftCore_SendCommit(t *testing.T) {
 		BlockHash:  mockHash,
 		Result:     true,
 	}
-	committed := &messages.Message{
+	committed := messages.Message{
 		MessageType: messages.CommitMessageType,
-		Payload: &messages.CommitMessage{
+		PayLoad: &messages.CommitMessage{
 			Commit: commit,
 		},
 	}
-	msgRaw, err := json.Marshal(committed)
+	msgRaw, err := messages.EncodeMessage(committed)
 	assert.Nil(t, err)
 	assert.NotNil(t, msgRaw)
 
-	var msg messages.Message
-	err = json.Unmarshal(msgRaw, &msg)
-	payload := msg.Payload
+	msg, err := messages.DecodeMessage(messages.CommitMessageType, msgRaw[12:])
+	payload := msg.PayLoad
 	result := payload.(*messages.CommitMessage).Commit
 	assert.NotNil(t, result)
 	assert.Equal(t, commit, result)
@@ -609,18 +621,18 @@ func TestBftCore_SendCommit(t *testing.T) {
 		BlockHash:  mockHash,
 		Result:     false,
 	}
-	committed = &messages.Message{
+	committed = messages.Message{
 		MessageType: messages.CommitMessageType,
-		Payload: &messages.CommitMessage{
+		PayLoad: &messages.CommitMessage{
 			Commit: commit,
 		},
 	}
-	msgRaw, err = json.Marshal(committed)
+	msgRaw, err = messages.EncodeMessage(committed)
 	assert.Nil(t, err)
 	assert.NotNil(t, msgRaw)
 
-	err = json.Unmarshal(msgRaw, &msg)
-	payload = msg.Payload
+	msg, err = messages.DecodeMessage(messages.CommitMessageType, msgRaw[12:])
+	payload = msg.PayLoad
 	result = payload.(*messages.CommitMessage).Commit
 	assert.NotNil(t, result)
 	assert.Equal(t, commit, result)

@@ -1,8 +1,8 @@
 package bft
 
 import (
+	"bufio"
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"github.com/DSiSc/blockchain"
 	"github.com/DSiSc/craft/log"
@@ -145,9 +145,9 @@ func (instance *bftCore) receiveRequest(request *messages.Request) {
 	} else {
 		values.receipts = receipts
 	}
-	proposal := &messages.Message{
+	proposal := messages.Message{
 		MessageType: messages.ProposalMessageType,
-		Payload: &messages.ProposalMessage{
+		PayLoad: &messages.ProposalMessage{
 			Proposal: &messages.Proposal{
 				Id:        instance.local.Extension.Id,
 				Timestamp: request.Timestamp,
@@ -156,7 +156,7 @@ func (instance *bftCore) receiveRequest(request *messages.Request) {
 			},
 		},
 	}
-	msgRaw, err := json.Marshal(proposal)
+	msgRaw, err := messages.EncodeMessage(proposal)
 	if nil != err {
 		log.Error("marshal proposal msg failed with %v.", err)
 		return
@@ -239,9 +239,9 @@ func (instance *bftCore) receiveProposal(proposal *messages.Proposal) {
 	} else {
 		values.receipts = receipts
 	}
-	response := &messages.Message{
+	response := messages.Message{
 		MessageType: messages.ResponseMessageType,
-		Payload: &messages.ResponseMessage{
+		PayLoad: &messages.ResponseMessage{
 			Response: &messages.Response{
 				Account:   instance.local,
 				Timestamp: proposal.Timestamp,
@@ -250,7 +250,7 @@ func (instance *bftCore) receiveProposal(proposal *messages.Proposal) {
 			},
 		},
 	}
-	msgRaw, err := json.Marshal(response)
+	msgRaw, err := messages.EncodeMessage(response)
 	if nil != err {
 		log.Error("marshal proposal msg failed with %v.", err)
 		return
@@ -392,13 +392,13 @@ func (instance *bftCore) commitFilter(blacklist account.Account) []account.Accou
 }
 
 func (instance *bftCore) SendCommit(commit *messages.Commit, block *types.Block) {
-	committed := &messages.Message{
+	committed := messages.Message{
 		MessageType: messages.CommitMessageType,
-		Payload: &messages.CommitMessage{
+		PayLoad: &messages.CommitMessage{
 			Commit: commit,
 		},
 	}
-	msgRaw, err := json.Marshal(committed)
+	msgRaw, err := messages.EncodeMessage(committed)
 	if nil != err {
 		log.Error("marshal commit msg failed with %v.", err)
 		return
@@ -518,18 +518,15 @@ func (instance *bftCore) Start(account account.Account) {
 }
 
 func handleConnection(tcpListener *net.TCPListener, bft *bftCore) {
-	buffer := make([]byte, 2048)
 	for {
 		var conn, _ = tcpListener.AcceptTCP()
-		n, err := conn.Read(buffer)
-		if err != nil {
-			log.Error("error when read connector %x.", err)
+		reader := bufio.NewReaderSize(conn, common.MAX_BUF_LEN)
+		msg, err := messages.ReadMessage(reader)
+		if nil != err {
+			log.Error("read message failed with error %v.", err)
 			return
 		}
-		log.Info("receive messages form other node.")
-		var msg messages.Message
-		err = json.Unmarshal(buffer[:n], &msg)
-		payload := msg.Payload
+		payload := msg.PayLoad
 		switch msg.MessageType {
 		case messages.RequestMessageType:
 			log.Info("receive request message from producer")

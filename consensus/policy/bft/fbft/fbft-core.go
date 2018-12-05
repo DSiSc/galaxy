@@ -1,8 +1,8 @@
 package fbft
 
 import (
+	"bufio"
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/craft/types"
@@ -79,9 +79,9 @@ func (instance *fbftCore) receiveRequest(request *messages.Request) {
 	} else {
 		values.receipts = receipts
 	}
-	proposal := &messages.Message{
+	proposal := messages.Message{
 		MessageType: messages.ProposalMessageType,
-		Payload: &messages.ProposalMessage{
+		PayLoad: &messages.ProposalMessage{
 			Proposal: &messages.Proposal{
 				Id:        instance.local.Extension.Id,
 				Timestamp: request.Timestamp,
@@ -90,7 +90,7 @@ func (instance *fbftCore) receiveRequest(request *messages.Request) {
 			},
 		},
 	}
-	msgRaw, err := json.Marshal(proposal)
+	rawData, err := messages.EncodeMessage(proposal)
 	if nil != err {
 		log.Error("marshal proposal msg failed with %v.", err)
 		return
@@ -99,7 +99,7 @@ func (instance *fbftCore) receiveRequest(request *messages.Request) {
 	instance.signature.AddSignature(instance.local, signData)
 	// filter master
 	peers := tools.AccountFilter([]account.Account{instance.local}, instance.peers)
-	messages.BroadcastPeers(msgRaw, proposal.MessageType, instance.digest, peers)
+	messages.BroadcastPeers(rawData, proposal.MessageType, instance.digest, peers)
 	go instance.waitResponse()
 }
 
@@ -170,9 +170,9 @@ func (instance *fbftCore) receiveProposal(proposal *messages.Proposal) {
 	} else {
 		values.receipts = receipts
 	}
-	response := &messages.Message{
+	response := messages.Message{
 		MessageType: messages.ResponseMessageType,
-		Payload: &messages.ResponseMessage{
+		PayLoad: &messages.ResponseMessage{
 			Response: &messages.Response{
 				Account:   instance.local,
 				Timestamp: proposal.Timestamp,
@@ -181,12 +181,12 @@ func (instance *fbftCore) receiveProposal(proposal *messages.Proposal) {
 			},
 		},
 	}
-	msgRaw, err := json.Marshal(response)
+	msgRaw, err := messages.EncodeMessage(response)
 	if nil != err {
-		log.Error("marshal proposal msg failed with %v.", err)
+		log.Error("encode proposal msg failed with %v.", err)
 		return
 	}
-	messages.Unicast(instance.master, msgRaw, messages.ResponseMessageType, proposal.Payload.Header.MixDigest)
+	messages.Unicast(instance.master, msgRaw, response.MessageType, response.PayLoad.(*messages.ResponseMessage).Response.Digest)
 }
 
 func (instance *fbftCore) maybeCommit() ([][]byte, error) {
@@ -254,15 +254,15 @@ func (instance *fbftCore) receiveResponse(response *messages.Response) {
 }
 
 func (instance *fbftCore) SendCommit(commit *messages.Commit, block *types.Block) {
-	committed := &messages.Message{
+	committed := messages.Message{
 		MessageType: messages.CommitMessageType,
-		Payload: &messages.CommitMessage{
+		PayLoad: &messages.CommitMessage{
 			Commit: commit,
 		},
 	}
-	msgRaw, err := json.Marshal(committed)
+	msgRaw, err := messages.EncodeMessage(committed)
 	if nil != err {
-		log.Error("marshal commit msg failed with %v.", err)
+		log.Error("EncodeMessage commit msg failed with %v.", err)
 		return
 	}
 	peers := tools.AccountFilter([]account.Account{instance.local}, instance.peers)
@@ -353,76 +353,16 @@ func (instance *fbftCore) Start(account account.Account) {
 	}
 }
 
-func handleConnection(tcpListener *net.TCPListener, fbft *fbftCore) {
-	buffer := make([]byte, 2048)
-	for {
-		var conn, _ = tcpListener.AcceptTCP()
-		n, err := conn.Read(buffer)
-		if err != nil {
-			log.Error("error when read connector %x.", err)
-			return
-		}
-		log.Info("received a messages.")
-		var msg messages.Message
-		err = json.Unmarshal(buffer[:n], &msg)
-		payload := msg.Payload
-		switch msg.MessageType {
-		case messages.RequestMessageType:
-			request := payload.(*messages.RequestMessage).Request
-			log.Info("receive a request message")
-			tools.SendEvent(fbft, request)
-		case messages.ProposalMessageType:
-			proposal := payload.(*messages.ProposalMessage).Proposal
-			log.Info("receive a proposal message form node %d with payload %x.",
-				proposal.Id, proposal.Payload.Header.MixDigest)
-			if proposal.Id != fbft.master.Extension.Id {
-				log.Warn("only master can issue a proposal.")
-				continue
-			}
-			tools.SendEvent(fbft, proposal)
-		case messages.ResponseMessageType:
-			response := payload.(*messages.ResponseMessage).Response
-			log.Info("receive response message from node %d with payload %x.",
-				response.Account.Extension.Id, response.Digest)
-			if response.Account.Extension.Id == fbft.master.Extension.Id {
-				log.Warn("master will not receive response message from itself.")
-				continue
-			}
-			tools.SendEvent(fbft, response)
-		case messages.CommitMessageType:
-			commit := payload.(*messages.CommitMessage).Commit
-			tools.SendEvent(fbft, commit)
-		default:
-			if nil == payload {
-				log.Info("receive handshake, omit it.")
-			} else {
-				log.Error("not support type for %v.", payload)
-			}
-			return
-		}
-	}
-}
-
 func handleClient(conn net.Conn, bft *fbftCore) {
 	log.Info("receive messages form other node.")
 	defer conn.Close()
-	buffer := make([]byte, 20480)
-	len, err := conn.Read(buffer)
-	if err != nil {
-		log.Error("error when read connector %v.", err)
+	reader := bufio.NewReaderSize(conn, common.MAX_BUF_LEN)
+	msg, err := messages.ReadMessage(reader)
+	if nil != err {
+		log.Error("read message failed with error %v.", err)
 		return
 	}
-	if len == 0 {
-		log.Error("read data length is 0.")
-		return
-	}
-	var msg messages.Message
-	err = json.Unmarshal(buffer[:len], &msg)
-	if err != nil {
-		log.Error("unmarshal failed with error %v.", err)
-		return
-	}
-	payload := msg.Payload
+	payload := msg.PayLoad
 	switch msg.MessageType {
 	case messages.RequestMessageType:
 		log.Info("receive request message from producer")

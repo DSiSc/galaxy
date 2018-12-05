@@ -146,12 +146,25 @@ func TestBftCore_Start(t *testing.T) {
 			Url: "127.0.0.1:8080",
 		},
 	}
-	var fakePayload = []byte{
-		0x33, 0x3c, 0x33, 0x10, 0x82, 0x4b, 0x7c, 0x68, 0x51, 0x33,
-		0xf2, 0xbe, 0xdb, 0x2c, 0xa4, 0xb8, 0xb4, 0xdf, 0x63, 0x3d,
+	commit := &messages.Commit{
+		Account:    mockAccounts[0],
+		Timestamp:  time.Now().Unix(),
+		Digest:     mockHash,
+		Signatures: mockSignset,
+		BlockHash:  mockHash,
+		Result:     true,
 	}
+	committed := messages.Message{
+		MessageType: messages.CommitMessageType,
+		PayLoad: &messages.CommitMessage{
+			Commit: commit,
+		},
+	}
+	msgRaw, err := messages.EncodeMessage(committed)
+	assert.Nil(t, err)
+	assert.NotNil(t, msgRaw)
 	go fbft.Start(account)
-	messages.Unicast(account, fakePayload, "none", mockHash)
+	messages.Unicast(account, msgRaw, messages.CommitMessageType, mockHash)
 	time.Sleep(1 * time.Second)
 }
 
@@ -342,18 +355,15 @@ func TestBftCore_receiveProposal(t *testing.T) {
 		return nil, fmt.Errorf("marshal proposal msg failed")
 	})
 	fbft.receiveProposal(proposal)
+
 	receipts := fbft.validator[fbft.digest].receipts
 	assert.Equal(t, receipts, bb)
-
-	monkey.Patch(json.Marshal, func(interface{}) ([]byte, error) {
-		return nil, nil
-	})
+	monkey.Unpatch(json.Marshal)
 	monkey.Patch(net.ResolveTCPAddr, func(string, string) (*net.TCPAddr, error) {
 		return nil, fmt.Errorf("resolve error")
 	})
 	fbft.receiveProposal(proposal)
 	monkey.Unpatch(net.ResolveTCPAddr)
-	monkey.Unpatch(json.Marshal)
 	monkey.Unpatch(blockchain.NewBlockChainByBlockHash)
 	monkey.Unpatch(signature.Sign)
 	monkey.Unpatch(signature.Verify)
@@ -509,44 +519,20 @@ func TestBftCore_SendCommit(t *testing.T) {
 		BlockHash:  mockHash,
 		Result:     true,
 	}
-	committed := &messages.Message{
+	committed := messages.Message{
 		MessageType: messages.CommitMessageType,
-		Payload: &messages.CommitMessage{
+		PayLoad: &messages.CommitMessage{
 			Commit: commit,
 		},
 	}
-	msgRaw, err := json.Marshal(committed)
+	msgRaw, err := messages.EncodeMessage(committed)
 	assert.Nil(t, err)
 	assert.NotNil(t, msgRaw)
 
-	var msg messages.Message
-	err = json.Unmarshal(msgRaw, &msg)
-	payload := msg.Payload
+	msg, err := messages.DecodeMessage(committed.MessageType, msgRaw[12:])
+	assert.Nil(t, err)
+	payload := msg.PayLoad
 	result := payload.(*messages.CommitMessage).Commit
-	assert.NotNil(t, result)
-	assert.Equal(t, commit, result)
-
-	commit = &messages.Commit{
-		Account:    mockAccounts[0],
-		Timestamp:  time.Now().Unix(),
-		Digest:     mockHash,
-		Signatures: mockSignset,
-		BlockHash:  mockHash,
-		Result:     false,
-	}
-	committed = &messages.Message{
-		MessageType: messages.CommitMessageType,
-		Payload: &messages.CommitMessage{
-			Commit: commit,
-		},
-	}
-	msgRaw, err = json.Marshal(committed)
-	assert.Nil(t, err)
-	assert.NotNil(t, msgRaw)
-
-	err = json.Unmarshal(msgRaw, &msg)
-	payload = msg.Payload
-	result = payload.(*messages.CommitMessage).Commit
 	assert.NotNil(t, result)
 	assert.Equal(t, commit, result)
 }

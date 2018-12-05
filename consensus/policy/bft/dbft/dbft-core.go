@@ -1,8 +1,8 @@
 package dbft
 
 import (
+	"bufio"
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"github.com/DSiSc/blockchain"
 	"github.com/DSiSc/craft/log"
@@ -167,9 +167,9 @@ func (instance *dbftCore) receiveRequest(request *messages.Request) {
 	} else {
 		values.receipts = receipts
 	}
-	proposal := &messages.Message{
+	proposal := messages.Message{
 		MessageType: messages.ProposalMessageType,
-		Payload: &messages.ProposalMessage{
+		PayLoad: &messages.ProposalMessage{
 			Proposal: &messages.Proposal{
 				Id:        instance.local.Extension.Id,
 				Timestamp: request.Timestamp,
@@ -178,7 +178,7 @@ func (instance *dbftCore) receiveRequest(request *messages.Request) {
 			},
 		},
 	}
-	msgRaw, err := json.Marshal(proposal)
+	msgRaw, err := messages.EncodeMessage(proposal)
 	if nil != err {
 		log.Error("marshal proposal msg failed with %v.", err)
 		return
@@ -186,7 +186,7 @@ func (instance *dbftCore) receiveRequest(request *messages.Request) {
 	instance.digest = request.Payload.Header.MixDigest
 	instance.signature.addSignature(instance.local, signData)
 	log.Info("broadcast proposal to peers.")
-	instance.broadcast(msgRaw, messages.ProposalMessageType, instance.digest)
+	instance.broadcast(msgRaw, proposal.MessageType, request.Payload.Header.MixDigest)
 	peers := tools.AccountFilter([]account.Account{instance.local}, instance.peers)
 	messages.BroadcastPeers(msgRaw, proposal.MessageType, instance.digest, peers)
 	go instance.waitResponse()
@@ -254,9 +254,9 @@ func (instance *dbftCore) receiveProposal(proposal *messages.Proposal) {
 	if currentHeight+1 < proposal.Payload.Header.Height {
 		log.Warn("current height is %d which less than proposal %d.",
 			currentHeight, proposal.Payload.Header.Height)
-		syncBlockMessage := &messages.Message{
+		syncBlockMessage := messages.Message{
 			MessageType: messages.SyncBlockReqMessageType,
-			Payload: &messages.SyncBlockReqMessage{
+			PayLoad: &messages.SyncBlockReqMessage{
 				SyncBlock: &messages.SyncBlockReq{
 					Node:       instance.local,
 					Timestamp:  time.Now().Unix(),
@@ -265,12 +265,12 @@ func (instance *dbftCore) receiveProposal(proposal *messages.Proposal) {
 				},
 			},
 		}
-		msgRaw, err := json.Marshal(syncBlockMessage)
+		msgRaw, err := messages.EncodeMessage(syncBlockMessage)
 		if nil != err {
 			log.Error("marshal syncBlock msg failed with %v.", err)
 			return
 		}
-		err = messages.Unicast(masterAccount, msgRaw, messages.SyncBlockReqMessageType, proposal.Payload.Header.MixDigest)
+		err = messages.Unicast(masterAccount, msgRaw, syncBlockMessage.MessageType, proposal.Payload.Header.MixDigest)
 		if nil != err {
 			log.Error("unicast sync block message failed with error %v.", err)
 		}
@@ -302,9 +302,9 @@ func (instance *dbftCore) receiveProposal(proposal *messages.Proposal) {
 	} else {
 		values.receipts = receipts
 	}
-	response := &messages.Message{
+	response := messages.Message{
 		MessageType: messages.ResponseMessageType,
-		Payload: &messages.ResponseMessage{
+		PayLoad: &messages.ResponseMessage{
 			Response: &messages.Response{
 				Account:   instance.local,
 				Timestamp: proposal.Timestamp,
@@ -313,7 +313,7 @@ func (instance *dbftCore) receiveProposal(proposal *messages.Proposal) {
 			},
 		},
 	}
-	msgRaw, err := json.Marshal(response)
+	msgRaw, err := messages.EncodeMessage(response)
 	if nil != err {
 		log.Error("marshal proposal msg failed with %v.", err)
 		return
@@ -455,13 +455,13 @@ func (instance *dbftCore) commitFilter(blacklist account.Account) []account.Acco
 }
 
 func (instance *dbftCore) SendCommit(commit *messages.Commit, block *types.Block) {
-	committed := &messages.Message{
+	committed := messages.Message{
 		MessageType: messages.CommitMessageType,
-		Payload: &messages.CommitMessage{
+		PayLoad: &messages.CommitMessage{
 			Commit: commit,
 		},
 	}
-	msgRaw, err := json.Marshal(committed)
+	msgRaw, err := messages.EncodeMessage(committed)
 	if nil != err {
 		log.Error("marshal commit msg failed with %v.", err)
 		return
@@ -536,13 +536,13 @@ func (instance *dbftCore) receiveSyncBlockReq(syncBlockReq *messages.SyncBlockRe
 		log.Info("sync block from node %x with block height %d.", syncBlockReq.Node.Address, index)
 		syncBlocks = append(syncBlocks, block)
 	}
-	syncBlockResMsg := &messages.Message{
+	syncBlockResMsg := messages.Message{
 		MessageType: messages.SyncBlockRespMessageType,
-		Payload: &messages.SyncBlockResp{
+		PayLoad: &messages.SyncBlockResp{
 			Blocks: syncBlocks,
 		},
 	}
-	msgRaw, err := json.Marshal(syncBlockResMsg)
+	msgRaw, err := messages.EncodeMessage(syncBlockResMsg)
 	if nil != err {
 		panic(fmt.Sprintf("marshal syncBlockResMsg msg failed with %v.", err))
 	}
@@ -579,9 +579,9 @@ func (instance *dbftCore) receiveSyncBlockResp(syncBlockResp *messages.SyncBlock
 
 func (instance *dbftCore) sendChangeViewReq(nodes []account.Account, newView uint64) {
 	log.Info("send view change request message to node %x.", nodes)
-	syncBlockResMsg := &messages.Message{
+	syncBlockResMsg := messages.Message{
 		MessageType: messages.ViewChangeMessageReqType,
-		Payload: &messages.ViewChangeReqMessage{
+		PayLoad: &messages.ViewChangeReqMessage{
 			ViewChange: &messages.ViewChangeReq{
 				Id:        instance.local.Extension.Id,
 				Nodes:     nodes,
@@ -590,7 +590,7 @@ func (instance *dbftCore) sendChangeViewReq(nodes []account.Account, newView uin
 			},
 		},
 	}
-	msgRaw, err := json.Marshal(syncBlockResMsg)
+	msgRaw, err := messages.EncodeMessage(syncBlockResMsg)
 	if nil != err {
 		panic(fmt.Sprintf("marshal syncBlockResMsg msg failed with %v.", err))
 	}
@@ -699,9 +699,9 @@ func (self *dbftCore) waitMasterTimeOut(timer *time.Timer) {
 		select {
 		case <-timer.C:
 			log.Info("wait master timeout, so change view begin.")
-			viewChangeReqMsg := &messages.Message{
+			viewChangeReqMsg := messages.Message{
 				MessageType: messages.ViewChangeMessageReqType,
-				Payload: &messages.ViewChangeReqMessage{
+				PayLoad: &messages.ViewChangeReqMessage{
 					ViewChange: &messages.ViewChangeReq{
 						Nodes:     []account.Account{self.local},
 						Timestamp: time.Now().Unix(),
@@ -710,7 +710,7 @@ func (self *dbftCore) waitMasterTimeOut(timer *time.Timer) {
 				},
 			}
 			log.Info("view change from local %d to expect %d.", self.views.viewNum, self.views.viewNum+1)
-			msgRaw, err := json.Marshal(viewChangeReqMsg)
+			msgRaw, err := messages.EncodeMessage(viewChangeReqMsg)
 			if nil != err {
 				log.Error("marshal proposal msg failed with %v.", err)
 				return
@@ -780,16 +780,14 @@ func (instance *dbftCore) Start(account account.Account) {
 
 func handleClient(conn net.Conn, bft *dbftCore) {
 	log.Info("receive messages form other node.")
-	buffer := make([]byte, 2048)
-	n, err := conn.Read(buffer)
 	defer conn.Close()
-	if err != nil {
-		log.Error("error when read connector %x.", err)
+	reader := bufio.NewReaderSize(conn, common.MAX_BUF_LEN)
+	msg, err := messages.ReadMessage(reader)
+	if nil != err {
+		log.Error("read message failed with error %v.", err)
 		return
 	}
-	var msg messages.Message
-	err = json.Unmarshal(buffer[:n], &msg)
-	payload := msg.Payload
+	payload := msg.PayLoad
 	switch msg.MessageType {
 	case messages.RequestMessageType:
 		log.Info("receive request message from producer")

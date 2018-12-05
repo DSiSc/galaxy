@@ -1,7 +1,6 @@
 package dbft
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/craft/types"
@@ -70,9 +69,9 @@ func (self *DBFTPolicy) waitMasterTimeOut(timer *time.Timer) {
 		select {
 		case <-timer.C:
 			log.Info("wait master timeout, so change view begin.")
-			viewChangeReqMsg := &messages.Message{
+			viewChangeReqMsg := messages.Message{
 				MessageType: messages.ViewChangeMessageReqType,
-				Payload: &messages.ViewChangeReqMessage{
+				PayLoad: &messages.ViewChangeReqMessage{
 					ViewChange: &messages.ViewChangeReq{
 						Nodes:     []account.Account{self.core.local},
 						Timestamp: time.Now().Unix(),
@@ -80,7 +79,7 @@ func (self *DBFTPolicy) waitMasterTimeOut(timer *time.Timer) {
 					},
 				},
 			}
-			msgRaw, err := json.Marshal(viewChangeReqMsg)
+			msgRaw, err := messages.EncodeMessage(viewChangeReqMsg)
 			if nil != err {
 				log.Error("marshal proposal msg failed with %v.", err)
 				return

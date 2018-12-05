@@ -261,12 +261,25 @@ func TestDbftCore_Start(t *testing.T) {
 			Url: "127.0.0.1:8080",
 		},
 	}
-	var fakePayload = []byte{
-		0x33, 0x3c, 0x33, 0x10, 0x82, 0x4b, 0x7c, 0x68, 0x51, 0x33,
-		0xf2, 0xbe, 0xdb, 0x2c, 0xa4, 0xb8, 0xb4, 0xdf, 0x63, 0x3d,
+	commit := &messages.Commit{
+		Account:    mockAccounts[0],
+		Timestamp:  time.Now().Unix(),
+		Digest:     mockHash,
+		Signatures: mockSignset,
+		BlockHash:  mockHash,
+		Result:     true,
 	}
+	committed := messages.Message{
+		MessageType: messages.CommitMessageType,
+		PayLoad: &messages.CommitMessage{
+			Commit: commit,
+		},
+	}
+	msgRaw, err := messages.EncodeMessage(committed)
+	assert.Nil(t, err)
+	assert.NotNil(t, msgRaw)
 	go dbft.Start(account)
-	dbft.unicast(account, fakePayload, "none", mockHash)
+	messages.Unicast(account, msgRaw, messages.CommitMessageType, mockHash)
 	time.Sleep(1 * time.Second)
 }
 
@@ -672,19 +685,20 @@ func TestDbftCore_SendCommit(t *testing.T) {
 		BlockHash:  mockHash,
 		Result:     true,
 	}
-	committed := &messages.Message{
+	committed := messages.Message{
 		MessageType: messages.CommitMessageType,
-		Payload: &messages.CommitMessage{
+		PayLoad: &messages.CommitMessage{
 			Commit: commit,
 		},
 	}
-	msgRaw, err := json.Marshal(committed)
+	msgRaw, err := messages.EncodeMessage(committed)
 	assert.Nil(t, err)
 	assert.NotNil(t, msgRaw)
 
-	var msg messages.Message
-	err = json.Unmarshal(msgRaw, &msg)
-	payload := msg.Payload
+	msg, err := messages.DecodeMessage(committed.MessageType, msgRaw[12:])
+	assert.Nil(t, err)
+	assert.NotNil(t, msg)
+	payload := msg.PayLoad
 	result := payload.(*messages.CommitMessage).Commit
 	assert.NotNil(t, result)
 	assert.Equal(t, commit, result)
@@ -697,19 +711,20 @@ func TestDbftCore_SendCommit(t *testing.T) {
 		BlockHash:  mockHash,
 		Result:     false,
 	}
-	committed = &messages.Message{
+	committed = messages.Message{
 		MessageType: messages.CommitMessageType,
-		Payload: &messages.CommitMessage{
+		PayLoad: &messages.CommitMessage{
 			Commit: commit,
 		},
 	}
-	msgRaw, err = json.Marshal(committed)
+	msgRaw, err = messages.EncodeMessage(committed)
 	assert.Nil(t, err)
 	assert.NotNil(t, msgRaw)
 
-	err = json.Unmarshal(msgRaw, &msg)
-	payload = msg.Payload
-	result = payload.(*messages.CommitMessage).Commit
+	msg, err = messages.DecodeMessage(committed.MessageType, msgRaw[12:])
+	assert.Nil(t, err)
+	assert.NotNil(t, msg)
+	result = msg.PayLoad.(*messages.CommitMessage).Commit
 	assert.NotNil(t, result)
 	assert.Equal(t, commit, result)
 	monkey.UnpatchAll()
@@ -724,9 +739,9 @@ func TestDbftCore_ProcessEvent3(t *testing.T) {
 	dbft.peers = mockAccounts
 	go dbft.Start(mockAccounts[0])
 	var currentHeight uint64 = 1
-	syncBlockMessage := &messages.Message{
+	syncBlockMessage := messages.Message{
 		MessageType: messages.SyncBlockReqMessageType,
-		Payload: &messages.SyncBlockReqMessage{
+		PayLoad: &messages.SyncBlockReqMessage{
 			SyncBlock: &messages.SyncBlockReq{
 				Node:       slaveAccount,
 				Timestamp:  time.Now().Unix(),
@@ -735,8 +750,9 @@ func TestDbftCore_ProcessEvent3(t *testing.T) {
 			},
 		},
 	}
-	msgRaw, err := json.Marshal(syncBlockMessage)
+	msgRaw, err := messages.EncodeMessage(syncBlockMessage)
 	assert.Nil(t, err)
+	assert.NotNil(t, msgRaw)
 	var b *blockchain.BlockChain
 	monkey.Patch(blockchain.NewLatestStateBlockChain, func() (*blockchain.BlockChain, error) {
 		return b, nil
