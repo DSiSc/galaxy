@@ -16,18 +16,20 @@ import (
 )
 
 type fbftCore struct {
-	local       account.Account
-	master      account.Account
-	peers       []account.Account
-	signature   *tools.SignData
-	tolerance   uint8
-	commit      bool
-	digest      types.Hash
-	result      chan *messages.ConsensusResult
-	tunnel      chan int
-	validator   map[types.Hash]*payloadSets
-	eventCenter types.EventCenter
-	blockSwitch chan<- interface{}
+	local            account.Account
+	master           account.Account
+	peers            []account.Account
+	signature        *tools.SignData
+	tolerance        uint8
+	commit           bool
+	digest           types.Hash
+	result           chan *messages.ConsensusResult
+	tunnel           chan int
+	validator        map[types.Hash]*payloadSets
+	eventCenter      types.EventCenter
+	blockSwitch      chan<- interface{}
+	consensusMap     *tools.ConsensusMap
+	consensusContent *tools.ConsensusContent
 }
 
 type payloadSets struct {
@@ -37,18 +39,19 @@ type payloadSets struct {
 
 func NewFBFTCore(local account.Account, result chan *messages.ConsensusResult, blockSwitch chan<- interface{}) *fbftCore {
 	return &fbftCore{
-		local:       local,
-		result:      result,
-		tunnel:      make(chan int),
-		validator:   make(map[types.Hash]*payloadSets),
-		blockSwitch: blockSwitch,
+		local:        local,
+		result:       result,
+		tunnel:       make(chan int),
+		validator:    make(map[types.Hash]*payloadSets),
+		blockSwitch:  blockSwitch,
+		consensusMap: tools.NewConsensusMap(),
 	}
 }
 
 func (instance *fbftCore) receiveRequest(request *messages.Request) {
 	isMaster := instance.local == instance.master
 	if !isMaster {
-		log.Info("only master process request.")
+		log.Warn("only master process request.")
 		return
 	}
 	signature := request.Payload.Header.SigData
@@ -61,11 +64,16 @@ func (instance *fbftCore) receiveRequest(request *messages.Request) {
 		log.Error("proposal verified failed with error %v.", err)
 		return
 	}
+	instance.consensusMap.Add(request.Payload.Header.MixDigest)
+	instance.consensusContent = instance.consensusMap.GetConsensusContentByHash(request.Payload.Header.MixDigest)
 	signData, err := tools.SignPayload(instance.local, request.Payload.Header.MixDigest)
 	if nil != err {
 		log.Error("archive proposal signature failed with error %v.", err)
 		return
 	}
+	instance.consensusContent.AddSignature(instance.local, signData)
+	instance.consensusContent.SetState(tools.ToConsensus)
+	instance.consensusContent.SetContentByHash(request.Payload.Header.MixDigest, request.Payload)
 	if values, ok := instance.validator[request.Payload.Header.MixDigest]; !ok {
 		log.Info("add record payload %x.", request.Payload.Header.MixDigest)
 		instance.validator[request.Payload.Header.MixDigest] = &payloadSets{

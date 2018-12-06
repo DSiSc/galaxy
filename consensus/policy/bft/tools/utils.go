@@ -1,6 +1,8 @@
 package tools
 
 import (
+	"bytes"
+	"fmt"
 	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/validator/tools/account"
@@ -138,4 +140,25 @@ func (self *ConsensusContent) GetSignByAccount(account account.Account) (bool, [
 	defer self.lock.Unlock()
 	sign, ok := self.signMap[account]
 	return ok, sign
+}
+
+func (self *ConsensusContent) SetContentByHash(digest types.Hash, payload interface{}) {
+	self.lock.Lock()
+	defer self.lock.Unlock()
+	if !bytes.Equal(self.digest[:], digest[:]) {
+		log.Error("wrong digest which expect is %v while setting is %v.", self.digest, digest)
+		return
+	}
+	self.content = payload
+	return
+}
+
+func (self *ConsensusContent) GetContentByHash(digest types.Hash) (interface{}, error) {
+	self.lock.Lock()
+	defer self.lock.Unlock()
+	if !bytes.Equal(self.digest[:], digest[:]) {
+		log.Error("wrong digest which expect is %v while setting is %v.", self.digest, digest)
+		return nil, fmt.Errorf("record not exist with digest %v", digest)
+	}
+	return self.content, nil
 }
