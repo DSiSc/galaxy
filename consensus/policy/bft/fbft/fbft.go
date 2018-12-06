@@ -111,12 +111,12 @@ func (self *FBFTPolicy) GetConsensusResult() common.ConsensusResult {
 	for _, peer := range self.core.peers {
 		if self.core.master == peer {
 			role[peer] = commonr.Master
-			log.Warn("now master is %d.", peer.Extension.Id)
+			log.Debug("now master is %d.", peer.Extension.Id)
 			continue
 		}
 		role[peer] = commonr.Slave
 	}
-	log.Warn("now local is %d.", self.core.local.Extension.Id)
+	log.Debug("now local is %d.", self.core.local.Extension.Id)
 	return common.ConsensusResult{
 		View:        uint64(0),
 		Participate: self.core.peers,
