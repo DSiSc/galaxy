@@ -319,9 +319,6 @@ func (instance *fbftCore) ProcessEvent(e tools.Event) tools.Event {
 		log.Warn("replica %d received an unknown message type %v", instance.local.Extension.Id, et)
 		err = fmt.Errorf("not support type %v", et)
 	}
-	if err != nil {
-		log.Warn(err.Error())
-	}
 	return err
 }
 
