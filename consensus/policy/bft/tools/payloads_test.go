@@ -61,10 +61,7 @@ var mockSignset = [][]byte{
 }
 
 func TestSignData_AddSignature(t *testing.T) {
-	sign := &SignData{
-		Signatures: make([][]byte, 0),
-		SignMap:    make(map[account.Account][]byte),
-	}
+	sign := NewSignData()
 	sign.AddSignature(mockAccounts[0], mockSignset[0])
 	assert.Equal(t, 1, len(sign.Signatures))
 	assert.Equal(t, len(sign.Signatures), len(sign.SignMap))
@@ -73,10 +70,7 @@ func TestSignData_AddSignature(t *testing.T) {
 }
 
 func TestSignData_GetSignMap(t *testing.T) {
-	sign := &SignData{
-		Signatures: make([][]byte, 0),
-		SignMap:    make(map[account.Account][]byte),
-	}
+	sign := NewSignData()
 	sign.AddSignature(mockAccounts[0], mockSignset[0])
 	sign.AddSignature(mockAccounts[1], mockSignset[1])
 	sign.AddSignature(mockAccounts[2], mockSignset[2])
@@ -86,9 +80,12 @@ func TestSignData_GetSignMap(t *testing.T) {
 	assert.Equal(t, mockSignset[2], sigMap[mockAccounts[2]])
 
 	assert.Equal(t, 3, sign.SignatureNum())
-	assert.Equal(t, mockSignset[0], sign.GetSignByAccount(mockAccounts[0]))
-	assert.Equal(t, mockSignset[1], sign.GetSignByAccount(mockAccounts[1]))
-	assert.Equal(t, mockSignset[2], sign.GetSignByAccount(mockAccounts[2]))
+	ok, signature := sign.GetSignByAccount(mockAccounts[0])
+	assert.Equal(t, true, ok)
+	assert.Equal(t, mockSignset[0], signature)
+
+	ok, _ = sign.GetSignByAccount(mockAccounts[3])
+	assert.Equal(t, false, ok)
 }
 
 func TestVerifyPayload(t *testing.T) {

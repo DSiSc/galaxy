@@ -16,6 +16,13 @@ type SignData struct {
 	SignMap    map[account.Account][]byte
 }
 
+func NewSignData() *SignData {
+	return &SignData{
+		Signatures: make([][]byte, 0),
+		SignMap:    make(map[account.Account][]byte),
+	}
+}
+
 func (s *SignData) AddSignature(account account.Account, sign []byte) bool {
 	s.Lock.Lock()
 	defer s.Lock.Unlock()
@@ -41,10 +48,11 @@ func (s *SignData) GetSignMap() map[account.Account][]byte {
 	return s.SignMap
 }
 
-func (s *SignData) GetSignByAccount(account account.Account) []byte {
+func (s *SignData) GetSignByAccount(account account.Account) (bool, []byte) {
 	s.Lock.RLock()
 	defer s.Lock.RUnlock()
-	return s.SignMap[account]
+	sign, ok := s.SignMap[account]
+	return ok, sign
 }
 
 func VerifyPayload(payload *types.Block) (types.Receipts, error) {

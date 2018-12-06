@@ -37,11 +37,7 @@ type payloadSets struct {
 
 func NewFBFTCore(local account.Account, result chan *messages.ConsensusResult, blockSwitch chan<- interface{}) *fbftCore {
 	return &fbftCore{
-		local: local,
-		signature: &tools.SignData{
-			Signatures: make([][]byte, 0),
-			SignMap:    make(map[account.Account][]byte),
-		},
+		local:       local,
 		result:      result,
 		tunnel:      make(chan int),
 		validator:   make(map[types.Hash]*payloadSets),
@@ -234,11 +230,12 @@ func (instance *fbftCore) receiveResponse(response *messages.Response) {
 			log.Error("signature and response sender not in coincidence.")
 			return
 		}
-		if instance.signature.AddSignature(from, response.Signature) {
+		ok, sign := instance.signature.GetSignByAccount(from)
+		if !ok {
+			instance.signature.AddSignature(from, response.Signature)
 			instance.tunnel <- 1
 			log.Info("to commit response from node %d.", response.Account.Extension.Id)
 		} else {
-			sign := instance.signature.GetSignByAccount(from)
 			if !bytes.Equal(sign, response.Signature) {
 				log.Warn("receive a different signature from the same validator %x, which exists is %x, while response is %x.",
 					from.Address, sign, response.Signature)

@@ -8,6 +8,7 @@ import (
 	"github.com/DSiSc/craft/types"
 	commonc "github.com/DSiSc/galaxy/consensus/common"
 	"github.com/DSiSc/galaxy/consensus/policy/bft/messages"
+	"github.com/DSiSc/galaxy/consensus/policy/bft/tools"
 	"github.com/DSiSc/monkey"
 	"github.com/DSiSc/validator/tools/account"
 	"github.com/DSiSc/validator/tools/signature"
@@ -30,6 +31,7 @@ func TestNewBFTCore(t *testing.T) {
 func TestBftCore_ProcessEvent(t *testing.T) {
 	var sigChannel = make(chan *messages.ConsensusResult)
 	fbft := NewFBFTCore(mockAccounts[0], sigChannel, nil)
+	fbft.signature = tools.NewSignData()
 	assert.NotNil(t, fbft)
 	err := fbft.ProcessEvent(nil)
 	assert.Equal(t, fmt.Errorf("not support type <nil>"), err)
@@ -177,6 +179,7 @@ func TestBftCore_receiveRequest(t *testing.T) {
 	fbft := NewFBFTCore(mockAccounts[0], sigChannel, nil)
 	assert.NotNil(t, fbft)
 	fbft.peers = mockAccounts
+	fbft.signature = tools.NewSignData()
 	// only master process request
 	request := &messages.Request{
 		Timestamp: 1535414400,
@@ -299,6 +302,7 @@ func TestBftCore_receiveProposal(t *testing.T) {
 	assert.NotNil(t, fbft)
 	fbft.peers = mockAccounts
 	fbft.master = mockAccounts[0]
+	fbft.signature = tools.NewSignData()
 	// master receive proposal
 	proposal := &messages.Proposal{
 		Timestamp: 1535414400,
@@ -377,6 +381,7 @@ func TestBftCore_receiveResponse(t *testing.T) {
 	fbft.peers = mockAccounts
 	fbft.digest = mockHash
 	fbft.master = mockAccounts[0]
+	fbft.signature = tools.NewSignData()
 	response := &messages.Response{
 		Account:   mockAccounts[1],
 		Timestamp: time.Now().Unix(),
@@ -436,6 +441,7 @@ func TestBftCore_ProcessEvent2(t *testing.T) {
 	var blkSwitch = make(chan interface{})
 	fbft := NewFBFTCore(mockAccounts[0], sigChannel, blkSwitch)
 	assert.NotNil(t, fbft)
+	fbft.signature = tools.NewSignData()
 	block0 := &types.Block{
 		Header: &types.Header{
 			Height:    1,
@@ -483,6 +489,7 @@ func TestBftCore_SendCommit(t *testing.T) {
 	blockSwitch := make(chan interface{})
 	fbft := NewFBFTCore(mockAccounts[0], sigChannel, blockSwitch)
 	assert.NotNil(t, fbft)
+	fbft.signature = tools.NewSignData()
 	fbft.peers = mockAccounts
 	block := &types.Block{
 		HeaderHash: mockHash,

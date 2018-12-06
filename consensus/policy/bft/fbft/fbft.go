@@ -47,10 +47,7 @@ func (instance *FBFTPolicy) Initialization(role map[account.Account]commonr.Role
 	instance.core.peers = peers
 	instance.core.eventCenter = events
 	instance.core.tolerance = uint8((len(peers) - 1) / 3)
-	instance.core.signature = &tools.SignData{
-		Signatures: make([][]byte, 0),
-		SignMap:    make(map[account.Account][]byte),
-	}
+	instance.core.signature = tools.NewSignData()
 	return nil
 }
 
