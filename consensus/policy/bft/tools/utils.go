@@ -1,9 +1,9 @@
 package tools
 
 import (
+	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/validator/tools/account"
-	"github.com/ontio/ontology/common/log"
 	"sync"
 )
 
