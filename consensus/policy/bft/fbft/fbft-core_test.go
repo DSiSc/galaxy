@@ -453,29 +453,29 @@ func TestBftCore_ProcessEvent2(t *testing.T) {
 		Result:     true,
 	}
 	fbft.ProcessEvent(mockCommit)
-
-	fbft.validator[mockHash] = &payloadSets{
-		block: &types.Block{
-			Header: &types.Header{
-				Height:    2,
-				MixDigest: mockHash,
-			},
+	block := &types.Block{
+		Header: &types.Header{
+			Height:    2,
+			MixDigest: mockHash,
 		},
+	}
+	fbft.validator[mockHash] = &payloadSets{
+		block: block,
 	}
 	fbft.ProcessEvent(mockCommit)
 
+	block.Header.Height = 1
 	fbft.validator[mockHash] = &payloadSets{
-		block: &types.Block{
-			Header: &types.Header{
-				Height:    1,
-				MixDigest: mockHash,
-			},
-		},
+		block: block,
 	}
+	_, ok := fbft.validator[mockHash]
+	assert.Equal(t, true, ok)
 	go fbft.ProcessEvent(mockCommit)
 	blk := <-blkSwitch
 	assert.NotNil(t, blk)
-	assert.Equal(t, blk, fbft.validator[mockHash].block)
+	_, ok = fbft.validator[mockHash]
+	assert.Equal(t, false, ok)
+	assert.Equal(t, blk, block)
 	monkey.UnpatchAll()
 }
 

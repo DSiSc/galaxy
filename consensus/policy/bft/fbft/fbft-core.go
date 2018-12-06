@@ -302,6 +302,7 @@ func (instance *fbftCore) receiveCommit(commit *messages.Commit) {
 }
 
 func (instance *fbftCore) commitBlock(block *types.Block) {
+	delete(instance.validator, block.Header.MixDigest)
 	instance.blockSwitch <- block
 	log.Info("write block %d with hash %x success.", block.Header.Height, block.HeaderHash)
 }
