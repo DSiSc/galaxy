@@ -34,3 +34,26 @@ func TestGetAccountById(t *testing.T) {
 	account := GetAccountById(mockAccounts, mockAccounts[1].Extension.Id)
 	assert.Equal(t, account, mockAccounts[1])
 }
+
+func TestNewConsensusMap(t *testing.T) {
+	consensusMap := NewConsensusMap()
+	consensusMap.Add(mockHash)
+	mapInfo := consensusMap.GetConsensusMap()
+	_, ok := mapInfo[mockHash]
+	assert.Equal(t, true, ok)
+	content := consensusMap.GetConsensusContentByHash(mockHash)
+	assert.Equal(t, mockHash, content.digest)
+	assert.Equal(t, Initial, content.state)
+	content.SetState(ToConsensus)
+	assert.Equal(t, Initial, content.state)
+	content.SetState(InConsensus)
+	assert.Equal(t, InConsensus, content.state)
+	ok, _ = content.GetSignByAccount(mockAccounts[0])
+	assert.Equal(t, false, ok)
+	content.AddSignature(mockAccounts[0], mockSignset[0])
+	ok, sign := content.GetSignByAccount(mockAccounts[0])
+	assert.Equal(t, true, ok)
+	assert.Equal(t, mockSignset[0], sign)
+	assert.Equal(t, 1, content.Signatures())
+	content.AddSignature(mockAccounts[0], mockSignset[0])
+}
