@@ -191,12 +191,9 @@ func (instance *fbftCore) receiveProposal(proposal *messages.Proposal) {
 
 func (instance *fbftCore) maybeCommit() ([][]byte, error) {
 	var reallySignature = make([][]byte, 0)
-	if len(instance.signature.Signatures) != len(instance.signature.SignMap) {
-		log.Error("length of signData[%d] and signMap[%d] does not match.", len(instance.signature.Signatures), len(instance.signature.SignMap))
-		return reallySignature, fmt.Errorf("signData and signMap does not match")
-	}
 	var suspiciousAccount = make([]account.Account, 0)
-	for account, sign := range instance.signature.SignMap {
+	signsMap := instance.signature.GetSignMap()
+	for account, sign := range signsMap {
 		if signDataVerify(account, sign, instance.digest) {
 			reallySignature = append(reallySignature, sign)
 			continue
@@ -237,12 +234,11 @@ func (instance *fbftCore) receiveResponse(response *messages.Response) {
 			log.Error("signature and response sender not in coincidence.")
 			return
 		}
-		if sign, ok := instance.signature.SignMap[from]; !ok {
-			instance.signature.AddSignature(from, response.Signature)
+		if instance.signature.AddSignature(from, response.Signature) {
 			instance.tunnel <- 1
-			log.Info("response from %x has been committed yet.", response.Account.Address)
+			log.Info("to commit response from node %d.", response.Account.Extension.Id)
 		} else {
-			log.Warn("receive duplicate signature from the same validator, ignore it.")
+			sign := instance.signature.GetSignByAccount(from)
 			if !bytes.Equal(sign, response.Signature) {
 				log.Warn("receive a different signature from the same validator %x, which exists is %x, while response is %x.",
 					from.Address, sign, response.Signature)
