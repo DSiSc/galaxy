@@ -117,6 +117,32 @@ func TestNewBFTCore_broadcast(t *testing.T) {
 	monkey.UnpatchAll()
 }
 
+func TestBroadcastPeersFilter(t *testing.T) {
+	monkey.Patch(net.ResolveTCPAddr, func(string, string) (*net.TCPAddr, error) {
+		return nil, fmt.Errorf("resolve error")
+	})
+	BroadcastPeersFilter(nil, ProposalMessageType, mockHash, mockAccounts, mockAccounts[1])
+
+	monkey.Patch(net.ResolveTCPAddr, func(string, string) (*net.TCPAddr, error) {
+		return nil, nil
+	})
+	monkey.Patch(net.DialTCP, func(string, *net.TCPAddr, *net.TCPAddr) (*net.TCPConn, error) {
+		return nil, fmt.Errorf("dail error")
+	})
+	BroadcastPeersFilter(nil, ProposalMessageType, mockHash, mockAccounts, mockAccounts[1])
+
+	var c net.TCPConn
+	monkey.Patch(net.DialTCP, func(string, *net.TCPAddr, *net.TCPAddr) (*net.TCPConn, error) {
+		return &c, nil
+	})
+	monkey.PatchInstanceMethod(reflect.TypeOf(&c), "Write", func(*net.TCPConn, []byte) (int, error) {
+		return 0, nil
+	})
+	BroadcastPeersFilter(nil, ProposalMessageType, mockHash, mockAccounts, mockAccounts[1])
+
+	monkey.UnpatchAll()
+}
+
 func TestBftCore_unicast(t *testing.T) {
 	monkey.Patch(net.ResolveTCPAddr, func(string, string) (*net.TCPAddr, error) {
 		return nil, fmt.Errorf("resolve error")

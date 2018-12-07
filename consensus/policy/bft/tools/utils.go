@@ -60,6 +60,18 @@ func (self *ConsensusMap) GetConsensusContentByHash(digest types.Hash) *Consensu
 	return self.consensusMap[digest]
 }
 
+func (self *ConsensusMap) GetConsensusContentSigMapByHash(digest types.Hash) (map[account.Account][]byte, error) {
+	self.mutex.RLock()
+	defer self.mutex.RUnlock()
+	if _, ok := self.consensusMap[digest]; !ok {
+		log.Info("record %x not exist, please confirm.", digest)
+		self.consensusMap[digest] = NewConsensusContent(digest)
+		return nil, fmt.Errorf("item %x not exist", digest)
+	}
+
+	return self.consensusMap[digest].GetSignMapByHash(digest)
+}
+
 func (self *ConsensusMap) Add(digest types.Hash) {
 	self.mutex.Lock()
 	defer self.mutex.Unlock()
@@ -140,6 +152,16 @@ func (self *ConsensusContent) GetSignByAccount(account account.Account) (bool, [
 	defer self.lock.Unlock()
 	sign, ok := self.signMap[account]
 	return ok, sign
+}
+
+func (self *ConsensusContent) GetSignMapByHash(digest types.Hash) (map[account.Account][]byte, error) {
+	self.lock.Lock()
+	defer self.lock.Unlock()
+	if !bytes.Equal(self.digest[:], digest[:]) {
+		log.Error("wrong digest which expect is %v while setting is %v.", self.digest, digest)
+		return nil, fmt.Errorf("record not exist with digest %v", digest)
+	}
+	return self.signMap, nil
 }
 
 func (self *ConsensusContent) SetContentByHash(digest types.Hash, payload interface{}) {

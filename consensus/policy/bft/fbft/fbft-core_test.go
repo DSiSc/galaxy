@@ -114,7 +114,7 @@ func TestBftCore_ProcessEvent(t *testing.T) {
 	fbft.signature.AddSignature(fbft.peers[2], mockSignset[2])
 	fbft.tolerance = uint8((len(fbft.peers) - 1) / 3)
 	fbft.digest = mockHash
-	go fbft.waitResponse()
+	go fbft.waitResponse(mockHash)
 	go func() {
 		err = fbft.ProcessEvent(mockResponse)
 		assert.Nil(t, err)
@@ -390,7 +390,7 @@ func TestBftCore_receiveResponse(t *testing.T) {
 	}
 	fbft.signature.AddSignature(mockAccounts[0], mockSignset[0])
 	fbft.signature.AddSignature(mockAccounts[1], mockSignset[1])
-	go fbft.waitResponse()
+	go fbft.waitResponse(mockHash)
 	monkey.Patch(signature.Verify, func(_ keypair.PublicKey, sign []byte) (types.Address, error) {
 		var address types.Address
 		if bytes.Equal(sign[:], mockSignset[0]) {
@@ -417,7 +417,7 @@ func TestBftCore_receiveResponse(t *testing.T) {
 		Digest:    mockHash,
 		Signature: mockSignset[2],
 	}
-	go fbft.waitResponse()
+	go fbft.waitResponse(mockHash)
 	fbft.commit = false
 	fbft.receiveResponse(response)
 	ch = <-fbft.result
@@ -429,7 +429,7 @@ func TestBftCore_receiveResponse(t *testing.T) {
 		Digest:    mockHash,
 		Signature: mockSignset[3],
 	}
-	go fbft.waitResponse()
+	go fbft.waitResponse(mockHash)
 	fbft.commit = false
 	fbft.receiveResponse(response)
 	ch = <-fbft.result

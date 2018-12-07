@@ -146,6 +146,10 @@ func sendMsgByUrl(url string, msgPayload []byte) error {
 		return err
 	}
 	_, err = conn.Write(msgPayload)
+	if nil != err {
+		log.Error("write connection error %v.", err)
+	}
+	conn.Close()
 	return err
 }
 
@@ -255,6 +259,20 @@ func BroadcastPeers(msgPayload []byte, MessageType MessageType, digest types.Has
 		if nil != err {
 			log.Error("broadcast to %d by url %s with message type %v and digest %x occur error %v.",
 				peer.Extension.Id, peer.Extension.Url, MessageType, digest, err)
+		}
+	}
+}
+
+func BroadcastPeersFilter(msgPayload []byte, MessageType MessageType, digest types.Hash, peers []account.Account, black account.Account) {
+	for _, peer := range peers {
+		if peer != black {
+			log.Info("broadcast to %d by url %s with message type %v and digest %x.",
+				peer.Extension.Id, peer.Extension.Url, MessageType, digest)
+			err := sendMsgByUrl(peer.Extension.Url, msgPayload)
+			if nil != err {
+				log.Error("broadcast to %d by url %s with message type %v and digest %x occur error %v.",
+					peer.Extension.Id, peer.Extension.Url, MessageType, digest, err)
+			}
 		}
 	}
 }

@@ -79,4 +79,12 @@ func TestNewConsensusMap(t *testing.T) {
 	contents, err = content.GetContentByHash(mockHash)
 	assert.Nil(t, err)
 	assert.Equal(t, block, contents)
+
+	sigMap, err := content.GetSignMapByHash(mockHash)
+	assert.Nil(t, err)
+	assert.Equal(t, mockSignset[0], sigMap[mockAccounts[0]])
+
+	sigMap1, err1 := consensusMap.GetConsensusContentSigMapByHash(mockHash)
+	assert.Equal(t, err, err1)
+	assert.Equal(t, sigMap, sigMap1)
 }

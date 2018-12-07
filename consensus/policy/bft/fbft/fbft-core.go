@@ -104,17 +104,16 @@ func (instance *fbftCore) receiveRequest(request *messages.Request) {
 	// filter master
 	peers := tools.AccountFilter([]account.Account{instance.local}, instance.peers)
 	messages.BroadcastPeers(rawData, proposal.MessageType, instance.digest, peers)
-	go instance.waitResponse()
+	go instance.waitResponse(request.Payload.Header.MixDigest)
 }
 
-func (instance *fbftCore) waitResponse() {
-	log.Warn("set timer with 2 second.")
+func (instance *fbftCore) waitResponse(digest types.Hash) {
 	timer := time.NewTimer(5 * time.Second)
 	for {
 		select {
 		case <-timer.C:
-			log.Info("collect response timeout.")
-			signatures, err := instance.maybeCommit()
+			log.Info("response timeout.")
+			signatures, err := instance.maybeCommit(digest)
 			instance.commit = true
 			consensusResult := &messages.ConsensusResult{
 				Signatures: signatures,
@@ -124,7 +123,7 @@ func (instance *fbftCore) waitResponse() {
 			return
 		case <-instance.tunnel:
 			log.Debug("receive tunnel")
-			signatures, err := instance.maybeCommit()
+			signatures, err := instance.maybeCommit(digest)
 			if nil == err {
 				instance.commit = true
 				consensusResult := messages.ConsensusResult{
@@ -193,9 +192,10 @@ func (instance *fbftCore) receiveProposal(proposal *messages.Proposal) {
 	messages.Unicast(instance.master, msgRaw, response.MessageType, response.PayLoad.(*messages.ResponseMessage).Response.Digest)
 }
 
-func (instance *fbftCore) maybeCommit() ([][]byte, error) {
+func (instance *fbftCore) maybeCommit(digest types.Hash) ([][]byte, error) {
 	var reallySignature = make([][]byte, 0)
 	var suspiciousAccount = make([]account.Account, 0)
+	// content, ok := instance.consensusMap.GetConsensusContentSigMapByHash(digest)
 	signsMap := instance.signature.GetSignMap()
 	for account, sign := range signsMap {
 		if signDataVerify(account, sign, instance.digest) {
