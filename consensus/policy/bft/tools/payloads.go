@@ -77,6 +77,6 @@ func SignPayload(account account.Account, digest types.Hash) ([]byte, error) {
 		log.Error("archive signature occur error %v.", err)
 		return nil, err
 	}
-	log.Info("archive signature for %x successfully with sign %x.", digest, sign)
+	log.Debug("archive signature for %x successfully with sign %x.", digest, sign)
 	return sign, nil
 }

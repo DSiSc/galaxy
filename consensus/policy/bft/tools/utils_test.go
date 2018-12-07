@@ -43,48 +43,47 @@ var errorHash = types.Hash{
 }
 
 func TestNewConsensusMap(t *testing.T) {
-	consensusMap := NewConsensusMap()
-	consensusMap.Add(mockHash)
-	mapInfo := consensusMap.GetConsensusMap()
-	_, ok := mapInfo[mockHash]
+	plugin := NewConsensusPlugin()
+
+	content, err := plugin.GetContentByHash(mockHash)
+	assert.Equal(t, fmt.Errorf("content %x not exist, please confirm", mockHash), err)
+	assert.Nil(t, content)
+
+	plugin.Add(mockHash, nil)
+	content, err = plugin.GetContentByHash(mockHash)
+	assert.Nil(t, err)
+	assert.NotNil(t, content)
+
+	content, err = plugin.GetContentByHash(mockHash)
+	assert.Nil(t, err)
+	assert.NotNil(t, content)
+	assert.NotNil(t, Initial, content.State())
+	err = content.SetState(ToConsensus)
+	assert.Equal(t, err, fmt.Errorf("can not move state from %v to %v", Initial, ToConsensus))
+	assert.NotNil(t, Initial, content.State())
+
+	err = content.SetState(InConsensus)
+	assert.Nil(t, err)
+	assert.NotNil(t, InConsensus, content.State())
+
+	signatures := content.Signatures()
+	assert.Equal(t, 0, len(signatures))
+
+	ok := content.AddSignature(mockAccounts[0], mockSignset[0])
 	assert.Equal(t, true, ok)
-	content := consensusMap.GetConsensusContentByHash(mockHash)
-	assert.Equal(t, mockHash, content.digest)
-	assert.Equal(t, Initial, content.state)
-	content.SetState(ToConsensus)
-	assert.Equal(t, Initial, content.state)
-	content.SetState(InConsensus)
-	assert.Equal(t, InConsensus, content.state)
-	ok, _ = content.GetSignByAccount(mockAccounts[0])
+
+	ok = content.AddSignature(mockAccounts[0], mockSignset[0])
 	assert.Equal(t, false, ok)
-	content.AddSignature(mockAccounts[0], mockSignset[0])
-	ok, sign := content.GetSignByAccount(mockAccounts[0])
+
+	sign, ok := content.GetSignByAccount(mockAccounts[1])
+	assert.Equal(t, false, ok)
+
+	sign, ok = content.GetSignByAccount(mockAccounts[0])
 	assert.Equal(t, true, ok)
 	assert.Equal(t, mockSignset[0], sign)
-	assert.Equal(t, 1, content.Signatures())
-	content.AddSignature(mockAccounts[0], mockSignset[0])
-	block := &types.Block{
-		Header: &types.Header{
-			Height:    uint64(1),
-			MixDigest: mockHash,
-		},
-		HeaderHash: mockHash,
-	}
-	content.SetContentByHash(errorHash, block)
-	content.SetContentByHash(mockHash, block)
-	contents, err := content.GetContentByHash(errorHash)
-	assert.Equal(t, fmt.Errorf("record not exist with digest %v", errorHash), err)
-	assert.Nil(t, contents)
 
-	contents, err = content.GetContentByHash(mockHash)
-	assert.Nil(t, err)
-	assert.Equal(t, block, contents)
-
-	sigMap, err := content.GetSignMapByHash(mockHash)
-	assert.Nil(t, err)
-	assert.Equal(t, mockSignset[0], sigMap[mockAccounts[0]])
-
-	sigMap1, err1 := consensusMap.GetConsensusContentSigMapByHash(mockHash)
-	assert.Equal(t, err, err1)
-	assert.Equal(t, sigMap, sigMap1)
+	plugin.Remove(mockHash)
+	content, err = plugin.GetContentByHash(mockHash)
+	assert.Equal(t, fmt.Errorf("content %x not exist, please confirm", mockHash), err)
+	assert.Nil(t, content)
 }

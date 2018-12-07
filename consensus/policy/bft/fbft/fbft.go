@@ -43,11 +43,9 @@ func (instance *FBFTPolicy) Initialization(role map[account.Account]commonr.Role
 		log.Error("no master exist, please confirm.")
 		return fmt.Errorf("no master exist")
 	}
-	instance.core.commit = false
 	instance.core.peers = peers
 	instance.core.eventCenter = events
 	instance.core.tolerance = uint8((len(peers) - 1) / 3)
-	instance.core.signature = tools.NewSignData()
 	return nil
 }
 

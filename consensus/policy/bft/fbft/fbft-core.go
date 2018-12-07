@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"github.com/DSiSc/blockchain"
 	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/galaxy/consensus/common"
@@ -16,20 +17,15 @@ import (
 )
 
 type fbftCore struct {
-	local            account.Account
-	master           account.Account
-	peers            []account.Account
-	signature        *tools.SignData
-	tolerance        uint8
-	commit           bool
-	digest           types.Hash
-	result           chan *messages.ConsensusResult
-	tunnel           chan int
-	validator        map[types.Hash]*payloadSets
-	eventCenter      types.EventCenter
-	blockSwitch      chan<- interface{}
-	consensusMap     *tools.ConsensusMap
-	consensusContent *tools.ConsensusContent
+	local           account.Account
+	master          account.Account
+	peers           []account.Account
+	tolerance       uint8
+	result          chan *messages.ConsensusResult
+	tunnel          chan int
+	eventCenter     types.EventCenter
+	blockSwitch     chan<- interface{}
+	consensusPlugin *tools.ConsensusPlugin
 }
 
 type payloadSets struct {
@@ -39,12 +35,11 @@ type payloadSets struct {
 
 func NewFBFTCore(local account.Account, result chan *messages.ConsensusResult, blockSwitch chan<- interface{}) *fbftCore {
 	return &fbftCore{
-		local:        local,
-		result:       result,
-		tunnel:       make(chan int),
-		validator:    make(map[types.Hash]*payloadSets),
-		blockSwitch:  blockSwitch,
-		consensusMap: tools.NewConsensusMap(),
+		local:           local,
+		result:          result,
+		tunnel:          make(chan int),
+		blockSwitch:     blockSwitch,
+		consensusPlugin: tools.NewConsensusPlugin(),
 	}
 }
 
@@ -59,29 +54,26 @@ func (instance *fbftCore) receiveRequest(request *messages.Request) {
 		log.Error("request must have signature from producer.")
 		return
 	}
-	receipts, err := tools.VerifyPayload(request.Payload)
+	_, err := tools.VerifyPayload(request.Payload)
 	if nil != err {
 		log.Error("proposal verified failed with error %v.", err)
 		return
 	}
-	instance.consensusMap.Add(request.Payload.Header.MixDigest)
-	instance.consensusContent = instance.consensusMap.GetConsensusContentByHash(request.Payload.Header.MixDigest)
+	content := instance.consensusPlugin.Add(request.Payload.Header.MixDigest, request.Payload)
 	signData, err := tools.SignPayload(instance.local, request.Payload.Header.MixDigest)
 	if nil != err {
 		log.Error("archive proposal signature failed with error %v.", err)
 		return
 	}
-	instance.consensusContent.AddSignature(instance.local, signData)
-	instance.consensusContent.SetState(tools.ToConsensus)
-	instance.consensusContent.SetContentByHash(request.Payload.Header.MixDigest, request.Payload)
-	if values, ok := instance.validator[request.Payload.Header.MixDigest]; !ok {
-		log.Info("add record payload %x.", request.Payload.Header.MixDigest)
-		instance.validator[request.Payload.Header.MixDigest] = &payloadSets{
-			block:    request.Payload,
-			receipts: receipts,
-		}
-	} else {
-		values.receipts = receipts
+	if !content.AddSignature(instance.local, signData) {
+		log.Error("add signature to digest %v by account %d failed.",
+			request.Payload.Header.MixDigest, instance.local)
+		return
+	}
+	err = content.SetState(tools.InConsensus)
+	if nil != err {
+		log.Error("set content state of %v failed with %v.", request.Payload.Header.MixDigest, err)
+		return
 	}
 	proposal := messages.Message{
 		MessageType: messages.ProposalMessageType,
@@ -99,22 +91,23 @@ func (instance *fbftCore) receiveRequest(request *messages.Request) {
 		log.Error("marshal proposal msg failed with %v.", err)
 		return
 	}
-	instance.digest = request.Payload.Header.MixDigest
-	instance.signature.AddSignature(instance.local, signData)
-	// filter master
-	peers := tools.AccountFilter([]account.Account{instance.local}, instance.peers)
-	messages.BroadcastPeers(rawData, proposal.MessageType, instance.digest, peers)
+	messages.BroadcastPeersFilter(rawData, proposal.MessageType, request.Payload.Header.MixDigest, instance.peers, instance.local)
 	go instance.waitResponse(request.Payload.Header.MixDigest)
 }
 
 func (instance *fbftCore) waitResponse(digest types.Hash) {
 	timer := time.NewTimer(5 * time.Second)
+	content, err := instance.consensusPlugin.GetContentByHash(digest)
+	if nil != err {
+		log.Error("get content of %v failed with %v.", digest, err)
+		return
+	}
 	for {
 		select {
 		case <-timer.C:
-			log.Info("response timeout.")
+			log.Info("response has overtime.")
 			signatures, err := instance.maybeCommit(digest)
-			instance.commit = true
+			content.SetState(tools.ToConsensus)
 			consensusResult := &messages.ConsensusResult{
 				Signatures: signatures,
 				Result:     err,
@@ -125,16 +118,16 @@ func (instance *fbftCore) waitResponse(digest types.Hash) {
 			log.Debug("receive tunnel")
 			signatures, err := instance.maybeCommit(digest)
 			if nil == err {
-				instance.commit = true
-				consensusResult := messages.ConsensusResult{
+				content.SetState(tools.ToConsensus)
+				consensusResult := &messages.ConsensusResult{
 					Signatures: signatures,
 					Result:     err,
 				}
-				instance.result <- &consensusResult
-				log.Info("receive satisfied responses before timeout")
+				instance.result <- consensusResult
+				log.Info("receive satisfied responses before overtime")
 				return
 			}
-			log.Warn("get consensus result is error %v.", err)
+			log.Warn("get consensus result is error %v this tunnel.", err)
 		}
 	}
 }
@@ -142,7 +135,7 @@ func (instance *fbftCore) waitResponse(digest types.Hash) {
 func (instance *fbftCore) receiveProposal(proposal *messages.Proposal) {
 	isMaster := instance.local == instance.master
 	if isMaster {
-		log.Info("master not need to process proposal.")
+		log.Warn("master not need to process proposal.")
 		return
 	}
 	if instance.master.Extension.Id != proposal.Id {
@@ -153,7 +146,8 @@ func (instance *fbftCore) receiveProposal(proposal *messages.Proposal) {
 		log.Error("proposal signature not from master, please confirm.")
 		return
 	}
-	receipts, err := tools.VerifyPayload(proposal.Payload)
+	instance.consensusPlugin.Add(proposal.Payload.Header.MixDigest, proposal.Payload)
+	_, err := tools.VerifyPayload(proposal.Payload)
 	if nil != err {
 		log.Error("proposal verified failed with error %v.", err)
 		return
@@ -162,16 +156,6 @@ func (instance *fbftCore) receiveProposal(proposal *messages.Proposal) {
 	if nil != err {
 		log.Error("archive proposal signature failed with error %v.", err)
 		return
-	}
-
-	if values, ok := instance.validator[proposal.Payload.Header.MixDigest]; !ok {
-		log.Info("add record payload %x.", proposal.Payload.Header.MixDigest)
-		instance.validator[proposal.Payload.Header.MixDigest] = &payloadSets{
-			block:    proposal.Payload,
-			receipts: receipts,
-		}
-	} else {
-		values.receipts = receipts
 	}
 	response := messages.Message{
 		MessageType: messages.ResponseMessageType,
@@ -193,24 +177,18 @@ func (instance *fbftCore) receiveProposal(proposal *messages.Proposal) {
 }
 
 func (instance *fbftCore) maybeCommit(digest types.Hash) ([][]byte, error) {
-	var reallySignature = make([][]byte, 0)
-	var suspiciousAccount = make([]account.Account, 0)
-	// content, ok := instance.consensusMap.GetConsensusContentSigMapByHash(digest)
-	signsMap := instance.signature.GetSignMap()
-	for account, sign := range signsMap {
-		if signDataVerify(account, sign, instance.digest) {
-			reallySignature = append(reallySignature, sign)
-			continue
-		}
-		suspiciousAccount = append(suspiciousAccount, account)
-		log.Warn("signature %x by account %x is invalid", sign, account)
+	content, err := instance.consensusPlugin.GetContentByHash(digest)
+	if nil != err {
+		log.Error("get content of %v failed with %v.", digest, err)
+		return make([][]byte, 0), fmt.Errorf("get content of %v failed with %v", digest, err)
 	}
-	if uint8(len(reallySignature)) < uint8(len(instance.peers))-instance.tolerance {
-		log.Warn("really signature %d less than need %d.",
-			len(reallySignature), uint8(len(instance.peers))-instance.tolerance)
-		return reallySignature, fmt.Errorf("signature not satisfy")
+	signatures := content.Signatures()
+	if uint8(len(signatures)) < uint8(len(instance.peers))-instance.tolerance {
+		log.Warn("signature not satisfied which need %d, while receive %d now",
+			uint8(len(instance.peers))-instance.tolerance, len(signatures))
+		return signatures, fmt.Errorf("signature not satisfy")
 	}
-	return reallySignature, nil
+	return signatures, nil
 }
 
 func signDataVerify(account account.Account, sign []byte, digest types.Hash) bool {
@@ -222,35 +200,34 @@ func signDataVerify(account account.Account, sign []byte, digest types.Hash) boo
 }
 
 func (instance *fbftCore) receiveResponse(response *messages.Response) {
-	if !instance.commit {
+	content, err := instance.consensusPlugin.GetContentByHash(response.Digest)
+	if nil != err {
+		log.Error("get content of %v from response failed with %v.", response.Digest, err)
+		return
+	}
+	if tools.ToConsensus != content.State() {
 		isMaster := instance.local == instance.master
 		if !isMaster {
 			log.Info("only master need to process response.")
 			return
 		}
-		if !bytes.Equal(instance.digest[:], response.Digest[:]) {
-			log.Error("received response digest %x not in coincidence with reserved %x.",
-				instance.digest, response.Digest)
-			return
-		}
-		from := tools.GetAccountById(instance.peers, response.Account.Extension.Id)
-		if !signDataVerify(from, response.Signature, instance.digest) {
+		if !signDataVerify(response.Account, response.Signature, response.Digest) {
 			log.Error("signature and response sender not in coincidence.")
 			return
 		}
-		ok, sign := instance.signature.GetSignByAccount(from)
-		if !ok {
-			instance.signature.AddSignature(from, response.Signature)
-			instance.tunnel <- 1
-			log.Info("to commit response from node %d.", response.Account.Extension.Id)
+		if content.AddSignature(response.Account, response.Signature) {
+			log.Debug("commit response message from node %d.", response.Account.Extension.Id)
 		} else {
-			if !bytes.Equal(sign, response.Signature) {
-				log.Warn("receive a different signature from the same validator %x, which exists is %x, while response is %x.",
-					from.Address, sign, response.Signature)
+			existSign, _ := content.GetSignByAccount(response.Account)
+			if !bytes.Equal(existSign[:], response.Signature[:]) {
+				log.Warn("receive diff signature from same validator %x, which exists is %x, while received is %x.",
+					response.Account.Address, existSign, response.Signature)
 			}
 		}
+		instance.tunnel <- 1
 	} else {
-		log.Info("response has be committed, ignore response from %x.", response.Account.Address)
+		log.Warn("consensus content state has reached %d, so ignore response from %x.",
+			tools.ToConsensus, response.Account.Address)
 	}
 }
 
@@ -263,49 +240,53 @@ func (instance *fbftCore) SendCommit(commit *messages.Commit, block *types.Block
 	}
 	msgRaw, err := messages.EncodeMessage(committed)
 	if nil != err {
-		log.Error("EncodeMessage commit msg failed with %v.", err)
+		log.Error("EncodeMessage failed with %v.", err)
 		return
 	}
-	peers := tools.AccountFilter([]account.Account{instance.local}, instance.peers)
+	// peers := tools.AccountFilter([]account.Account{instance.local}, instance.peers)
 	if !commit.Result {
 		log.Error("send the failed consensus.")
-		messages.BroadcastPeers(msgRaw, committed.MessageType, commit.Digest, peers)
+		// messages.BroadcastPeers(msgRaw, committed.MessageType, commit.Digest, peers)
+		messages.BroadcastPeersFilter(msgRaw, committed.MessageType, commit.Digest, instance.peers, instance.local)
 		instance.eventCenter.Notify(types.EventConsensusFailed, nil)
 	} else {
 		log.Info("receive the successful consensus")
-		messages.BroadcastPeers(msgRaw, committed.MessageType, commit.Digest, peers)
+		messages.BroadcastPeersFilter(msgRaw, committed.MessageType, commit.Digest, instance.peers, instance.local)
 		instance.commitBlock(block)
 	}
 }
 
 func (instance *fbftCore) receiveCommit(commit *messages.Commit) {
-	log.Info("receive commit from node %x", commit.Account.Address)
 	if !commit.Result {
 		log.Error("receive commit is consensus error.")
 		instance.eventCenter.Notify(types.EventConsensusFailed, nil)
 		return
 	}
-	if payload, ok := instance.validator[commit.Digest]; ok {
-		payload.block.Header.SigData = commit.Signatures
-		blockHash := common.HeaderHash(payload.block)
-		if !bytes.Equal(blockHash[:], commit.BlockHash[:]) {
-			log.Error("receive commit not consist, commit is %x, while compute is %x.", commit.BlockHash, blockHash)
-			payload.block.Header.SigData = make([][]byte, 0)
-			return
-		}
-		// TODO: verify signature loop
-		payload.block.HeaderHash = commit.BlockHash
-		log.Info("send block %d with hash %x to blk_switch .", payload.block.Header.Height, payload.block.HeaderHash)
-		instance.commitBlock(payload.block)
+	content, err := instance.consensusPlugin.GetContentByHash(commit.Digest)
+	if nil != err {
+		log.Error("get content of %v from commit failed with %v.", commit.Digest, err)
 		return
 	}
-	log.Error("payload with digest %x not found, please confirm.", commit.Digest)
+	payload := content.GetContentPayloadByHash(commit.Digest)
+	// TODO: verify signature loop
+	payload.(*types.Block).Header.SigData = commit.Signatures
+	payload.(*types.Block).HeaderHash = common.HeaderHash(payload.(*types.Block))
+	if !bytes.Equal(payload.(*types.Block).HeaderHash[:], commit.BlockHash[:]) {
+		log.Error("receive commit not consist, commit is %x, while compute is %x.",
+			commit.BlockHash, payload.(*types.Block).HeaderHash)
+		return
+	}
+	instance.commitBlock(payload.(*types.Block))
 }
 
 func (instance *fbftCore) commitBlock(block *types.Block) {
-	delete(instance.validator, block.Header.MixDigest)
+	// delete(instance.validator, block.Header.MixDigest)
+	// instance.consensusPlugin.Remove(block.Header.MixDigest)
+	chain, _ := blockchain.NewBlockChainByBlockHash(block.Header.PrevBlockHash)
+	preBlock, _ := chain.GetBlockByHash(block.Header.PrevBlockHash)
+	instance.consensusPlugin.Remove(preBlock.HeaderHash)
 	instance.blockSwitch <- block
-	log.Info("write block %d with hash %x success.", block.Header.Height, block.HeaderHash)
+	log.Info("try to commit block %d with hash %x to block switch.", block.Header.Height, block.HeaderHash)
 }
 
 func (instance *fbftCore) ProcessEvent(e tools.Event) tools.Event {

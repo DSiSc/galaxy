@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/DSiSc/blockchain"
 	"github.com/DSiSc/craft/types"
-	commonc "github.com/DSiSc/galaxy/consensus/common"
 	"github.com/DSiSc/galaxy/consensus/policy/bft/messages"
 	"github.com/DSiSc/galaxy/consensus/policy/bft/tools"
 	"github.com/DSiSc/monkey"
@@ -30,12 +29,31 @@ func TestNewBFTCore(t *testing.T) {
 
 func TestBftCore_ProcessEvent(t *testing.T) {
 	var sigChannel = make(chan *messages.ConsensusResult)
+	block := &types.Block{
+		Header: &types.Header{
+			Height:    uint64(1),
+			MixDigest: mockHash,
+		},
+	}
 	fbft := NewFBFTCore(mockAccounts[0], sigChannel, nil)
-	fbft.signature = tools.NewSignData()
-	assert.NotNil(t, fbft)
+	fbft.consensusPlugin = tools.NewConsensusPlugin()
+	content := fbft.consensusPlugin.Add(mockHash, block)
+	assert.NotNil(t, content)
+
 	err := fbft.ProcessEvent(nil)
 	assert.Equal(t, fmt.Errorf("not support type <nil>"), err)
 
+	var mock_request = &messages.Request{
+		Timestamp: time.Now().Unix(),
+		Payload: &types.Block{
+			Header: &types.Header{
+				SigData: mockSignset[:1],
+			},
+		},
+	}
+	fbft.ProcessEvent(mock_request)
+
+	fbft.master = mockAccounts[0]
 	var b *blockchain.BlockChain
 	monkey.Patch(blockchain.NewBlockChainByBlockHash, func(types.Hash) (*blockchain.BlockChain, error) {
 		return b, nil
@@ -47,16 +65,7 @@ func TestBftCore_ProcessEvent(t *testing.T) {
 	monkey.Patch(signature.Verify, func(keypair.PublicKey, []byte) (types.Address, error) {
 		return mockAccounts[0].Address, nil
 	})
-
 	fbft.peers = mockAccounts
-	var mock_request = &messages.Request{
-		Timestamp: time.Now().Unix(),
-		Payload: &types.Block{
-			Header: &types.Header{
-				SigData: mockSignset[:1],
-			},
-		},
-	}
 	monkey.Patch(json.Marshal, func(v interface{}) ([]byte, error) {
 		return nil, nil
 	})
@@ -70,8 +79,7 @@ func TestBftCore_ProcessEvent(t *testing.T) {
 	monkey.PatchInstanceMethod(reflect.TypeOf(&c), "Write", func(*net.TCPConn, []byte) (int, error) {
 		return 0, nil
 	})
-	err = fbft.ProcessEvent(mock_request)
-	assert.Nil(t, err)
+	fbft.ProcessEvent(mock_request)
 
 	var mock_proposal = &messages.Proposal{
 		Timestamp: time.Now().Unix(),
@@ -83,9 +91,7 @@ func TestBftCore_ProcessEvent(t *testing.T) {
 		},
 	}
 	fbft.master = mockAccounts[1]
-	err = fbft.ProcessEvent(mock_proposal)
-	assert.Nil(t, err)
-
+	fbft.ProcessEvent(mock_proposal)
 	monkey.Patch(signature.Verify, func(_ keypair.PublicKey, sign []byte) (types.Address, error) {
 		var address types.Address
 		if bytes.Equal(sign[:], mockSignset[0]) {
@@ -110,15 +116,15 @@ func TestBftCore_ProcessEvent(t *testing.T) {
 		Digest:    mockHash,
 		Signature: mockSignset[0],
 	}
-	fbft.signature.AddSignature(fbft.peers[1], mockSignset[1])
-	fbft.signature.AddSignature(fbft.peers[2], mockSignset[2])
+	ok := content.AddSignature(mockAccounts[0], mockSignset[0])
+	assert.Equal(t, true, ok)
+	ok = content.AddSignature(mockAccounts[1], mockSignset[1])
+	assert.Equal(t, true, ok)
+	ok = content.AddSignature(mockAccounts[2], mockSignset[2])
+	assert.Equal(t, true, ok)
 	fbft.tolerance = uint8((len(fbft.peers) - 1) / 3)
-	fbft.digest = mockHash
 	go fbft.waitResponse(mockHash)
-	go func() {
-		err = fbft.ProcessEvent(mockResponse)
-		assert.Nil(t, err)
-	}()
+	fbft.ProcessEvent(mockResponse)
 	ch := <-fbft.result
 	assert.NotNil(t, ch)
 	assert.Equal(t, 3, len(ch.Signatures))
@@ -135,8 +141,8 @@ func TestBftCore_ProcessEvent(t *testing.T) {
 	monkey.Unpatch(net.ResolveTCPAddr)
 	monkey.Unpatch(net.DialTCP)
 	monkey.Unpatch(signature.Verify)
-	monkey.UnpatchInstanceMethod(reflect.TypeOf(&c), "Write")
 	monkey.Unpatch(blockchain.NewBlockChainByBlockHash)
+	monkey.UnpatchInstanceMethod(reflect.TypeOf(&c), "Write")
 	monkey.UnpatchInstanceMethod(reflect.TypeOf(w), "VerifyBlock")
 }
 
@@ -179,7 +185,6 @@ func TestBftCore_receiveRequest(t *testing.T) {
 	fbft := NewFBFTCore(mockAccounts[0], sigChannel, nil)
 	assert.NotNil(t, fbft)
 	fbft.peers = mockAccounts
-	fbft.signature = tools.NewSignData()
 	// only master process request
 	request := &messages.Request{
 		Timestamp: 1535414400,
@@ -213,14 +218,6 @@ func TestBftCore_receiveRequest(t *testing.T) {
 
 	monkey.Patch(signature.Sign, func(signature.Signer, []byte) ([]byte, error) {
 		return fakeSignature, nil
-	})
-	//  marshal failed
-	monkey.Patch(json.Marshal, func(interface{}) ([]byte, error) {
-		return nil, fmt.Errorf("marshal proposal msg failed")
-	})
-	fbft.receiveRequest(request)
-	monkey.Patch(json.Marshal, func(interface{}) ([]byte, error) {
-		return nil, nil
 	})
 	monkey.Patch(net.DialTCP, func(string, *net.TCPAddr, *net.TCPAddr) (*net.TCPConn, error) {
 		return nil, nil
@@ -302,7 +299,6 @@ func TestBftCore_receiveProposal(t *testing.T) {
 	assert.NotNil(t, fbft)
 	fbft.peers = mockAccounts
 	fbft.master = mockAccounts[0]
-	fbft.signature = tools.NewSignData()
 	// master receive proposal
 	proposal := &messages.Proposal{
 		Timestamp: 1535414400,
@@ -347,10 +343,7 @@ func TestBftCore_receiveProposal(t *testing.T) {
 	monkey.Patch(signature.Sign, func(signature.Signer, []byte) ([]byte, error) {
 		return nil, fmt.Errorf("get signature failed")
 	})
-	fbft.digest = proposal.Payload.Header.MixDigest
 	fbft.receiveProposal(proposal)
-	_, ok := fbft.validator[fbft.digest]
-	assert.Equal(t, false, ok)
 
 	monkey.Patch(signature.Sign, func(signature.Signer, []byte) ([]byte, error) {
 		return fakeSignature, nil
@@ -360,8 +353,6 @@ func TestBftCore_receiveProposal(t *testing.T) {
 	})
 	fbft.receiveProposal(proposal)
 
-	receipts := fbft.validator[fbft.digest].receipts
-	assert.Equal(t, receipts, bb)
 	monkey.Unpatch(json.Marshal)
 	monkey.Patch(net.ResolveTCPAddr, func(string, string) (*net.TCPAddr, error) {
 		return nil, fmt.Errorf("resolve error")
@@ -377,19 +368,21 @@ func TestBftCore_receiveProposal(t *testing.T) {
 func TestBftCore_receiveResponse(t *testing.T) {
 	var sigChannel = make(chan *messages.ConsensusResult)
 	fbft := NewFBFTCore(mockAccounts[0], sigChannel, nil)
-	assert.NotNil(t, fbft)
 	fbft.peers = mockAccounts
-	fbft.digest = mockHash
 	fbft.master = mockAccounts[0]
-	fbft.signature = tools.NewSignData()
+	fbft.tolerance = 1
 	response := &messages.Response{
 		Account:   mockAccounts[1],
 		Timestamp: time.Now().Unix(),
 		Digest:    mockHash,
-		Signature: mockSignset[2],
+		Signature: mockSignset[1],
 	}
-	fbft.signature.AddSignature(mockAccounts[0], mockSignset[0])
-	fbft.signature.AddSignature(mockAccounts[1], mockSignset[1])
+	content := fbft.consensusPlugin.Add(mockHash, nil)
+	assert.NotNil(t, content)
+	ok := content.AddSignature(mockAccounts[0], mockSignset[0])
+	assert.Equal(t, true, ok)
+	ok = content.AddSignature(mockAccounts[1], mockSignset[1])
+	assert.Equal(t, true, ok)
 	go fbft.waitResponse(mockHash)
 	monkey.Patch(signature.Verify, func(_ keypair.PublicKey, sign []byte) (types.Address, error) {
 		var address types.Address
@@ -410,6 +403,8 @@ func TestBftCore_receiveResponse(t *testing.T) {
 	fbft.receiveResponse(response)
 	ch := <-fbft.result
 	assert.Equal(t, 2, len(ch.Signatures))
+	assert.NotNil(t, ch.Result)
+	assert.Equal(t, fmt.Errorf("signature not satisfy"), ch.Result)
 
 	response = &messages.Response{
 		Account:   mockAccounts[2],
@@ -417,11 +412,13 @@ func TestBftCore_receiveResponse(t *testing.T) {
 		Digest:    mockHash,
 		Signature: mockSignset[2],
 	}
+	content.SetState(tools.InConsensus)
 	go fbft.waitResponse(mockHash)
-	fbft.commit = false
 	fbft.receiveResponse(response)
 	ch = <-fbft.result
 	assert.Equal(t, len(mockSignset[:3]), len(ch.Signatures))
+	assert.Nil(t, ch.Result)
+	assert.Equal(t, tools.ToConsensus, content.State())
 
 	response = &messages.Response{
 		Account:   mockAccounts[3],
@@ -429,67 +426,18 @@ func TestBftCore_receiveResponse(t *testing.T) {
 		Digest:    mockHash,
 		Signature: mockSignset[3],
 	}
+	content.SetState(tools.InConsensus)
 	go fbft.waitResponse(mockHash)
-	fbft.commit = false
 	fbft.receiveResponse(response)
 	ch = <-fbft.result
-	assert.Equal(t, len(mockSignset[:4]), len(ch.Signatures))
+	assert.Equal(t, len(mockSignset[:3]), len(ch.Signatures))
 	monkey.Unpatch(signature.Verify)
-}
-
-func TestBftCore_ProcessEvent2(t *testing.T) {
-	var blkSwitch = make(chan interface{})
-	fbft := NewFBFTCore(mockAccounts[0], sigChannel, blkSwitch)
-	assert.NotNil(t, fbft)
-	fbft.signature = tools.NewSignData()
-	block0 := &types.Block{
-		Header: &types.Header{
-			Height:    1,
-			MixDigest: mockHash,
-			SigData:   mockSignset,
-		},
-	}
-	hashBlock0 := commonc.HeaderHash(block0)
-	mockCommit := &messages.Commit{
-		Account:    mockAccounts[0],
-		Timestamp:  time.Now().Unix(),
-		Digest:     mockHash,
-		Signatures: mockSignset,
-		BlockHash:  hashBlock0,
-		Result:     true,
-	}
-	fbft.ProcessEvent(mockCommit)
-	block := &types.Block{
-		Header: &types.Header{
-			Height:    2,
-			MixDigest: mockHash,
-		},
-	}
-	fbft.validator[mockHash] = &payloadSets{
-		block: block,
-	}
-	fbft.ProcessEvent(mockCommit)
-
-	block.Header.Height = 1
-	fbft.validator[mockHash] = &payloadSets{
-		block: block,
-	}
-	_, ok := fbft.validator[mockHash]
-	assert.Equal(t, true, ok)
-	go fbft.ProcessEvent(mockCommit)
-	blk := <-blkSwitch
-	assert.NotNil(t, blk)
-	_, ok = fbft.validator[mockHash]
-	assert.Equal(t, false, ok)
-	assert.Equal(t, blk, block)
-	monkey.UnpatchAll()
 }
 
 func TestBftCore_SendCommit(t *testing.T) {
 	blockSwitch := make(chan interface{})
 	fbft := NewFBFTCore(mockAccounts[0], sigChannel, blockSwitch)
 	assert.NotNil(t, fbft)
-	fbft.signature = tools.NewSignData()
 	fbft.peers = mockAccounts
 	block := &types.Block{
 		HeaderHash: mockHash,
@@ -513,10 +461,19 @@ func TestBftCore_SendCommit(t *testing.T) {
 	monkey.PatchInstanceMethod(reflect.TypeOf(&c), "Write", func(*net.TCPConn, []byte) (int, error) {
 		return 0, nil
 	})
+	var b *blockchain.BlockChain
+	monkey.Patch(blockchain.NewBlockChainByBlockHash, func(types.Hash) (*blockchain.BlockChain, error) {
+		return b, nil
+	})
+	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetBlockByHash", func(*blockchain.BlockChain, types.Hash) (*types.Block, error) {
+		return block, nil
+	})
 	go fbft.SendCommit(mockCommit, block)
 	blocks := <-blockSwitch
 	assert.NotNil(t, blocks)
 	assert.Equal(t, blocks.(*types.Block).HeaderHash, block.HeaderHash)
+	monkey.Unpatch(blockchain.NewBlockChainByBlockHash)
+	monkey.UnpatchInstanceMethod(reflect.TypeOf(b), "GetBlockByHash")
 
 	commit := &messages.Commit{
 		Account:    mockAccounts[0],
