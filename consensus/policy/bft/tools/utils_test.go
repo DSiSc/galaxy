@@ -146,4 +146,13 @@ func TestViewChange_AddViewRequest(t *testing.T) {
 	expect := fmt.Errorf("diff of current view %d and request view %d beyond walter level %d",
 		common.DefaultViewNum, mockViewNum, common.DefaultWalterLevel)
 	assert.Equal(t, expect, err)
+
+	mockViewNum = uint64(1)
+	viewRequest := viewChange.GetRequestByViewNum(mockViewNum)
+	assert.NotNil(t, viewRequest)
+	assert.Equal(t, common.ViewEnd, viewRequest.state)
+	assert.Equal(t, 2, len(viewRequest.GetReceivedAccounts()))
+	viewChange.RemoveRequest(mockViewNum)
+	viewRequest = viewChange.GetRequestByViewNum(mockViewNum)
+	assert.Nil(t, viewRequest)
 }
