@@ -4,9 +4,16 @@ import (
 	"fmt"
 	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/craft/types"
+	"github.com/DSiSc/galaxy/consensus/common"
 	"github.com/DSiSc/validator/tools/account"
 	"sync"
 )
+
+func Abs(x uint64, y uint64) int64 {
+	n := int64(x - y)
+	z := n >> 63
+	return (n ^ z) - z
+}
 
 func AccountFilter(blacklist []account.Account, accounts []account.Account) []account.Account {
 	var peer []account.Account
@@ -156,4 +163,104 @@ func (self *ConsensusPlugin) GetContentByHash(digest types.Hash) (*Content, erro
 		return nil, fmt.Errorf("content %x not exist, please confirm", digest)
 	}
 	return self.content[digest], nil
+}
+
+type ViewChange struct {
+	lock         sync.RWMutex
+	currentView  uint64
+	walterLevel  int64
+	viewRequests map[uint64]*ViewRequests
+}
+
+type ViewRequests struct {
+	lock     sync.RWMutex
+	toChange int
+	state    common.ViewState
+	index    map[account.Account]bool
+	nodes    []account.Account
+}
+
+func NewRequests(toChange int) *ViewRequests {
+	return &ViewRequests{
+		state:    common.Viewing,
+		toChange: toChange,
+		index:    make(map[account.Account]bool),
+		nodes:    make([]account.Account, 0),
+	}
+}
+
+func NewViewChange() *ViewChange {
+	return &ViewChange{
+		currentView:  common.DefaultViewNum,
+		walterLevel:  common.DefaultWalterLevel,
+		viewRequests: make(map[uint64]*ViewRequests),
+	}
+}
+
+func (self *ViewChange) GetCurrentViewNum() uint64 {
+	self.lock.RLock()
+	defer self.lock.RUnlock()
+	return self.currentView
+}
+
+func (self *ViewChange) SetCurrentViewNum(newViewNum uint64) {
+	self.lock.RLock()
+	self.currentView = newViewNum
+	self.lock.RUnlock()
+}
+
+func (self *ViewChange) GetWalterLevel() int64 {
+	self.lock.RLock()
+	defer self.lock.RUnlock()
+	return self.walterLevel
+}
+
+func (self *ViewChange) AddViewRequest(viewNum uint64, toChange int) (*ViewRequests, error) {
+	self.lock.Lock()
+	defer self.lock.Unlock()
+	if Abs(self.currentView, viewNum) > self.walterLevel {
+		log.Error("diff of current view %d and request %d beyond walter level %d.",
+			self.currentView, viewNum, self.walterLevel)
+		return nil, fmt.Errorf("diff of current view %d and request view %d beyond walter level %d",
+			self.currentView, viewNum, self.walterLevel)
+	}
+	if _, ok := self.viewRequests[viewNum]; !ok {
+		log.Info("add view change number %d.", viewNum)
+		self.viewRequests[viewNum] = NewRequests(toChange)
+		return self.viewRequests[viewNum], nil
+	}
+	log.Warn("view sets for %d has exist and state is %v.", viewNum, self.viewRequests[viewNum].state)
+	return self.viewRequests[viewNum], nil
+}
+
+func (self *ViewChange) RemoveRequest(viewNum uint64) {
+	self.lock.Lock()
+	defer self.lock.Unlock()
+	if _, ok := self.viewRequests[viewNum]; ok {
+		log.Info("remove view change %d.", viewNum)
+		delete(self.viewRequests, viewNum)
+	}
+	return
+}
+
+func (self *ViewRequests) ReceiveViewRequestByAccount(account account.Account) common.ViewState {
+	self.lock.Lock()
+	defer self.lock.Unlock()
+	if _, ok := self.index[account]; !ok {
+		log.Info("add %x view request.", account.Address)
+		self.index[account] = true
+		self.nodes = append(self.nodes, account)
+	}
+	log.Warn("has receive %x view request.", account.Address)
+	if len(self.nodes) >= self.toChange {
+		log.Info("request %d has reach to change view situation %d.", len(self.nodes), self.toChange)
+		self.state = common.ViewEnd
+	}
+	return self.state
+}
+
+func (self *ViewRequests) GetViewRequestState() common.ViewState {
+	self.lock.Lock()
+	defer self.lock.Unlock()
+	return self.state
 }

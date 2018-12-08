@@ -44,7 +44,9 @@ const (
 )
 
 const (
-	MAX_BUF_LEN = 1024 * 256
+	MAX_BUF_LEN        = 1024 * 256
+	DefaultViewNum     = uint64(0)
+	DefaultWalterLevel = int64(1)
 )
 
 var (

@@ -3,6 +3,7 @@ package tools
 import (
 	"fmt"
 	"github.com/DSiSc/craft/types"
+	"github.com/DSiSc/galaxy/consensus/common"
 	"github.com/DSiSc/validator/tools/account"
 	"github.com/stretchr/testify/assert"
 	"testing"
@@ -86,4 +87,63 @@ func TestNewConsensusMap(t *testing.T) {
 	content, err = plugin.GetContentByHash(mockHash)
 	assert.Equal(t, fmt.Errorf("content %x not exist, please confirm", mockHash), err)
 	assert.Nil(t, content)
+}
+
+func TestAbs(t *testing.T) {
+	var x = uint64(2)
+	var y = uint64(4)
+	z := int64(x - y)
+	assert.Equal(t, int64(-2), z)
+	z = Abs(x, y)
+	assert.Equal(t, int64(2), z)
+}
+
+func TestNewViewChange(t *testing.T) {
+	viewChange := NewViewChange()
+	assert.NotNil(t, viewChange)
+	assert.Equal(t, common.DefaultViewNum, viewChange.currentView)
+	assert.Equal(t, common.DefaultWalterLevel, viewChange.GetWalterLevel())
+
+	viewNum := viewChange.GetCurrentViewNum()
+	assert.Equal(t, common.DefaultViewNum, viewNum)
+
+	mockCurrentViewNum := uint64(10)
+	viewChange.SetCurrentViewNum(mockCurrentViewNum)
+	assert.Equal(t, mockCurrentViewNum, viewChange.GetCurrentViewNum())
+}
+
+func TestNewRequests(t *testing.T) {
+	mockToChange := 2
+	request := NewRequests(mockToChange)
+	assert.NotNil(t, request)
+	assert.NotNil(t, common.Viewing, request.GetViewRequestState())
+	assert.NotNil(t, mockToChange, request.toChange)
+	assert.NotNil(t, 0, len(request.nodes))
+}
+
+func TestViewChange_AddViewRequest(t *testing.T) {
+	viewChange := NewViewChange()
+	mockViewNum := uint64(1)
+	mockToChange := 2
+	change, err := viewChange.AddViewRequest(mockViewNum, mockToChange)
+	assert.Nil(t, err)
+	assert.NotNil(t, change)
+
+	change, err = viewChange.AddViewRequest(mockViewNum, mockToChange)
+	assert.Nil(t, err)
+	assert.NotNil(t, change)
+
+	state := change.ReceiveViewRequestByAccount(mockAccounts[0])
+	assert.Equal(t, common.Viewing, state)
+
+	state = change.ReceiveViewRequestByAccount(mockAccounts[1])
+	assert.Equal(t, common.ViewEnd, state)
+
+	mockViewNum = uint64(2)
+	change, err = viewChange.AddViewRequest(mockViewNum, mockToChange)
+	assert.Nil(t, change)
+	assert.NotNil(t, err)
+	expect := fmt.Errorf("diff of current view %d and request view %d beyond walter level %d",
+		common.DefaultViewNum, mockViewNum, common.DefaultWalterLevel)
+	assert.Equal(t, expect, err)
 }
