@@ -58,10 +58,10 @@ type ViewStatus string
 const ViewChanging ViewStatus = "ViewChanging"
 const ViewNormal ViewStatus = "ViewNormal"
 
-type ViewState string
+type ViewRequestState string
 
-const Viewing ViewState = "Viewing"
-const ViewEnd ViewState = "ViewEnd"
+const Viewing ViewRequestState = "Viewing"
+const ViewEnd ViewRequestState = "ViewEnd"
 
 type ConsensusResult struct {
 	View        uint64

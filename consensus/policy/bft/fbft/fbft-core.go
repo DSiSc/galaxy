@@ -25,20 +25,25 @@ type nodesInfo struct {
 type fbftCore struct {
 	nodes           *nodesInfo
 	tolerance       uint8
+	status          common.ViewStatus
+	timeoutTimer    *time.Timer
 	result          chan messages.ConsensusResult
 	signal          chan common.MessageSignal
 	eventCenter     types.EventCenter
 	blockSwitch     chan<- interface{}
 	consensusPlugin *tools.ConsensusPlugin
+	viewChange      *tools.ViewChange
 }
 
 func NewFBFTCore(local account.Account, blockSwitch chan<- interface{}) *fbftCore {
 	return &fbftCore{
 		nodes:           &nodesInfo{local: local},
+		status:          common.ViewNormal,
 		result:          make(chan messages.ConsensusResult),
 		signal:          make(chan common.MessageSignal),
 		blockSwitch:     blockSwitch,
 		consensusPlugin: tools.NewConsensusPlugin(),
+		viewChange:      tools.NewViewChange(),
 	}
 }
 
@@ -288,6 +293,81 @@ func (instance *fbftCore) commitBlock(block *types.Block) {
 	log.Info("try to commit block %d with hash %x to block switch.", block.Header.Height, block.HeaderHash)
 }
 
+func (instance *fbftCore) receiveChangeViewReq(viewChangeReq *messages.ViewChangeReq) {
+	currentViewNum := instance.viewChange.GetCurrentViewNum()
+	if viewChangeReq.ViewNum <= currentViewNum {
+		log.Warn("current viewNum %d no less than received %d, so ignore it.", currentViewNum, viewChangeReq.ViewNum)
+		return
+	}
+	viewRequests, err := instance.viewChange.AddViewRequest(viewChangeReq.ViewNum, instance.tolerance)
+	if nil != err {
+		log.Error("Add view request failed with error %v.", err)
+		return
+	}
+	viewRequestState := viewRequests.GetViewRequestState()
+	if viewRequestState != common.ViewEnd {
+		// verify view change request signature
+		for _, node := range viewChangeReq.Nodes {
+			viewRequestState = viewRequests.ReceiveViewRequestByAccount(node)
+		}
+		viewRequestState = viewRequests.ReceiveViewRequestByAccount(instance.nodes.local)
+	}
+	if viewRequestState == common.ViewEnd {
+		// come to consensus for new view number
+		instance.viewChange.SetCurrentViewNum(viewChangeReq.ViewNum)
+	}
+	nodes := viewRequests.GetReceivedAccounts()
+	instance.sendChangeViewReq(nodes, viewChangeReq.ViewNum)
+}
+
+func (instance *fbftCore) sendChangeViewReq(nodes []account.Account, newView uint64) {
+	syncBlockResMsg := messages.Message{
+		MessageType: messages.ViewChangeMessageReqType,
+		PayLoad: &messages.ViewChangeReqMessage{
+			ViewChange: &messages.ViewChangeReq{
+				Id:        instance.nodes.local.Extension.Id,
+				Nodes:     nodes,
+				Timestamp: time.Now().Unix(),
+				ViewNum:   newView,
+			},
+		},
+	}
+	msgRaw, err := messages.EncodeMessage(syncBlockResMsg)
+	if nil != err {
+		panic(fmt.Sprintf("marshal syncBlockResMsg msg failed with %v.", err))
+	}
+	// TODO: sign the digest
+	messages.BroadcastPeersFilter(msgRaw, syncBlockResMsg.MessageType, types.Hash{}, instance.nodes.peers, instance.nodes.local)
+}
+
+func (self *fbftCore) waitMasterTimeout(timer *time.Timer) {
+	for {
+		select {
+		case <-timer.C:
+			currentViewNum := self.viewChange.GetCurrentViewNum()
+			requestViewNum := currentViewNum + 1
+			log.Warn("master timeout, issue change view from %d to %d.", currentViewNum, requestViewNum)
+			viewChangeReqMsg := messages.Message{
+				MessageType: messages.ViewChangeMessageReqType,
+				PayLoad: &messages.ViewChangeReqMessage{
+					ViewChange: &messages.ViewChangeReq{
+						Nodes:     []account.Account{self.nodes.local},
+						Timestamp: time.Now().Unix(),
+						ViewNum:   requestViewNum,
+					},
+				},
+			}
+			msgRaw, err := messages.EncodeMessage(viewChangeReqMsg)
+			if nil != err {
+				log.Error("marshal proposal msg failed with %v.", err)
+				return
+			}
+			messages.BroadcastPeers(msgRaw, viewChangeReqMsg.MessageType, types.Hash{}, self.nodes.peers)
+			return
+		}
+	}
+}
+
 func (instance *fbftCore) ProcessEvent(e tools.Event) tools.Event {
 	var err error
 	switch et := e.(type) {
@@ -303,6 +383,9 @@ func (instance *fbftCore) ProcessEvent(e tools.Event) tools.Event {
 	case *messages.Commit:
 		log.Info("receive commit from replica %d with digest %x.", et.Account.Extension.Id, et.Digest)
 		instance.receiveCommit(et)
+	case *messages.ViewChangeReq:
+		log.Info("receive view change request from node %d and viewNum %d.", et.Id, et.ViewNum)
+		instance.receiveChangeViewReq(et)
 	default:
 		log.Warn("replica %d received an unknown message type %v", instance.nodes.local.Extension.Id, et)
 		err = fmt.Errorf("not support type %v", et)
@@ -375,6 +458,9 @@ func handleClient(conn net.Conn, bft *fbftCore) {
 	case messages.CommitMessageType:
 		commit := payload.(*messages.CommitMessage).Commit
 		tools.SendEvent(bft, commit)
+	case messages.ViewChangeMessageReqType:
+		viewChange := payload.(*messages.ViewChangeReqMessage).ViewChange
+		tools.SendEvent(bft, viewChange)
 	default:
 		if nil == payload {
 			log.Warn("receive handshake, omit it %v.", payload)

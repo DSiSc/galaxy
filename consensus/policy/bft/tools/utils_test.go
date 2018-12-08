@@ -113,7 +113,7 @@ func TestNewViewChange(t *testing.T) {
 }
 
 func TestNewRequests(t *testing.T) {
-	mockToChange := 2
+	mockToChange := uint8(2)
 	request := NewRequests(mockToChange)
 	assert.NotNil(t, request)
 	assert.NotNil(t, common.Viewing, request.GetViewRequestState())
@@ -124,7 +124,7 @@ func TestNewRequests(t *testing.T) {
 func TestViewChange_AddViewRequest(t *testing.T) {
 	viewChange := NewViewChange()
 	mockViewNum := uint64(1)
-	mockToChange := 2
+	mockToChange := uint8(2)
 	change, err := viewChange.AddViewRequest(mockViewNum, mockToChange)
 	assert.Nil(t, err)
 	assert.NotNil(t, change)

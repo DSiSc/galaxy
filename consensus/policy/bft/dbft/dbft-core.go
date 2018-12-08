@@ -44,7 +44,7 @@ type viewChange struct {
 
 type viewNumStatus struct {
 	mu           sync.RWMutex
-	status       common.ViewState
+	status       common.ViewRequestState
 	notify       bool
 	requestNodes []account.Account
 }

@@ -43,6 +43,8 @@ func (instance *FBFTPolicy) Initialization(role map[account.Account]commonr.Role
 	instance.core.nodes.peers = peers
 	instance.core.eventCenter = events
 	instance.core.tolerance = uint8((len(peers) - 1) / 3)
+	timer := time.NewTimer(30 * time.Second)
+	go instance.core.waitMasterTimeout(timer)
 	return nil
 }
 

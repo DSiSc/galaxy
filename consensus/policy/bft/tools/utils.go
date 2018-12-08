@@ -174,13 +174,13 @@ type ViewChange struct {
 
 type ViewRequests struct {
 	lock     sync.RWMutex
-	toChange int
-	state    common.ViewState
+	toChange uint8
+	state    common.ViewRequestState
 	index    map[account.Account]bool
 	nodes    []account.Account
 }
 
-func NewRequests(toChange int) *ViewRequests {
+func NewRequests(toChange uint8) *ViewRequests {
 	return &ViewRequests{
 		state:    common.Viewing,
 		toChange: toChange,
@@ -215,7 +215,7 @@ func (self *ViewChange) GetWalterLevel() int64 {
 	return self.walterLevel
 }
 
-func (self *ViewChange) AddViewRequest(viewNum uint64, toChange int) (*ViewRequests, error) {
+func (self *ViewChange) AddViewRequest(viewNum uint64, toChange uint8) (*ViewRequests, error) {
 	self.lock.Lock()
 	defer self.lock.Unlock()
 	if Abs(self.currentView, viewNum) > self.walterLevel {
@@ -243,7 +243,13 @@ func (self *ViewChange) RemoveRequest(viewNum uint64) {
 	return
 }
 
-func (self *ViewRequests) ReceiveViewRequestByAccount(account account.Account) common.ViewState {
+func (self *ViewChange) GetRequestByViewNum(viewNum uint64) *ViewRequests {
+	self.lock.RLock()
+	defer self.lock.RUnlock()
+	return self.viewRequests[viewNum]
+}
+
+func (self *ViewRequests) ReceiveViewRequestByAccount(account account.Account) common.ViewRequestState {
 	self.lock.Lock()
 	defer self.lock.Unlock()
 	if _, ok := self.index[account]; !ok {
@@ -252,15 +258,21 @@ func (self *ViewRequests) ReceiveViewRequestByAccount(account account.Account) c
 		self.nodes = append(self.nodes, account)
 	}
 	log.Warn("has receive %x view request.", account.Address)
-	if len(self.nodes) >= self.toChange {
+	if uint8(len(self.nodes)) >= self.toChange {
 		log.Info("request %d has reach to change view situation %d.", len(self.nodes), self.toChange)
 		self.state = common.ViewEnd
 	}
 	return self.state
 }
 
-func (self *ViewRequests) GetViewRequestState() common.ViewState {
+func (self *ViewRequests) GetViewRequestState() common.ViewRequestState {
 	self.lock.Lock()
 	defer self.lock.Unlock()
 	return self.state
+}
+
+func (self *ViewRequests) GetReceivedAccounts() []account.Account {
+	self.lock.RLock()
+	defer self.lock.RUnlock()
+	return self.nodes
 }
