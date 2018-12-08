@@ -80,14 +80,14 @@ func TestNewfbftPolicy(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, common.FBFT_POLICY, fbft.name)
 	assert.NotNil(t, fbft.core)
-	assert.Equal(t, mockAccounts[0].Extension.Id, fbft.core.local.Extension.Id)
+	assert.Equal(t, mockAccounts[0].Extension.Id, fbft.core.nodes.local.Extension.Id)
 }
 
 func TestBFTPolicy_PolicyName(t *testing.T) {
 	fbft, _ := NewFBFTPolicy(mockAccounts[0], timeout, nil)
 	assert.Equal(t, common.FBFT_POLICY, fbft.name)
 	assert.Equal(t, fbft.name, fbft.PolicyName())
-	assert.Equal(t, mockAccounts[0].Extension.Id, fbft.core.local.Extension.Id)
+	assert.Equal(t, mockAccounts[0].Extension.Id, fbft.core.nodes.local.Extension.Id)
 }
 
 func mockRoleAssignment(master account.Account, accounts []account.Account) map[account.Account]commonr.Roler {
@@ -110,9 +110,9 @@ func TestBFTPolicy_Initialization(t *testing.T) {
 
 	assignment := mockRoleAssignment(mockAccounts[3], mockAccounts)
 	err = fbft.Initialization(assignment, mockAccounts, nil)
-	assert.Equal(t, fbft.core.peers, mockAccounts)
+	assert.Equal(t, fbft.core.nodes.peers, mockAccounts)
 	assert.Equal(t, fbft.core.tolerance, uint8((len(mockAccounts)-1)/3))
-	assert.Equal(t, fbft.core.master, mockAccounts[3])
+	assert.Equal(t, fbft.core.nodes.master, mockAccounts[3])
 
 	assignment[mockAccounts[3]] = commonr.Slave
 	err = fbft.Initialization(assignment, mockAccounts, nil)
@@ -164,7 +164,7 @@ func TestBFTPolicy_Halt(t *testing.T) {
 }
 */
 
-var mockConsensusResult = &messages.ConsensusResult{
+var mockConsensusResult = messages.ConsensusResult{
 	Signatures: mockSignset,
 	Result:     nil,
 }
@@ -173,7 +173,7 @@ func TestBFTPolicy_ToConsensus(t *testing.T) {
 	fbft, err := NewFBFTPolicy(mockAccounts[0], timeout, nil)
 	assert.NotNil(t, fbft)
 	assert.Nil(t, err)
-	fbft.core.peers = mockAccounts
+	fbft.core.nodes.peers = mockAccounts
 	monkey.Patch(tools.SendEvent, func(tools.Receiver, tools.Event) {
 		fbft.core.result <- mockConsensusResult
 	})
@@ -236,7 +236,7 @@ func TestBFTPolicy_commit(t *testing.T) {
 		},
 		Transactions: make([]*types.Transaction, 0),
 	}
-	fbft.core.peers = append(fbft.core.peers, mockAccount)
+	fbft.core.nodes.peers = append(fbft.core.nodes.peers, mockAccount)
 	fbft.commit(block, true)
 }
 
@@ -245,8 +245,8 @@ func TestFBFTPolicy_GetConsensusResult(t *testing.T) {
 	fbft, err := NewFBFTPolicy(mockAccounts[0], timeout, nil)
 	assert.Nil(t, err)
 
-	fbft.core.master = mockAccounts[1]
-	fbft.core.peers = mockAccounts
+	fbft.core.nodes.master = mockAccounts[1]
+	fbft.core.nodes.peers = mockAccounts
 	result := fbft.GetConsensusResult()
 	assert.Equal(t, uint64(0), result.View)
 	assert.Equal(t, commonr.Master, result.Roles[mockAccounts[1]])

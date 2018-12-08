@@ -16,27 +16,26 @@ import (
 	"time"
 )
 
+type nodesInfo struct {
+	local  account.Account
+	master account.Account
+	peers  []account.Account
+}
+
 type fbftCore struct {
-	local           account.Account
-	master          account.Account
-	peers           []account.Account
+	nodes           *nodesInfo
 	tolerance       uint8
-	result          chan *messages.ConsensusResult
+	result          chan messages.ConsensusResult
 	signal          chan common.MessageSignal
 	eventCenter     types.EventCenter
 	blockSwitch     chan<- interface{}
 	consensusPlugin *tools.ConsensusPlugin
 }
 
-type payloadSets struct {
-	block    *types.Block
-	receipts types.Receipts
-}
-
 func NewFBFTCore(local account.Account, blockSwitch chan<- interface{}) *fbftCore {
 	return &fbftCore{
-		local:           local,
-		result:          make(chan *messages.ConsensusResult),
+		nodes:           &nodesInfo{local: local},
+		result:          make(chan messages.ConsensusResult),
 		signal:          make(chan common.MessageSignal),
 		blockSwitch:     blockSwitch,
 		consensusPlugin: tools.NewConsensusPlugin(),
@@ -44,7 +43,7 @@ func NewFBFTCore(local account.Account, blockSwitch chan<- interface{}) *fbftCor
 }
 
 func (instance *fbftCore) receiveRequest(request *messages.Request) {
-	isMaster := instance.local == instance.master
+	isMaster := instance.nodes.local == instance.nodes.master
 	if !isMaster {
 		log.Warn("only master process request.")
 		return
@@ -60,14 +59,14 @@ func (instance *fbftCore) receiveRequest(request *messages.Request) {
 		return
 	}
 	content := instance.consensusPlugin.Add(request.Payload.Header.MixDigest, request.Payload)
-	signData, err := tools.SignPayload(instance.local, request.Payload.Header.MixDigest)
+	signData, err := tools.SignPayload(instance.nodes.local, request.Payload.Header.MixDigest)
 	if nil != err {
 		log.Error("archive proposal signature failed with error %v.", err)
 		return
 	}
-	if !content.AddSignature(instance.local, signData) {
+	if !content.AddSignature(instance.nodes.local, signData) {
 		log.Error("add signature to digest %v by account %d failed.",
-			request.Payload.Header.MixDigest, instance.local)
+			request.Payload.Header.MixDigest, instance.nodes.local)
 		return
 	}
 	err = content.SetState(tools.InConsensus)
@@ -79,7 +78,7 @@ func (instance *fbftCore) receiveRequest(request *messages.Request) {
 		MessageType: messages.ProposalMessageType,
 		PayLoad: &messages.ProposalMessage{
 			Proposal: &messages.Proposal{
-				Id:        instance.local.Extension.Id,
+				Id:        instance.nodes.local.Extension.Id,
 				Timestamp: request.Timestamp,
 				Payload:   request.Payload,
 				Signature: signData,
@@ -91,7 +90,7 @@ func (instance *fbftCore) receiveRequest(request *messages.Request) {
 		log.Error("marshal proposal msg failed with %v.", err)
 		return
 	}
-	messages.BroadcastPeersFilter(rawData, proposal.MessageType, request.Payload.Header.MixDigest, instance.peers, instance.local)
+	messages.BroadcastPeersFilter(rawData, proposal.MessageType, request.Payload.Header.MixDigest, instance.nodes.peers, instance.nodes.local)
 	go instance.waitResponse(request.Payload.Header.MixDigest)
 }
 
@@ -108,7 +107,7 @@ func (instance *fbftCore) waitResponse(digest types.Hash) {
 			log.Info("response has overtime.")
 			signatures, err := instance.maybeCommit(digest)
 			content.SetState(tools.ToConsensus)
-			consensusResult := &messages.ConsensusResult{
+			consensusResult := messages.ConsensusResult{
 				Signatures: signatures,
 				Result:     err,
 			}
@@ -119,7 +118,7 @@ func (instance *fbftCore) waitResponse(digest types.Hash) {
 			signatures, err := instance.maybeCommit(digest)
 			if nil == err {
 				content.SetState(tools.ToConsensus)
-				consensusResult := &messages.ConsensusResult{
+				consensusResult := messages.ConsensusResult{
 					Signatures: signatures,
 					Result:     err,
 				}
@@ -127,22 +126,22 @@ func (instance *fbftCore) waitResponse(digest types.Hash) {
 				log.Info("receive satisfied responses before overtime")
 				return
 			}
-			log.Warn("get consensus result is error %v this tunnel.", err)
+			log.Warn("get consensus result is error %v for current response.", err)
 		}
 	}
 }
 
 func (instance *fbftCore) receiveProposal(proposal *messages.Proposal) {
-	isMaster := instance.local == instance.master
+	isMaster := instance.nodes.local == instance.nodes.master
 	if isMaster {
 		log.Warn("master not need to process proposal.")
 		return
 	}
-	if instance.master.Extension.Id != proposal.Id {
-		log.Error("proposal must from master %d, while it from %d in fact.", instance.master.Extension.Id, proposal.Id)
+	if instance.nodes.master.Extension.Id != proposal.Id {
+		log.Error("proposal must from master %d, while it from %d in fact.", instance.nodes.master.Extension.Id, proposal.Id)
 		return
 	}
-	if !signDataVerify(instance.master, proposal.Signature, proposal.Payload.Header.MixDigest) {
+	if !signDataVerify(instance.nodes.master, proposal.Signature, proposal.Payload.Header.MixDigest) {
 		log.Error("proposal signature not from master, please confirm.")
 		return
 	}
@@ -152,7 +151,7 @@ func (instance *fbftCore) receiveProposal(proposal *messages.Proposal) {
 		log.Error("proposal verified failed with error %v.", err)
 		return
 	}
-	signData, err := tools.SignPayload(instance.local, proposal.Payload.Header.MixDigest)
+	signData, err := tools.SignPayload(instance.nodes.local, proposal.Payload.Header.MixDigest)
 	if nil != err {
 		log.Error("archive proposal signature failed with error %v.", err)
 		return
@@ -161,7 +160,7 @@ func (instance *fbftCore) receiveProposal(proposal *messages.Proposal) {
 		MessageType: messages.ResponseMessageType,
 		PayLoad: &messages.ResponseMessage{
 			Response: &messages.Response{
-				Account:   instance.local,
+				Account:   instance.nodes.local,
 				Timestamp: proposal.Timestamp,
 				Digest:    proposal.Payload.Header.MixDigest,
 				Signature: signData,
@@ -173,7 +172,7 @@ func (instance *fbftCore) receiveProposal(proposal *messages.Proposal) {
 		log.Error("encode proposal msg failed with %v.", err)
 		return
 	}
-	messages.Unicast(instance.master, msgRaw, response.MessageType, response.PayLoad.(*messages.ResponseMessage).Response.Digest)
+	messages.Unicast(instance.nodes.master, msgRaw, response.MessageType, response.PayLoad.(*messages.ResponseMessage).Response.Digest)
 }
 
 func (instance *fbftCore) maybeCommit(digest types.Hash) ([][]byte, error) {
@@ -183,9 +182,9 @@ func (instance *fbftCore) maybeCommit(digest types.Hash) ([][]byte, error) {
 		return make([][]byte, 0), fmt.Errorf("get content of %v failed with %v", digest, err)
 	}
 	signatures := content.Signatures()
-	if uint8(len(signatures)) < uint8(len(instance.peers))-instance.tolerance {
+	if uint8(len(signatures)) < uint8(len(instance.nodes.peers))-instance.tolerance {
 		log.Warn("signature not satisfied which need %d, while receive %d now",
-			uint8(len(instance.peers))-instance.tolerance, len(signatures))
+			uint8(len(instance.nodes.peers))-instance.tolerance, len(signatures))
 		return signatures, fmt.Errorf("signature not satisfy")
 	}
 	return signatures, nil
@@ -206,7 +205,7 @@ func (instance *fbftCore) receiveResponse(response *messages.Response) {
 		return
 	}
 	if tools.ToConsensus != content.State() {
-		isMaster := instance.local == instance.master
+		isMaster := instance.nodes.local == instance.nodes.master
 		if !isMaster {
 			log.Info("only master need to process response.")
 			return
@@ -247,11 +246,11 @@ func (instance *fbftCore) SendCommit(commit *messages.Commit, block *types.Block
 	if !commit.Result {
 		log.Error("send the failed consensus.")
 		// messages.BroadcastPeers(msgRaw, committed.MessageType, commit.Digest, peers)
-		messages.BroadcastPeersFilter(msgRaw, committed.MessageType, commit.Digest, instance.peers, instance.local)
+		messages.BroadcastPeersFilter(msgRaw, committed.MessageType, commit.Digest, instance.nodes.peers, instance.nodes.local)
 		instance.eventCenter.Notify(types.EventConsensusFailed, nil)
 	} else {
 		log.Info("receive the successful consensus")
-		messages.BroadcastPeersFilter(msgRaw, committed.MessageType, commit.Digest, instance.peers, instance.local)
+		messages.BroadcastPeersFilter(msgRaw, committed.MessageType, commit.Digest, instance.nodes.peers, instance.nodes.local)
 		instance.commitBlock(block)
 	}
 }
@@ -293,7 +292,7 @@ func (instance *fbftCore) ProcessEvent(e tools.Event) tools.Event {
 	var err error
 	switch et := e.(type) {
 	case *messages.Request:
-		log.Info("receive request %x from replica %d.", et.Payload.Header.MixDigest, instance.local.Extension.Id)
+		log.Info("receive request %x from replica %d.", et.Payload.Header.MixDigest, instance.nodes.local.Extension.Id)
 		instance.receiveRequest(et)
 	case *messages.Proposal:
 		log.Info("receive proposal from replica %d with digest %x.", et.Id, et.Payload.Header.MixDigest)
@@ -305,14 +304,14 @@ func (instance *fbftCore) ProcessEvent(e tools.Event) tools.Event {
 		log.Info("receive commit from replica %d with digest %x.", et.Account.Extension.Id, et.Digest)
 		instance.receiveCommit(et)
 	default:
-		log.Warn("replica %d received an unknown message type %v", instance.local.Extension.Id, et)
+		log.Warn("replica %d received an unknown message type %v", instance.nodes.local.Extension.Id, et)
 		err = fmt.Errorf("not support type %v", et)
 	}
 	return err
 }
 
 func (instance *fbftCore) Start() {
-	url := instance.local.Extension.Url
+	url := instance.nodes.local.Extension.Url
 	localAddress, _ := net.ResolveTCPAddr("tcp4", url)
 	var tcpListener, err = net.ListenTCP("tcp", localAddress)
 	if err != nil {
@@ -351,7 +350,7 @@ func handleClient(conn net.Conn, bft *fbftCore) {
 		proposal := payload.(*messages.ProposalMessage).Proposal
 		log.Info("receive proposal message form node %d with payload %x.",
 			proposal.Id, proposal.Payload.Header.MixDigest)
-		if proposal.Id != bft.master.Extension.Id {
+		if proposal.Id != bft.nodes.master.Extension.Id {
 			log.Warn("only master can issue a proposal.")
 			return
 		}
@@ -360,7 +359,7 @@ func handleClient(conn net.Conn, bft *fbftCore) {
 		response := payload.(*messages.ResponseMessage).Response
 		log.Info("receive response message from node %d with payload %x.",
 			response.Account.Extension.Id, response.Digest)
-		if response.Account.Extension.Id == bft.master.Extension.Id {
+		if response.Account.Extension.Id == bft.nodes.master.Extension.Id {
 			log.Warn("master will not receive response message from itself.")
 			return
 		}

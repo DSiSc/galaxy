@@ -24,7 +24,7 @@ import (
 func TestNewBFTCore(t *testing.T) {
 	bft := NewFBFTCore(mockAccounts[0], nil)
 	assert.NotNil(t, bft)
-	assert.Equal(t, mockAccounts[0], bft.local)
+	assert.Equal(t, mockAccounts[0], bft.nodes.local)
 }
 
 func TestBftCore_ProcessEvent(t *testing.T) {
@@ -52,7 +52,7 @@ func TestBftCore_ProcessEvent(t *testing.T) {
 	}
 	fbft.ProcessEvent(mock_request)
 
-	fbft.master = mockAccounts[0]
+	fbft.nodes.master = mockAccounts[0]
 	var b *blockchain.BlockChain
 	monkey.Patch(blockchain.NewBlockChainByBlockHash, func(types.Hash) (*blockchain.BlockChain, error) {
 		return b, nil
@@ -64,7 +64,7 @@ func TestBftCore_ProcessEvent(t *testing.T) {
 	monkey.Patch(signature.Verify, func(keypair.PublicKey, []byte) (types.Address, error) {
 		return mockAccounts[0].Address, nil
 	})
-	fbft.peers = mockAccounts
+	fbft.nodes.peers = mockAccounts
 	monkey.Patch(json.Marshal, func(v interface{}) ([]byte, error) {
 		return nil, nil
 	})
@@ -89,7 +89,7 @@ func TestBftCore_ProcessEvent(t *testing.T) {
 			},
 		},
 	}
-	fbft.master = mockAccounts[1]
+	fbft.nodes.master = mockAccounts[1]
 	fbft.ProcessEvent(mock_proposal)
 	monkey.Patch(signature.Verify, func(_ keypair.PublicKey, sign []byte) (types.Address, error) {
 		var address types.Address
@@ -108,7 +108,7 @@ func TestBftCore_ProcessEvent(t *testing.T) {
 		return address, nil
 	})
 
-	fbft.master = mockAccounts[0]
+	fbft.nodes.master = mockAccounts[0]
 	mockResponse := &messages.Response{
 		Account:   mockAccounts[0],
 		Timestamp: time.Now().Unix(),
@@ -121,7 +121,7 @@ func TestBftCore_ProcessEvent(t *testing.T) {
 	assert.Equal(t, true, ok)
 	ok = content.AddSignature(mockAccounts[2], mockSignset[2])
 	assert.Equal(t, true, ok)
-	fbft.tolerance = uint8((len(fbft.peers) - 1) / 3)
+	fbft.tolerance = uint8((len(fbft.nodes.peers) - 1) / 3)
 	go fbft.waitResponse(mockHash)
 	fbft.ProcessEvent(mockResponse)
 	ch := <-fbft.result
@@ -183,7 +183,7 @@ var fakeSignature = []byte{
 func TestBftCore_receiveRequest(t *testing.T) {
 	fbft := NewFBFTCore(mockAccounts[0], nil)
 	assert.NotNil(t, fbft)
-	fbft.peers = mockAccounts
+	fbft.nodes.peers = mockAccounts
 	// only master process request
 	request := &messages.Request{
 		Timestamp: 1535414400,
@@ -194,10 +194,10 @@ func TestBftCore_receiveRequest(t *testing.T) {
 			},
 		},
 	}
-	fbft.master = mockAccounts[1]
+	fbft.nodes.master = mockAccounts[1]
 	fbft.receiveRequest(request)
 	// absence of signature
-	fbft.master = mockAccounts[0]
+	fbft.nodes.master = mockAccounts[0]
 	fbft.receiveRequest(request)
 
 	request.Payload.Header.SigData = append(request.Payload.Header.SigData, fakeSignature)
@@ -239,12 +239,12 @@ func TestBftCore_receiveRequest(t *testing.T) {
 func TestNewFBFTCore_broadcast(t *testing.T) {
 	fbft := NewFBFTCore(mockAccounts[0], nil)
 	assert.NotNil(t, fbft)
-	fbft.peers = mockAccounts
+	fbft.nodes.peers = mockAccounts
 	// resolve error
 	monkey.Patch(net.ResolveTCPAddr, func(string, string) (*net.TCPAddr, error) {
 		return nil, fmt.Errorf("resolve error")
 	})
-	messages.BroadcastPeers(nil, messages.ProposalMessageType, mockHash, fbft.peers)
+	messages.BroadcastPeers(nil, messages.ProposalMessageType, mockHash, fbft.nodes.peers)
 
 	monkey.Patch(net.ResolveTCPAddr, func(string, string) (*net.TCPAddr, error) {
 		return nil, nil
@@ -252,7 +252,7 @@ func TestNewFBFTCore_broadcast(t *testing.T) {
 	monkey.Patch(net.DialTCP, func(string, *net.TCPAddr, *net.TCPAddr) (*net.TCPConn, error) {
 		return nil, fmt.Errorf("dail error")
 	})
-	messages.BroadcastPeers(nil, messages.ProposalMessageType, mockHash, fbft.peers)
+	messages.BroadcastPeers(nil, messages.ProposalMessageType, mockHash, fbft.nodes.peers)
 
 	var c net.TCPConn
 	monkey.Patch(net.DialTCP, func(string, *net.TCPAddr, *net.TCPAddr) (*net.TCPConn, error) {
@@ -261,7 +261,7 @@ func TestNewFBFTCore_broadcast(t *testing.T) {
 	monkey.PatchInstanceMethod(reflect.TypeOf(&c), "Write", func(*net.TCPConn, []byte) (int, error) {
 		return 0, nil
 	})
-	messages.BroadcastPeers(nil, messages.ProposalMessageType, mockHash, fbft.peers)
+	messages.BroadcastPeers(nil, messages.ProposalMessageType, mockHash, fbft.nodes.peers)
 	monkey.Unpatch(net.ResolveTCPAddr)
 	monkey.Unpatch(net.DialTCP)
 	monkey.UnpatchInstanceMethod(reflect.TypeOf(&c), "Write")
@@ -270,11 +270,11 @@ func TestNewFBFTCore_broadcast(t *testing.T) {
 func TestBftCore_unicast(t *testing.T) {
 	fbft := NewFBFTCore(mockAccounts[0], nil)
 	assert.NotNil(t, fbft)
-	fbft.peers = mockAccounts
+	fbft.nodes.peers = mockAccounts
 	monkey.Patch(net.ResolveTCPAddr, func(string, string) (*net.TCPAddr, error) {
 		return nil, fmt.Errorf("resolve error")
 	})
-	err := messages.Unicast(fbft.peers[1], nil, messages.ProposalMessageType, mockHash)
+	err := messages.Unicast(fbft.nodes.peers[1], nil, messages.ProposalMessageType, mockHash)
 	assert.Equal(t, fmt.Errorf("resolve error"), err)
 	monkey.Patch(net.ResolveTCPAddr, func(string, string) (*net.TCPAddr, error) {
 		return nil, nil
@@ -286,7 +286,7 @@ func TestBftCore_unicast(t *testing.T) {
 	monkey.PatchInstanceMethod(reflect.TypeOf(&c), "Write", func(*net.TCPConn, []byte) (int, error) {
 		return 0, nil
 	})
-	err = messages.Unicast(fbft.peers[1], nil, messages.ProposalMessageType, mockHash)
+	err = messages.Unicast(fbft.nodes.peers[1], nil, messages.ProposalMessageType, mockHash)
 	assert.NotNil(t, err)
 	monkey.Unpatch(net.ResolveTCPAddr)
 	monkey.Unpatch(net.DialTCP)
@@ -296,8 +296,8 @@ func TestBftCore_unicast(t *testing.T) {
 func TestBftCore_receiveProposal(t *testing.T) {
 	fbft := NewFBFTCore(mockAccounts[0], nil)
 	assert.NotNil(t, fbft)
-	fbft.peers = mockAccounts
-	fbft.master = mockAccounts[0]
+	fbft.nodes.peers = mockAccounts
+	fbft.nodes.master = mockAccounts[0]
 	// master receive proposal
 	proposal := &messages.Proposal{
 		Timestamp: 1535414400,
@@ -311,7 +311,7 @@ func TestBftCore_receiveProposal(t *testing.T) {
 	fbft.receiveProposal(proposal)
 
 	// verify failed: Get NewBlockChainByBlockHash failed
-	fbft.local.Extension.Id = mockAccounts[0].Extension.Id + 1
+	fbft.nodes.local.Extension.Id = mockAccounts[0].Extension.Id + 1
 	monkey.Patch(signature.Verify, func(keypair.PublicKey, []byte) (types.Address, error) {
 		return mockAccounts[1].Address, nil
 	})
@@ -366,8 +366,8 @@ func TestBftCore_receiveProposal(t *testing.T) {
 
 func TestBftCore_receiveResponse(t *testing.T) {
 	fbft := NewFBFTCore(mockAccounts[0], nil)
-	fbft.peers = mockAccounts
-	fbft.master = mockAccounts[0]
+	fbft.nodes.peers = mockAccounts
+	fbft.nodes.master = mockAccounts[0]
 	fbft.tolerance = 1
 	response := &messages.Response{
 		Account:   mockAccounts[1],
@@ -436,7 +436,7 @@ func TestBftCore_SendCommit(t *testing.T) {
 	blockSwitch := make(chan interface{})
 	fbft := NewFBFTCore(mockAccounts[0], blockSwitch)
 	assert.NotNil(t, fbft)
-	fbft.peers = mockAccounts
+	fbft.nodes.peers = mockAccounts
 	block := &types.Block{
 		HeaderHash: mockHash,
 		Header: &types.Header{

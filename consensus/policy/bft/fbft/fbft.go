@@ -32,7 +32,7 @@ func (instance *FBFTPolicy) Initialization(role map[account.Account]commonr.Role
 	var masterExist = false
 	for delegate, role := range role {
 		if commonr.Master == role {
-			instance.core.master = delegate
+			instance.core.nodes.master = delegate
 			masterExist = true
 		}
 	}
@@ -40,7 +40,7 @@ func (instance *FBFTPolicy) Initialization(role map[account.Account]commonr.Role
 		log.Error("no master exist, please confirm.")
 		return fmt.Errorf("no master exist")
 	}
-	instance.core.peers = peers
+	instance.core.nodes.peers = peers
 	instance.core.eventCenter = events
 	instance.core.tolerance = uint8((len(peers) - 1) / 3)
 	return nil
@@ -57,7 +57,7 @@ func (instance *FBFTPolicy) Start() {
 
 func (instance *FBFTPolicy) commit(block *types.Block, result bool) {
 	commit := &messages.Commit{
-		Account:    instance.core.local,
+		Account:    instance.core.nodes.local,
 		Timestamp:  time.Now().Unix(),
 		Digest:     block.Header.MixDigest,
 		Signatures: block.Header.SigData,
@@ -103,18 +103,18 @@ func (instance *FBFTPolicy) Halt() {
 
 func (self *FBFTPolicy) GetConsensusResult() common.ConsensusResult {
 	role := make(map[account.Account]commonr.Roler)
-	for _, peer := range self.core.peers {
-		if self.core.master == peer {
+	for _, peer := range self.core.nodes.peers {
+		if self.core.nodes.master == peer {
 			role[peer] = commonr.Master
 			log.Debug("now master is %d.", peer.Extension.Id)
 			continue
 		}
 		role[peer] = commonr.Slave
 	}
-	log.Debug("now local is %d.", self.core.local.Extension.Id)
+	log.Debug("now local is %d.", self.core.nodes.local.Extension.Id)
 	return common.ConsensusResult{
 		View:        uint64(0),
-		Participate: self.core.peers,
+		Participate: self.core.nodes.peers,
 		Roles:       role,
 	}
 }
