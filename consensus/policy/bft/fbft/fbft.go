@@ -13,21 +13,18 @@ import (
 )
 
 type FBFTPolicy struct {
-	name    string
-	account account.Account
-	core    *fbftCore
+	name string
+	core *fbftCore
+	// time to reach consensus
 	timeout time.Duration
-	result  chan *messages.ConsensusResult
 }
 
 func NewFBFTPolicy(account account.Account, timeout int64, blockSwitch chan<- interface{}) (*FBFTPolicy, error) {
 	policy := &FBFTPolicy{
 		name:    common.FBFT_POLICY,
-		account: account,
 		timeout: time.Duration(timeout),
-		result:  make(chan *messages.ConsensusResult),
 	}
-	policy.core = NewFBFTCore(account, policy.result, blockSwitch)
+	policy.core = NewFBFTCore(account, blockSwitch)
 	return policy, nil
 }
 
@@ -55,12 +52,12 @@ func (instance *FBFTPolicy) PolicyName() string {
 
 func (instance *FBFTPolicy) Start() {
 	log.Info("start fbft policy service.")
-	instance.core.Start(instance.account)
+	instance.core.Start()
 }
 
 func (instance *FBFTPolicy) commit(block *types.Block, result bool) {
 	commit := &messages.Commit{
-		Account:    instance.account,
+		Account:    instance.core.local,
 		Timestamp:  time.Now().Unix(),
 		Digest:     block.Header.MixDigest,
 		Signatures: block.Header.SigData,
@@ -80,7 +77,7 @@ func (instance *FBFTPolicy) ToConsensus(p *common.Proposal) error {
 	timer := time.NewTimer(time.Second * instance.timeout)
 	go tools.SendEvent(instance.core, request)
 	select {
-	case consensusResult := <-instance.result:
+	case consensusResult := <-instance.core.result:
 		if nil != consensusResult.Result {
 			log.Error("consensus for %x failed with error %v.", p.Block.Header.MixDigest, consensusResult.Result)
 			err = consensusResult.Result

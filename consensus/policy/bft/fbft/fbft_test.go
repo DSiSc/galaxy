@@ -122,7 +122,7 @@ func TestBFTPolicy_Initialization(t *testing.T) {
 func TestBFTPolicy_Start(t *testing.T) {
 	fbft, _ := NewFBFTPolicy(mockAccounts[0], timeout, nil)
 	var b *fbftCore
-	monkey.PatchInstanceMethod(reflect.TypeOf(b), "Start", func(*fbftCore, account.Account) {
+	monkey.PatchInstanceMethod(reflect.TypeOf(b), "Start", func(*fbftCore) {
 		log.Info("pass it.")
 		return
 	})
@@ -175,7 +175,7 @@ func TestBFTPolicy_ToConsensus(t *testing.T) {
 	assert.Nil(t, err)
 	fbft.core.peers = mockAccounts
 	monkey.Patch(tools.SendEvent, func(tools.Receiver, tools.Event) {
-		fbft.result <- mockConsensusResult
+		fbft.core.result <- mockConsensusResult
 	})
 	var b *fbftCore
 	monkey.PatchInstanceMethod(reflect.TypeOf(b), "SendCommit", func(*fbftCore, *messages.Commit, *types.Block) {

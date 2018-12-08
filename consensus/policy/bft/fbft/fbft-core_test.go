@@ -22,20 +22,19 @@ import (
 )
 
 func TestNewBFTCore(t *testing.T) {
-	bft := NewFBFTCore(mockAccounts[0], sigChannel, nil)
+	bft := NewFBFTCore(mockAccounts[0], nil)
 	assert.NotNil(t, bft)
 	assert.Equal(t, mockAccounts[0], bft.local)
 }
 
 func TestBftCore_ProcessEvent(t *testing.T) {
-	var sigChannel = make(chan *messages.ConsensusResult)
 	block := &types.Block{
 		Header: &types.Header{
 			Height:    uint64(1),
 			MixDigest: mockHash,
 		},
 	}
-	fbft := NewFBFTCore(mockAccounts[0], sigChannel, nil)
+	fbft := NewFBFTCore(mockAccounts[0], nil)
 	fbft.consensusPlugin = tools.NewConsensusPlugin()
 	content := fbft.consensusPlugin.Add(mockHash, block)
 	assert.NotNil(t, content)
@@ -147,7 +146,7 @@ func TestBftCore_ProcessEvent(t *testing.T) {
 }
 
 func TestBftCore_Start(t *testing.T) {
-	fbft := NewFBFTCore(mockAccounts[0], sigChannel, nil)
+	fbft := NewFBFTCore(mockAccounts[0], nil)
 	assert.NotNil(t, fbft)
 	var account = account.Account{
 		Extension: account.AccountExtension{
@@ -171,7 +170,7 @@ func TestBftCore_Start(t *testing.T) {
 	msgRaw, err := messages.EncodeMessage(committed)
 	assert.Nil(t, err)
 	assert.NotNil(t, msgRaw)
-	go fbft.Start(account)
+	go fbft.Start()
 	messages.Unicast(account, msgRaw, messages.CommitMessageType, mockHash)
 	time.Sleep(1 * time.Second)
 }
@@ -182,7 +181,7 @@ var fakeSignature = []byte{
 }
 
 func TestBftCore_receiveRequest(t *testing.T) {
-	fbft := NewFBFTCore(mockAccounts[0], sigChannel, nil)
+	fbft := NewFBFTCore(mockAccounts[0], nil)
 	assert.NotNil(t, fbft)
 	fbft.peers = mockAccounts
 	// only master process request
@@ -238,7 +237,7 @@ func TestBftCore_receiveRequest(t *testing.T) {
 }
 
 func TestNewFBFTCore_broadcast(t *testing.T) {
-	fbft := NewFBFTCore(mockAccounts[0], sigChannel, nil)
+	fbft := NewFBFTCore(mockAccounts[0], nil)
 	assert.NotNil(t, fbft)
 	fbft.peers = mockAccounts
 	// resolve error
@@ -269,7 +268,7 @@ func TestNewFBFTCore_broadcast(t *testing.T) {
 }
 
 func TestBftCore_unicast(t *testing.T) {
-	fbft := NewFBFTCore(mockAccounts[0], sigChannel, nil)
+	fbft := NewFBFTCore(mockAccounts[0], nil)
 	assert.NotNil(t, fbft)
 	fbft.peers = mockAccounts
 	monkey.Patch(net.ResolveTCPAddr, func(string, string) (*net.TCPAddr, error) {
@@ -295,7 +294,7 @@ func TestBftCore_unicast(t *testing.T) {
 }
 
 func TestBftCore_receiveProposal(t *testing.T) {
-	fbft := NewFBFTCore(mockAccounts[0], sigChannel, nil)
+	fbft := NewFBFTCore(mockAccounts[0], nil)
 	assert.NotNil(t, fbft)
 	fbft.peers = mockAccounts
 	fbft.master = mockAccounts[0]
@@ -366,8 +365,7 @@ func TestBftCore_receiveProposal(t *testing.T) {
 }
 
 func TestBftCore_receiveResponse(t *testing.T) {
-	var sigChannel = make(chan *messages.ConsensusResult)
-	fbft := NewFBFTCore(mockAccounts[0], sigChannel, nil)
+	fbft := NewFBFTCore(mockAccounts[0], nil)
 	fbft.peers = mockAccounts
 	fbft.master = mockAccounts[0]
 	fbft.tolerance = 1
@@ -436,7 +434,7 @@ func TestBftCore_receiveResponse(t *testing.T) {
 
 func TestBftCore_SendCommit(t *testing.T) {
 	blockSwitch := make(chan interface{})
-	fbft := NewFBFTCore(mockAccounts[0], sigChannel, blockSwitch)
+	fbft := NewFBFTCore(mockAccounts[0], blockSwitch)
 	assert.NotNil(t, fbft)
 	fbft.peers = mockAccounts
 	block := &types.Block{

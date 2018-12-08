@@ -33,10 +33,10 @@ type payloadSets struct {
 	receipts types.Receipts
 }
 
-func NewFBFTCore(local account.Account, result chan *messages.ConsensusResult, blockSwitch chan<- interface{}) *fbftCore {
+func NewFBFTCore(local account.Account, blockSwitch chan<- interface{}) *fbftCore {
 	return &fbftCore{
 		local:           local,
-		result:          result,
+		result:          make(chan *messages.ConsensusResult),
 		tunnel:          make(chan int),
 		blockSwitch:     blockSwitch,
 		consensusPlugin: tools.NewConsensusPlugin(),
@@ -311,9 +311,8 @@ func (instance *fbftCore) ProcessEvent(e tools.Event) tools.Event {
 	return err
 }
 
-func (instance *fbftCore) Start(account account.Account) {
-	url := account.Extension.Url
-	log.Info("start server of url: %s.", url)
+func (instance *fbftCore) Start() {
+	url := instance.local.Extension.Url
 	localAddress, _ := net.ResolveTCPAddr("tcp4", url)
 	var tcpListener, err = net.ListenTCP("tcp", localAddress)
 	if err != nil {
@@ -334,7 +333,6 @@ func (instance *fbftCore) Start(account account.Account) {
 }
 
 func handleClient(conn net.Conn, bft *fbftCore) {
-	log.Info("receive messages form other node.")
 	defer conn.Close()
 	reader := bufio.NewReaderSize(conn, common.MAX_BUF_LEN)
 	msg, err := messages.ReadMessage(reader)
@@ -380,7 +378,7 @@ func handleClient(conn net.Conn, bft *fbftCore) {
 		tools.SendEvent(bft, commit)
 	default:
 		if nil == payload {
-			log.Info("receive handshake, omit it %v.", payload)
+			log.Warn("receive handshake, omit it %v.", payload)
 		} else {
 			log.Error("not support type for %v.", payload)
 		}
