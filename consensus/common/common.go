@@ -67,6 +67,13 @@ type ConsensusResult struct {
 	Roles       map[account.Account]common.Roler
 }
 
+type MessageSignal uint8
+
+const (
+	NIL = MessageSignal(iota)
+	ReceiveResponseSignal
+)
+
 func Sum(bz []byte) []byte {
 	hash := sha256.Sum256(bz)
 	return hash[:types.HashLength]

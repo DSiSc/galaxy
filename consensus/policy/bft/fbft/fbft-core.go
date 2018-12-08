@@ -22,7 +22,7 @@ type fbftCore struct {
 	peers           []account.Account
 	tolerance       uint8
 	result          chan *messages.ConsensusResult
-	tunnel          chan int
+	signal          chan common.MessageSignal
 	eventCenter     types.EventCenter
 	blockSwitch     chan<- interface{}
 	consensusPlugin *tools.ConsensusPlugin
@@ -37,7 +37,7 @@ func NewFBFTCore(local account.Account, blockSwitch chan<- interface{}) *fbftCor
 	return &fbftCore{
 		local:           local,
 		result:          make(chan *messages.ConsensusResult),
-		tunnel:          make(chan int),
+		signal:          make(chan common.MessageSignal),
 		blockSwitch:     blockSwitch,
 		consensusPlugin: tools.NewConsensusPlugin(),
 	}
@@ -114,8 +114,8 @@ func (instance *fbftCore) waitResponse(digest types.Hash) {
 			}
 			instance.result <- consensusResult
 			return
-		case <-instance.tunnel:
-			log.Debug("receive tunnel")
+		case signal := <-instance.signal:
+			log.Debug("receive signal of %v.", signal)
 			signatures, err := instance.maybeCommit(digest)
 			if nil == err {
 				content.SetState(tools.ToConsensus)
@@ -224,7 +224,7 @@ func (instance *fbftCore) receiveResponse(response *messages.Response) {
 					response.Account.Address, existSign, response.Signature)
 			}
 		}
-		instance.tunnel <- 1
+		instance.signal <- common.ReceiveResponseSignal
 	} else {
 		log.Warn("consensus content state has reached %d, so ignore response from %x.",
 			tools.ToConsensus, response.Account.Address)
