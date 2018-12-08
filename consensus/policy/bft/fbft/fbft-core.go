@@ -299,7 +299,7 @@ func (instance *fbftCore) receiveChangeViewReq(viewChangeReq *messages.ViewChang
 		log.Warn("current viewNum %d no less than received %d, so ignore it.", currentViewNum, viewChangeReq.ViewNum)
 		return
 	}
-	viewRequests, err := instance.viewChange.AddViewRequest(viewChangeReq.ViewNum, instance.tolerance)
+	viewRequests, err := instance.viewChange.AddViewRequest(viewChangeReq.ViewNum, uint8(len(instance.nodes.peers))-instance.tolerance)
 	if nil != err {
 		log.Error("Add view request failed with error %v.", err)
 		return

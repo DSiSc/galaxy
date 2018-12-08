@@ -266,8 +266,8 @@ func (self *ViewRequests) ReceiveViewRequestByAccount(account account.Account) c
 }
 
 func (self *ViewRequests) GetViewRequestState() common.ViewRequestState {
-	self.lock.Lock()
-	defer self.lock.Unlock()
+	self.lock.RLock()
+	defer self.lock.RUnlock()
 	return self.state
 }
 

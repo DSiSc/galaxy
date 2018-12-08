@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/DSiSc/blockchain"
 	"github.com/DSiSc/craft/types"
+	fcommon "github.com/DSiSc/galaxy/consensus/common"
 	"github.com/DSiSc/galaxy/consensus/policy/bft/messages"
 	"github.com/DSiSc/galaxy/consensus/policy/bft/tools"
 	"github.com/DSiSc/monkey"
@@ -364,7 +365,7 @@ func TestBftCore_receiveProposal(t *testing.T) {
 	monkey.UnpatchInstanceMethod(reflect.TypeOf(w), "VerifyBlock")
 }
 
-func TestBftCore_receiveResponse(t *testing.T) {
+func TestFbftCore_receiveResponse(t *testing.T) {
 	fbft := NewFBFTCore(mockAccounts[0], nil)
 	fbft.nodes.peers = mockAccounts
 	fbft.nodes.master = mockAccounts[0]
@@ -432,7 +433,7 @@ func TestBftCore_receiveResponse(t *testing.T) {
 	monkey.Unpatch(signature.Verify)
 }
 
-func TestBftCore_SendCommit(t *testing.T) {
+func TestFbftCore_SendCommit(t *testing.T) {
 	blockSwitch := make(chan interface{})
 	fbft := NewFBFTCore(mockAccounts[0], blockSwitch)
 	assert.NotNil(t, fbft)
@@ -497,4 +498,51 @@ func TestBftCore_SendCommit(t *testing.T) {
 	result := payload.(*messages.CommitMessage).Commit
 	assert.NotNil(t, result)
 	assert.Equal(t, commit, result)
+}
+
+func TestFbftCore_ProcessEvent(t *testing.T) {
+	blockSwitch := make(chan interface{})
+	fbft := NewFBFTCore(mockAccounts[0], blockSwitch)
+	fbft.nodes.peers = mockAccounts
+	fbft.tolerance = 1
+	mockViewNum := uint64(0)
+	nodes := []account.Account{mockAccounts[1]}
+	viewChangeReq := &messages.ViewChangeReq{
+		Id:        mockAccounts[1].Extension.Id,
+		Nodes:     nodes,
+		Timestamp: time.Now().Unix(),
+		ViewNum:   mockViewNum,
+	}
+	fbft.ProcessEvent(viewChangeReq)
+
+	monkey.Patch(messages.BroadcastPeersFilter, func([]byte, messages.MessageType, types.Hash, []account.Account, account.Account) {
+		return
+	})
+	mockViewNum = uint64(1)
+	viewChangeReq = &messages.ViewChangeReq{
+		Id:        mockAccounts[1].Extension.Id,
+		Nodes:     []account.Account{mockAccounts[1]},
+		Timestamp: time.Now().Unix(),
+		ViewNum:   mockViewNum,
+	}
+	fbft.ProcessEvent(viewChangeReq)
+	currentViewNum := fbft.viewChange.GetCurrentViewNum()
+	assert.Equal(t, fcommon.DefaultViewNum, currentViewNum)
+	request := fbft.viewChange.GetRequestByViewNum(mockViewNum)
+	receivedNodes := request.GetReceivedAccounts()
+	assert.Equal(t, 2, len(receivedNodes))
+	assert.Equal(t, fcommon.Viewing, request.GetViewRequestState())
+
+	viewChangeReq = &messages.ViewChangeReq{
+		Id:        mockAccounts[2].Extension.Id,
+		Nodes:     []account.Account{mockAccounts[2]},
+		Timestamp: time.Now().Unix(),
+		ViewNum:   mockViewNum,
+	}
+	fbft.ProcessEvent(viewChangeReq)
+	receivedNodes = request.GetReceivedAccounts()
+	assert.Equal(t, 3, len(receivedNodes))
+	assert.Equal(t, fcommon.ViewEnd, request.GetViewRequestState())
+	currentViewNum = fbft.viewChange.GetCurrentViewNum()
+	assert.Equal(t, mockViewNum, currentViewNum)
 }
