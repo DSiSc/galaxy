@@ -43,6 +43,16 @@ func GetAccountById(peers []account.Account, except uint64) account.Account {
 	return temp
 }
 
+func GetNodeAccountWithMinId(nodes []account.Account) account.Account {
+	var minNode = nodes[0]
+	for _, node := range nodes {
+		if node.Extension.Id < minNode.Extension.Id {
+			minNode = node
+		}
+	}
+	return minNode
+}
+
 type contentState uint8
 
 const (
@@ -256,12 +266,14 @@ func (self *ViewRequests) ReceiveViewRequestByAccount(account account.Account) c
 		log.Info("add %x view request.", account.Address)
 		self.index[account] = true
 		self.nodes = append(self.nodes, account)
+	} else {
+		log.Warn("has receive %x view request.", account.Address)
 	}
-	log.Warn("has receive %x view request.", account.Address)
 	if uint8(len(self.nodes)) >= self.toChange {
-		log.Info("request %d has reach to change view situation %d.", len(self.nodes), self.toChange)
+		log.Info("request has reach to change view situation which need less than %, now received is %d.", len(self.nodes), self.toChange)
 		self.state = common.ViewEnd
 	}
+
 	return self.state
 }
 

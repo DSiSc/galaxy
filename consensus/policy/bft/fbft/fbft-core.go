@@ -294,6 +294,7 @@ func (instance *fbftCore) commitBlock(block *types.Block) {
 }
 
 func (instance *fbftCore) receiveChangeViewReq(viewChangeReq *messages.ViewChangeReq) {
+	var nodes []account.Account
 	currentViewNum := instance.viewChange.GetCurrentViewNum()
 	if viewChangeReq.ViewNum <= currentViewNum {
 		log.Warn("current viewNum %d no less than received %d, so ignore it.", currentViewNum, viewChangeReq.ViewNum)
@@ -312,11 +313,14 @@ func (instance *fbftCore) receiveChangeViewReq(viewChangeReq *messages.ViewChang
 		}
 		viewRequestState = viewRequests.ReceiveViewRequestByAccount(instance.nodes.local)
 	}
+	nodes = viewRequests.GetReceivedAccounts()
 	if viewRequestState == common.ViewEnd {
 		// come to consensus for new view number
 		instance.viewChange.SetCurrentViewNum(viewChangeReq.ViewNum)
+		instance.nodes.master = tools.GetNodeAccountWithMinId(nodes)
+		instance.eventCenter.Notify(types.EventMasterChange, nil)
+		log.Info("now reach to consensus for viewNum %d and new master is %v.", viewChangeReq.ViewNum, instance.nodes.master.Address)
 	}
-	nodes := viewRequests.GetReceivedAccounts()
 	instance.sendChangeViewReq(nodes, viewChangeReq.ViewNum)
 }
 

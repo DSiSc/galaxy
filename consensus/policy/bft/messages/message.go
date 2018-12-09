@@ -134,7 +134,6 @@ func DecodeMessage(MessageType MessageType, rawMsg []byte) (Message, error) {
 }
 
 func sendMsgByUrl(url string, msgPayload []byte) error {
-	log.Info("send msg to url %s.", url)
 	tcpAddr, err := net.ResolveTCPAddr("tcp4", url)
 	if err != nil {
 		log.Error("resolve tcp address %s occur fatal error: %v", url, err)
