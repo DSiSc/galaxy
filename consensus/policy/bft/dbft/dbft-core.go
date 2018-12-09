@@ -671,6 +671,7 @@ func (instance *dbftCore) receiveChangeViewReq(viewChangeReq *messages.ViewChang
 			if !instance.views.viewSets[viewChangeReq.ViewNum].notify {
 				instance.eventCenter.Notify(types.EventMasterChange, nil)
 				instance.views.viewSets[viewChangeReq.ViewNum].notify = true
+				instance.masterTimeout.Stop()
 			}
 		}
 		instance.views.viewSets[viewChangeReq.ViewNum].mu.RUnlock()
