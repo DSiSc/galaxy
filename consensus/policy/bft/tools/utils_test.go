@@ -7,6 +7,7 @@ import (
 	"github.com/DSiSc/validator/tools/account"
 	"github.com/stretchr/testify/assert"
 	"testing"
+	"time"
 )
 
 func TestAccountFilter(t *testing.T) {
@@ -155,4 +156,30 @@ func TestViewChange_AddViewRequest(t *testing.T) {
 	viewChange.RemoveRequest(mockViewNum)
 	viewRequest = viewChange.GetRequestByViewNum(mockViewNum)
 	assert.Nil(t, viewRequest)
+}
+
+func TestGetNodeAccountWithMinId(t *testing.T) {
+	var nodes []account.Account
+	nodes = mockAccounts
+	minNode := GetNodeAccountWithMinId(nodes)
+	assert.Equal(t, mockAccounts[0], minNode)
+	timer := time.NewTimer(10 * time.Second)
+	_, _, timeSecond := time.Now().Clock()
+	fmt.Printf("receive timer and time %v.\n", timeSecond)
+	timer.Reset(5 * time.Second)
+	index := 0
+	for {
+		select {
+		case <-timer.C:
+			_, _, timeSecond := time.Now().Clock()
+			fmt.Printf("receive timer and time %v.\n", timeSecond)
+			timer.Reset(3 * time.Second)
+			index = index + 1
+			if index == 3 {
+				timer.Stop()
+				return
+			}
+		default:
+		}
+	}
 }

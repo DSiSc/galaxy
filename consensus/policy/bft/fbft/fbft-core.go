@@ -322,11 +322,11 @@ func (instance *fbftCore) receiveChangeViewReq(viewChangeReq *messages.ViewChang
 	nodes = viewRequests.GetReceivedAccounts()
 	if viewRequestState == common.ViewEnd {
 		// come to consensus for new view number
+		log.Info("stop timeout master with view num %d.", instance.viewChange.GetCurrentViewNum())
+		instance.timeoutTimer.Stop()
 		instance.viewChange.SetCurrentViewNum(viewChangeReq.ViewNum)
 		instance.nodes.master = tools.GetNodeAccountWithMinId(nodes)
 		instance.eventCenter.Notify(types.EventMasterChange, nil)
-		log.Info("stop timeout master with view num %d.", instance.viewChange.GetCurrentViewNum())
-		instance.timeoutTimer.Stop()
 		log.Info("now reach to consensus for viewNum %d and new master is %d.",
 			viewChangeReq.ViewNum, instance.nodes.master.Extension.Id)
 	}
