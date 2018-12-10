@@ -348,10 +348,10 @@ func (instance *fbftCore) sendChangeViewReq(nodes []account.Account, newView uin
 	messages.BroadcastPeersFilter(msgRaw, syncBlockResMsg.MessageType, types.Hash{}, instance.nodes.peers, instance.nodes.local)
 }
 
-func (self *fbftCore) waitMasterTimeout(timer *time.Timer) {
+func (self *fbftCore) waitMasterTimeout() {
 	for {
 		select {
-		case <-timer.C:
+		case <-self.timeoutTimer.C:
 			currentViewNum := self.viewChange.GetCurrentViewNum()
 			requestViewNum := currentViewNum + 1
 			log.Warn("master timeout, issue change view from %d to %d.", currentViewNum, requestViewNum)
@@ -380,7 +380,7 @@ func (instance *fbftCore) ProcessEvent(e tools.Event) tools.Event {
 	var err error
 	switch et := e.(type) {
 	case *messages.Request:
-		log.Info("receive request %x from replica %d.", et.Payload.Header.MixDigest, instance.nodes.local.Extension.Id)
+		log.Info("receive request from replica %d with digest %x.", instance.nodes.local.Extension.Id, et.Payload.Header.MixDigest)
 		instance.receiveRequest(et)
 	case *messages.Proposal:
 		log.Info("receive proposal from replica %d with digest %x.", et.Id, et.Payload.Header.MixDigest)
