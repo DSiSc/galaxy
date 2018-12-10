@@ -53,6 +53,7 @@ func (instance *fbftCore) receiveRequest(request *messages.Request) {
 		log.Warn("only master process request.")
 		return
 	}
+	log.Info("stop timeout master with view num %d.", instance.viewChange.GetCurrentViewNum())
 	instance.timeoutTimer.Stop()
 	signature := request.Payload.Header.SigData
 	if 1 != len(signature) {
@@ -143,6 +144,7 @@ func (instance *fbftCore) receiveProposal(proposal *messages.Proposal) {
 		log.Warn("master not need to process proposal.")
 		return
 	}
+	log.Info("reset timeout master with view num %d.", instance.viewChange.GetCurrentViewNum())
 	instance.timeoutTimer.Reset(10 * time.Second)
 	if instance.nodes.master.Extension.Id != proposal.Id {
 		log.Error("proposal must from master %d, while it from %d in fact.", instance.nodes.master.Extension.Id, proposal.Id)
@@ -263,12 +265,13 @@ func (instance *fbftCore) SendCommit(commit *messages.Commit, block *types.Block
 }
 
 func (instance *fbftCore) receiveCommit(commit *messages.Commit) {
+	log.Info("stop timeout master with view num %d.", instance.viewChange.GetCurrentViewNum())
+	instance.timeoutTimer.Stop()
 	if !commit.Result {
 		log.Error("receive commit is consensus error.")
 		instance.eventCenter.Notify(types.EventConsensusFailed, nil)
 		return
 	}
-	instance.timeoutTimer.Stop()
 	content, err := instance.consensusPlugin.GetContentByHash(commit.Digest)
 	if nil != err {
 		log.Error("get content of %v from commit failed with %v.", commit.Digest, err)
@@ -322,6 +325,7 @@ func (instance *fbftCore) receiveChangeViewReq(viewChangeReq *messages.ViewChang
 		instance.viewChange.SetCurrentViewNum(viewChangeReq.ViewNum)
 		instance.nodes.master = tools.GetNodeAccountWithMinId(nodes)
 		instance.eventCenter.Notify(types.EventMasterChange, nil)
+		log.Info("stop timeout master with view num %d.", instance.viewChange.GetCurrentViewNum())
 		instance.timeoutTimer.Stop()
 		log.Info("now reach to consensus for viewNum %d and new master is %d.",
 			viewChangeReq.ViewNum, instance.nodes.master.Extension.Id)

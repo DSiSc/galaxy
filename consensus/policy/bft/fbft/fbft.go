@@ -43,6 +43,7 @@ func (instance *FBFTPolicy) Initialization(role map[account.Account]commonr.Role
 	instance.core.nodes.peers = peers
 	instance.core.eventCenter = events
 	instance.core.tolerance = uint8((len(peers) - 1) / 3)
+	log.Info("start timeout master with view num %d.", instance.core.viewChange.GetCurrentViewNum())
 	instance.core.timeoutTimer = time.NewTimer(30 * time.Second)
 	go instance.core.waitMasterTimeout()
 	return nil
