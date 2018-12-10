@@ -7,53 +7,7 @@ import (
 	"github.com/DSiSc/validator/tools/account"
 	"github.com/DSiSc/validator/tools/signature"
 	"github.com/DSiSc/validator/worker"
-	"sync"
 )
-
-type SignData struct {
-	Lock       sync.RWMutex
-	Signatures [][]byte
-	SignMap    map[account.Account][]byte
-}
-
-func NewSignData() *SignData {
-	return &SignData{
-		Signatures: make([][]byte, 0),
-		SignMap:    make(map[account.Account][]byte),
-	}
-}
-
-func (s *SignData) AddSignature(account account.Account, sign []byte) bool {
-	s.Lock.Lock()
-	defer s.Lock.Unlock()
-	if _, ok := s.SignMap[account]; !ok {
-		log.Info("add node %d signature.", account.Extension.Id)
-		s.SignMap[account] = sign
-		s.Signatures = append(s.Signatures, sign)
-		return true
-	}
-	log.Info("node %d signature has exist.", account.Extension.Id)
-	return false
-}
-
-func (s *SignData) SignatureNum() int {
-	s.Lock.RLock()
-	defer s.Lock.RUnlock()
-	return len(s.Signatures)
-}
-
-func (s *SignData) GetSignMap() map[account.Account][]byte {
-	s.Lock.RLock()
-	defer s.Lock.RUnlock()
-	return s.SignMap
-}
-
-func (s *SignData) GetSignByAccount(account account.Account) (bool, []byte) {
-	s.Lock.RLock()
-	defer s.Lock.RUnlock()
-	sign, ok := s.SignMap[account]
-	return ok, sign
-}
 
 func VerifyPayload(payload *types.Block) (types.Receipts, error) {
 	blockStore, err := blockchain.NewBlockChainByBlockHash(payload.Header.PrevBlockHash)

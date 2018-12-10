@@ -60,34 +60,6 @@ var mockSignset = [][]byte{
 	{0x37, 0x3c, 0x33, 0x10, 0x82, 0x4b, 0x7c, 0x68, 0x51, 0x33, 0xf2, 0xbe, 0xdb, 0x2c, 0xa4, 0xb8, 0xb4, 0xdf, 0x63, 0x3d},
 }
 
-func TestSignData_AddSignature(t *testing.T) {
-	sign := NewSignData()
-	sign.AddSignature(mockAccounts[0], mockSignset[0])
-	assert.Equal(t, 1, len(sign.Signatures))
-	assert.Equal(t, len(sign.Signatures), len(sign.SignMap))
-	assert.Equal(t, sign.SignMap[mockAccounts[0]], mockSignset[0])
-	sign.AddSignature(mockAccounts[0], mockSignset[0])
-}
-
-func TestSignData_GetSignMap(t *testing.T) {
-	sign := NewSignData()
-	sign.AddSignature(mockAccounts[0], mockSignset[0])
-	sign.AddSignature(mockAccounts[1], mockSignset[1])
-	sign.AddSignature(mockAccounts[2], mockSignset[2])
-	sigMap := sign.GetSignMap()
-	assert.Equal(t, mockSignset[0], sigMap[mockAccounts[0]])
-	assert.Equal(t, mockSignset[1], sigMap[mockAccounts[1]])
-	assert.Equal(t, mockSignset[2], sigMap[mockAccounts[2]])
-
-	assert.Equal(t, 3, sign.SignatureNum())
-	ok, signature := sign.GetSignByAccount(mockAccounts[0])
-	assert.Equal(t, true, ok)
-	assert.Equal(t, mockSignset[0], signature)
-
-	ok, _ = sign.GetSignByAccount(mockAccounts[3])
-	assert.Equal(t, false, ok)
-}
-
 func TestVerifyPayload(t *testing.T) {
 	block := &types.Block{
 		Header: &types.Header{
