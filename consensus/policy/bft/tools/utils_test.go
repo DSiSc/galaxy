@@ -156,10 +156,3 @@ func TestViewChange_AddViewRequest(t *testing.T) {
 	viewRequest = viewChange.GetRequestByViewNum(mockViewNum)
 	assert.Nil(t, viewRequest)
 }
-
-func TestGetNodeAccountWithMinId(t *testing.T) {
-	var nodes []account.Account
-	nodes = mockAccounts
-	minNode := GetNodeAccountWithMinId(nodes)
-	assert.Equal(t, mockAccounts[0], minNode)
-}

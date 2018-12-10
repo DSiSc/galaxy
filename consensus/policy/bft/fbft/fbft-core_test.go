@@ -147,6 +147,7 @@ func TestBftCore_ProcessEvent(t *testing.T) {
 		},
 	}
 	fbft := NewFBFTCore(mockAccounts[0], nil)
+	fbft.timeoutTimer = time.NewTimer(30 * time.Second)
 	fbft.consensusPlugin = tools.NewConsensusPlugin()
 	content := fbft.consensusPlugin.Add(mockHash, block)
 	assert.NotNil(t, content)
@@ -294,6 +295,7 @@ var fakeSignature = []byte{
 
 func TestBftCore_receiveRequest(t *testing.T) {
 	fbft := NewFBFTCore(mockAccounts[0], nil)
+	fbft.timeoutTimer = time.NewTimer(30 * time.Second)
 	assert.NotNil(t, fbft)
 	fbft.nodes.peers = mockAccounts
 	// only master process request
@@ -407,6 +409,7 @@ func TestBftCore_unicast(t *testing.T) {
 
 func TestBftCore_receiveProposal(t *testing.T) {
 	fbft := NewFBFTCore(mockAccounts[0], nil)
+	fbft.timeoutTimer = time.NewTimer(30 * time.Second)
 	assert.NotNil(t, fbft)
 	fbft.nodes.peers = mockAccounts
 	fbft.nodes.master = mockAccounts[0]
@@ -620,6 +623,7 @@ func TestFbftCore_SendCommit(t *testing.T) {
 func TestFbftCore_ProcessEvent(t *testing.T) {
 	blockSwitch := make(chan interface{})
 	fbft := NewFBFTCore(mockAccounts[0], blockSwitch)
+	fbft.timeoutTimer = time.NewTimer(30 * time.Second)
 	fbft.nodes.peers = mockAccounts
 	fbft.tolerance = 1
 	event := NewEvent()

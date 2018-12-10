@@ -266,14 +266,13 @@ func (self *ViewRequests) ReceiveViewRequestByAccount(account account.Account) c
 		log.Info("add %x view request.", account.Address)
 		self.index[account] = true
 		self.nodes = append(self.nodes, account)
+		if uint8(len(self.nodes)) >= self.toChange {
+			log.Info("request has reach to change view situation which need less than %d, now received is %d.", len(self.nodes), self.toChange)
+			self.state = common.ViewEnd
+		}
 	} else {
 		log.Warn("has receive %x view request.", account.Address)
 	}
-	if uint8(len(self.nodes)) >= self.toChange {
-		log.Info("request has reach to change view situation which need less than %, now received is %d.", len(self.nodes), self.toChange)
-		self.state = common.ViewEnd
-	}
-
 	return self.state
 }
 
