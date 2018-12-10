@@ -6,7 +6,7 @@ import (
 	"github.com/DSiSc/galaxy/consensus/common"
 	"github.com/DSiSc/galaxy/consensus/config"
 	"github.com/DSiSc/galaxy/consensus/policy/bft"
-	"github.com/DSiSc/galaxy/consensus/policy/bft/dbft"
+	"github.com/DSiSc/galaxy/consensus/policy/dbft"
 	"github.com/DSiSc/galaxy/consensus/policy/fbft"
 	"github.com/DSiSc/galaxy/consensus/policy/solo"
 	"github.com/DSiSc/galaxy/participates"
