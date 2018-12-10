@@ -267,7 +267,9 @@ func (instance *fbftCore) sendCommit(commit *messages.Commit, block *types.Block
 
 func (instance *fbftCore) receiveCommit(commit *messages.Commit) {
 	log.Info("stop timeout master with view num %d.", instance.viewChange.GetCurrentViewNum())
-	instance.timeoutTimer.Stop()
+	if nil != instance.timeoutTimer {
+		instance.timeoutTimer.Stop()
+	}
 	if !commit.Result {
 		log.Error("receive commit is consensus error.")
 		instance.eventCenter.Notify(types.EventConsensusFailed, nil)
