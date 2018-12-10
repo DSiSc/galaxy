@@ -7,7 +7,7 @@ import (
 	"github.com/DSiSc/blockchain"
 	"github.com/DSiSc/craft/types"
 	commonc "github.com/DSiSc/galaxy/consensus/common"
-	"github.com/DSiSc/galaxy/consensus/policy/bft/messages"
+	"github.com/DSiSc/galaxy/consensus/messages"
 	"github.com/DSiSc/monkey"
 	"github.com/DSiSc/validator/tools/account"
 	"github.com/DSiSc/validator/tools/signature"

@@ -1,4 +1,4 @@
-package tools
+package utils
 
 // Event is a type meant to clearly convey that the return type or parameter to a function will be supplied to/from an events.Manager
 type Event interface{}

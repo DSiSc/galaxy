@@ -8,15 +8,13 @@ import (
 	"github.com/DSiSc/blockchain"
 	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/craft/types"
-	fcommon "github.com/DSiSc/galaxy/consensus/common"
-	"github.com/DSiSc/galaxy/consensus/policy/bft/messages"
-	"github.com/DSiSc/galaxy/consensus/policy/bft/tools"
+	"github.com/DSiSc/galaxy/consensus/common"
+	"github.com/DSiSc/galaxy/consensus/messages"
 	"github.com/DSiSc/monkey"
 	"github.com/DSiSc/validator/tools/account"
 	"github.com/DSiSc/validator/tools/signature"
 	"github.com/DSiSc/validator/tools/signature/keypair"
 	"github.com/DSiSc/validator/worker"
-	"github.com/DSiSc/validator/worker/common"
 	"github.com/stretchr/testify/assert"
 	"net"
 	"reflect"
@@ -128,8 +126,6 @@ func (e *Event) UnSubscribeAll() {
 			close(subscriber)
 		}
 	}
-	// TODO: open it when txswitch and blkswith stop complete
-	//e.Subscribers = make(map[types.EventType]map[types.Subscriber]types.EventFunc)
 	return
 }
 
@@ -148,7 +144,7 @@ func TestBftCore_ProcessEvent(t *testing.T) {
 	}
 	fbft := NewFBFTCore(mockAccounts[0], nil)
 	fbft.timeoutTimer = time.NewTimer(30 * time.Second)
-	fbft.consensusPlugin = tools.NewConsensusPlugin()
+	fbft.consensusPlugin = common.NewConsensusPlugin()
 	content := fbft.consensusPlugin.Add(mockHash, block)
 	assert.NotNil(t, content)
 
@@ -448,12 +444,6 @@ func TestBftCore_receiveProposal(t *testing.T) {
 	monkey.PatchInstanceMethod(reflect.TypeOf(w), "VerifyBlock", func(*worker.Worker) error {
 		return nil
 	})
-	var bb types.Receipts
-	r := common.NewReceipt(nil, false, uint64(10))
-	bb = append(bb, r)
-	monkey.PatchInstanceMethod(reflect.TypeOf(w), "GetReceipts", func(*worker.Worker) types.Receipts {
-		return bb
-	})
 	monkey.Patch(signature.Sign, func(signature.Signer, []byte) ([]byte, error) {
 		return nil, fmt.Errorf("get signature failed")
 	})
@@ -531,13 +521,13 @@ func TestFbftCore_receiveResponse(t *testing.T) {
 		Digest:    mockHash,
 		Signature: mockSignset[2],
 	}
-	content.SetState(tools.InConsensus)
+	content.SetState(common.InConsensus)
 	go fbft.waitResponse(mockHash)
 	fbft.receiveResponse(response)
 	ch = <-fbft.result
 	assert.Equal(t, len(mockSignset[:3]), len(ch.Signatures))
 	assert.Nil(t, ch.Result)
-	assert.Equal(t, tools.ToConsensus, content.State())
+	assert.Equal(t, common.ToConsensus, content.State())
 
 	response = &messages.Response{
 		Account:   mockAccounts[3],
@@ -545,7 +535,7 @@ func TestFbftCore_receiveResponse(t *testing.T) {
 		Digest:    mockHash,
 		Signature: mockSignset[3],
 	}
-	content.SetState(tools.InConsensus)
+	content.SetState(common.InConsensus)
 	go fbft.waitResponse(mockHash)
 	fbft.receiveResponse(response)
 	ch = <-fbft.result
@@ -654,11 +644,11 @@ func TestFbftCore_ProcessEvent(t *testing.T) {
 	}
 	fbft.ProcessEvent(viewChangeReq)
 	currentViewNum := fbft.viewChange.GetCurrentViewNum()
-	assert.Equal(t, fcommon.DefaultViewNum, currentViewNum)
+	assert.Equal(t, common.DefaultViewNum, currentViewNum)
 	request := fbft.viewChange.GetRequestByViewNum(mockViewNum)
 	receivedNodes := request.GetReceivedAccounts()
 	assert.Equal(t, 2, len(receivedNodes))
-	assert.Equal(t, fcommon.Viewing, request.GetViewRequestState())
+	assert.Equal(t, common.Viewing, request.GetViewRequestState())
 
 	viewChangeReq = &messages.ViewChangeReq{
 		Account:   mockAccounts[2],
@@ -669,7 +659,7 @@ func TestFbftCore_ProcessEvent(t *testing.T) {
 	fbft.ProcessEvent(viewChangeReq)
 	receivedNodes = request.GetReceivedAccounts()
 	assert.Equal(t, 3, len(receivedNodes))
-	assert.Equal(t, fcommon.ViewEnd, request.GetViewRequestState())
+	assert.Equal(t, common.ViewEnd, request.GetViewRequestState())
 	currentViewNum = fbft.viewChange.GetCurrentViewNum()
 	assert.Equal(t, mockViewNum, currentViewNum)
 }

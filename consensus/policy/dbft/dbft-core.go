@@ -8,8 +8,8 @@ import (
 	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/galaxy/consensus/common"
-	"github.com/DSiSc/galaxy/consensus/policy/bft/messages"
-	"github.com/DSiSc/galaxy/consensus/policy/bft/tools"
+	"github.com/DSiSc/galaxy/consensus/messages"
+	"github.com/DSiSc/galaxy/consensus/utils"
 	"github.com/DSiSc/validator/tools/account"
 	"github.com/DSiSc/validator/tools/signature"
 	"github.com/DSiSc/validator/worker"
@@ -187,7 +187,7 @@ func (instance *dbftCore) receiveRequest(request *messages.Request) {
 	instance.signature.addSignature(instance.local, signData)
 	log.Info("broadcast proposal to peers.")
 	instance.broadcast(msgRaw, proposal.MessageType, request.Payload.Header.MixDigest)
-	peers := tools.AccountFilter([]account.Account{instance.local}, instance.peers)
+	peers := utils.AccountFilter([]account.Account{instance.local}, instance.peers)
 	messages.BroadcastPeers(msgRaw, proposal.MessageType, instance.digest, peers)
 	go instance.waitResponse()
 }
@@ -239,7 +239,7 @@ func (instance *dbftCore) receiveProposal(proposal *messages.Proposal) {
 		log.Error("proposal must from master %d, while it from %d in fact.", instance.master, proposal.Id)
 		return
 	}
-	masterAccount := tools.GetAccountById(instance.peers, instance.master)
+	masterAccount := utils.GetAccountById(instance.peers, instance.master)
 	if !signDataVerify(masterAccount, proposal.Signature, proposal.Payload.Header.MixDigest) {
 		log.Error("proposal signature not from master, please confirm.")
 		return
@@ -399,7 +399,7 @@ func (instance *dbftCore) receiveResponse(response *messages.Response) {
 				instance.digest, response.Digest)
 			return
 		}
-		peer := tools.GetAccountById(instance.peers, response.Account.Extension.Id)
+		peer := utils.GetAccountById(instance.peers, response.Account.Extension.Id)
 		if !signDataVerify(peer, response.Signature, instance.digest) {
 			log.Error("signature and response sender not in coincidence.")
 			return
@@ -595,7 +595,7 @@ func (instance *dbftCore) sendChangeViewReq(nodes []account.Account, newView uin
 		panic(fmt.Sprintf("marshal syncBlockResMsg msg failed with %v.", err))
 	}
 	// TODO: sign the digest
-	peers := tools.AccountFilter([]account.Account{instance.local}, instance.peers)
+	peers := utils.AccountFilter([]account.Account{instance.local}, instance.peers)
 	messages.BroadcastPeers(msgRaw, syncBlockResMsg.MessageType, types.Hash{}, peers)
 }
 
@@ -722,7 +722,7 @@ func (self *dbftCore) waitMasterTimeOut(timer *time.Timer) {
 	}
 }
 
-func (instance *dbftCore) ProcessEvent(e tools.Event) tools.Event {
+func (instance *dbftCore) ProcessEvent(e utils.Event) utils.Event {
 	var err error
 	log.Debug("replica %d processing event", instance.local.Extension.Id)
 	switch et := e.(type) {
@@ -794,7 +794,7 @@ func handleClient(conn net.Conn, bft *dbftCore) {
 		log.Info("receive request message from producer")
 		// TODO: separate producer and master, so client need send request to master
 		request := payload.(*messages.RequestMessage).Request
-		tools.SendEvent(bft, request)
+		utils.SendEvent(bft, request)
 	case messages.ProposalMessageType:
 		proposal := payload.(*messages.ProposalMessage).Proposal
 		log.Info("receive proposal message form node %d with payload %x.",
@@ -803,7 +803,7 @@ func handleClient(conn net.Conn, bft *dbftCore) {
 			log.Warn("only master can issue a proposal.")
 			return
 		}
-		tools.SendEvent(bft, proposal)
+		utils.SendEvent(bft, proposal)
 	case messages.ResponseMessageType:
 		response := payload.(*messages.ResponseMessage).Response
 		log.Info("receive response message from node %d with payload %x.",
@@ -812,25 +812,25 @@ func handleClient(conn net.Conn, bft *dbftCore) {
 			log.Warn("master will not receive response message from itself.")
 			return
 		}
-		tools.SendEvent(bft, response)
+		utils.SendEvent(bft, response)
 	case messages.SyncBlockReqMessageType:
 		syncBlock := payload.(*messages.SyncBlockReqMessage).SyncBlock
 		log.Info("receive sync block message from node %d", syncBlock.Node.Extension.Id)
-		tools.SendEvent(bft, syncBlock)
+		utils.SendEvent(bft, syncBlock)
 	case messages.SyncBlockRespMessageType:
 		syncBlock := payload.(*messages.SyncBlockRespMessage).SyncBlock
 		log.Info("receive sync blocks from master.")
-		tools.SendEvent(bft, syncBlock)
+		utils.SendEvent(bft, syncBlock)
 	case messages.CommitMessageType:
 		commit := payload.(*messages.CommitMessage).Commit
-		tools.SendEvent(bft, commit)
+		utils.SendEvent(bft, commit)
 	case messages.ViewChangeMessageReqType:
 		viewChange := payload.(*messages.ViewChangeReqMessage).ViewChange
 		if bft.views.viewNum >= viewChange.ViewNum {
 			log.Warn("local view is %d while receive is %d.", bft.views.viewNum, viewChange.ViewNum)
 			return
 		}
-		tools.SendEvent(bft, viewChange)
+		utils.SendEvent(bft, viewChange)
 	default:
 		if nil == payload {
 			log.Info("receive handshake, omit it.")

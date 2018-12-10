@@ -8,15 +8,15 @@ import (
 	"github.com/DSiSc/blockchain"
 	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/craft/types"
-	commonc "github.com/DSiSc/galaxy/consensus/common"
-	"github.com/DSiSc/galaxy/consensus/policy/bft/messages"
-	"github.com/DSiSc/galaxy/consensus/policy/bft/tools"
+	"github.com/DSiSc/galaxy/consensus/common"
+	"github.com/DSiSc/galaxy/consensus/messages"
+	"github.com/DSiSc/galaxy/consensus/utils"
 	"github.com/DSiSc/monkey"
 	"github.com/DSiSc/validator/tools/account"
 	"github.com/DSiSc/validator/tools/signature"
 	"github.com/DSiSc/validator/tools/signature/keypair"
 	"github.com/DSiSc/validator/worker"
-	"github.com/DSiSc/validator/worker/common"
+	vcommon "github.com/DSiSc/validator/worker/common"
 	"github.com/stretchr/testify/assert"
 	"net"
 	"reflect"
@@ -473,7 +473,7 @@ func TestDbftCore_receiveProposal(t *testing.T) {
 		return nil
 	})
 	var bb types.Receipts
-	r := common.NewReceipt(nil, false, uint64(10))
+	r := vcommon.NewReceipt(nil, false, uint64(10))
 	bb = append(bb, r)
 	monkey.PatchInstanceMethod(reflect.TypeOf(w), "GetReceipts", func(*worker.Worker) types.Receipts {
 		return bb
@@ -580,7 +580,7 @@ func TestDbftCore_ProcessEvent2(t *testing.T) {
 			SigData:   mockSignset,
 		},
 	}
-	hashBlock0 := commonc.HeaderHash(block0)
+	hashBlock0 := common.HeaderHash(block0)
 	mockCommit := &messages.Commit{
 		Account:    mockAccounts[0],
 		Timestamp:  time.Now().Unix(),
@@ -788,15 +788,15 @@ func mockBlocks(blockNum int) []*types.Block {
 			Timestamp: uint64(time.Now().Unix()),
 		},
 	}
-	temp.HeaderHash = commonc.HeaderHash(temp)
+	temp.HeaderHash = common.HeaderHash(temp)
 	for index := 0; index < blockNum; index++ {
 		block := &types.Block{
 			Header: &types.Header{
 				Height:        uint64(index + 1),
-				PrevBlockHash: commonc.HeaderHash(temp),
+				PrevBlockHash: common.HeaderHash(temp),
 			},
 		}
-		block.HeaderHash = commonc.HeaderHash(block)
+		block.HeaderHash = common.HeaderHash(block)
 		blocks = append(blocks, block)
 	}
 	return blocks[0:]
@@ -820,7 +820,7 @@ func TestDbftCore_ProcessEvent4(t *testing.T) {
 	monkey.PatchInstanceMethod(reflect.TypeOf(b), "EventWriteBlockWithReceipts", func(*blockchain.BlockChain, *types.Block, []*types.Receipt, bool) error {
 		return nil
 	})
-	tools.SendEvent(core, syncBlockResp)
+	utils.SendEvent(core, syncBlockResp)
 	monkey.UnpatchAll()
 }
 
@@ -848,7 +848,7 @@ func TestDbftCore_ProcessEvent5(t *testing.T) {
 	monkey.Patch(messages.Unicast, func(account.Account, []byte, messages.MessageType, types.Hash) error {
 		return nil
 	})
-	tools.SendEvent(core, syncBlockReq)
+	utils.SendEvent(core, syncBlockReq)
 	monkey.UnpatchAll()
 }
 
@@ -877,7 +877,7 @@ func TestDbftCore_ProcessEvent6(t *testing.T) {
 	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetCurrentBlockHeight", func(*blockchain.BlockChain) uint64 {
 		return currentHeight
 	})
-	tools.SendEvent(core, viewChangeReq)
+	utils.SendEvent(core, viewChangeReq)
 
 	monkey.Patch(messages.BroadcastPeers, func([]byte, messages.MessageType, types.Hash, []account.Account) {
 		return
@@ -887,14 +887,14 @@ func TestDbftCore_ProcessEvent6(t *testing.T) {
 		Timestamp: time.Now().Unix(),
 		ViewNum:   currentHeight + 2,
 	}
-	tools.SendEvent(core, viewChangeReq)
+	utils.SendEvent(core, viewChangeReq)
 
 	viewChangeReq = &messages.ViewChangeReq{
 		Nodes:     mockAccounts[:3],
 		Timestamp: time.Now().Unix(),
 		ViewNum:   currentHeight + 2,
 	}
-	tools.SendEvent(core, viewChangeReq)
+	utils.SendEvent(core, viewChangeReq)
 	monkey.UnpatchAll()
 }
 
@@ -925,9 +925,9 @@ func TestDbftCore_ProcessEvent7(t *testing.T) {
 	core.receiveChangeViewReq(viewChangeReq)
 
 	assert.Equal(t, uint64(0), core.views.viewNum)
-	assert.Equal(t, commonc.ViewChanging, core.views.status)
+	assert.Equal(t, common.ViewChanging, core.views.status)
 	assert.Equal(t, 2, len(core.views.viewSets[viewChangeReq.ViewNum].requestNodes))
-	assert.Equal(t, commonc.Viewing, core.views.viewSets[viewChangeReq.ViewNum].status)
+	assert.Equal(t, common.Viewing, core.views.viewSets[viewChangeReq.ViewNum].status)
 
 	viewChangeReq = &messages.ViewChangeReq{
 		Account:   mockAccounts[1],
@@ -937,9 +937,9 @@ func TestDbftCore_ProcessEvent7(t *testing.T) {
 	}
 	core.receiveChangeViewReq(viewChangeReq)
 	assert.Equal(t, uint64(0), core.views.viewNum)
-	assert.Equal(t, commonc.ViewChanging, core.views.status)
+	assert.Equal(t, common.ViewChanging, core.views.status)
 	assert.Equal(t, 2, len(core.views.viewSets[viewChangeReq.ViewNum].requestNodes))
-	assert.Equal(t, commonc.Viewing, core.views.viewSets[viewChangeReq.ViewNum].status)
+	assert.Equal(t, common.Viewing, core.views.viewSets[viewChangeReq.ViewNum].status)
 
 	viewChangeReq = &messages.ViewChangeReq{
 		Account:   mockAccounts[1],
@@ -949,8 +949,8 @@ func TestDbftCore_ProcessEvent7(t *testing.T) {
 	}
 	core.receiveChangeViewReq(viewChangeReq)
 	assert.Equal(t, uint64(1), core.views.viewNum)
-	assert.Equal(t, commonc.ViewChanging, core.views.status)
+	assert.Equal(t, common.ViewChanging, core.views.status)
 	assert.Equal(t, 3, len(core.views.viewSets[viewChangeReq.ViewNum].requestNodes))
-	assert.Equal(t, commonc.ViewEnd, core.views.viewSets[viewChangeReq.ViewNum].status)
+	assert.Equal(t, common.ViewEnd, core.views.viewSets[viewChangeReq.ViewNum].status)
 	assert.Equal(t, uint64(0), core.master)
 }

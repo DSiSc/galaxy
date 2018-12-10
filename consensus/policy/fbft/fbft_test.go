@@ -5,8 +5,8 @@ import (
 	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/galaxy/consensus/common"
-	"github.com/DSiSc/galaxy/consensus/policy/bft/messages"
-	"github.com/DSiSc/galaxy/consensus/policy/bft/tools"
+	"github.com/DSiSc/galaxy/consensus/messages"
+	"github.com/DSiSc/galaxy/consensus/utils"
 	"github.com/DSiSc/galaxy/participates/config"
 	commonr "github.com/DSiSc/galaxy/role/common"
 	"github.com/DSiSc/monkey"
@@ -130,40 +130,6 @@ func TestBFTPolicy_Start(t *testing.T) {
 	monkey.UnpatchInstanceMethod(reflect.TypeOf(b), "Start")
 }
 
-/*
-func TestBFTPolicy_Halt(t *testing.T) {
-	local := account.Account{
-		Address: types.Address{0x33, 0x3c, 0x33, 0x10, 0x82, 0x4b, 0x7c, 0x68, 0x51, 0x33, 0xf2, 0xbe, 0xdb, 0x2c, 0xa4, 0xb8, 0xb4, 0xdf, 0x63, 0x3d},
-		Extension: account.AccountExtension{
-			Id:  0,
-			Url: "127.0.0.1:8080",
-		},
-	}
-	fbft, err := NewBFTPolicy(local)
-	assert.Nil(t, err)
-	go fbft.Start()
-	var sign = [][]byte{{0x33, 0x3c, 0x33, 0x10, 0x82}}
-	time.Sleep(5*time.Second)
-	request := &messages.Request{
-		Timestamp: time.Now().Unix(),
-		Payload:   &types.Block{
-			Header:&types.Header{
-				Height:1,
-				SigData:sign,
-			},
-		},
-	}
-	var ch = make(chan messages.SignatureSet)
-	fbft.core = NewBFTCore(uint64(0), ch)
-	fbft.core.master = uint64(0)
-	fbft.core.peers = []account.Account{local}
-	fbft.core.tolerance = 0
-	go tools.SendEvent(fbft.core, request)
-	result := <-fbft.result
-	assert.NotNil(t, result)
-}
-*/
-
 var mockConsensusResult = messages.ConsensusResult{
 	Signatures: mockSignset,
 	Result:     nil,
@@ -174,7 +140,7 @@ func TestBFTPolicy_ToConsensus(t *testing.T) {
 	assert.NotNil(t, fbft)
 	assert.Nil(t, err)
 	fbft.core.nodes.peers = mockAccounts
-	monkey.Patch(tools.SendEvent, func(tools.Receiver, tools.Event) {
+	monkey.Patch(utils.SendEvent, func(utils.Receiver, utils.Event) {
 		fbft.core.result <- mockConsensusResult
 	})
 	var b *fbftCore
@@ -195,7 +161,7 @@ func TestBFTPolicy_ToConsensus(t *testing.T) {
 	assert.Equal(t, mockSignset, proposal.Block.Header.SigData)
 
 	fbft.timeout = time.Duration(2)
-	monkey.Patch(tools.SendEvent, func(tools.Receiver, tools.Event) {
+	monkey.Patch(utils.SendEvent, func(utils.Receiver, utils.Event) {
 		return
 	})
 	monkey.PatchInstanceMethod(reflect.TypeOf(b), "SendCommit", func(*fbftCore, *messages.Commit, *types.Block) {

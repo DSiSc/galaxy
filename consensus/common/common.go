@@ -72,7 +72,7 @@ type ConsensusResult struct {
 type MessageSignal uint8
 
 const (
-	NIL = MessageSignal(iota)
+	NullSignal = MessageSignal(iota)
 	ReceiveResponseSignal
 )
 

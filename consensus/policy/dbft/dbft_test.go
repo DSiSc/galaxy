@@ -5,8 +5,8 @@ import (
 	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/galaxy/consensus/common"
-	"github.com/DSiSc/galaxy/consensus/policy/bft/messages"
-	"github.com/DSiSc/galaxy/consensus/policy/bft/tools"
+	"github.com/DSiSc/galaxy/consensus/messages"
+	"github.com/DSiSc/galaxy/consensus/utils"
 	"github.com/DSiSc/galaxy/participates/config"
 	commonr "github.com/DSiSc/galaxy/role/common"
 	"github.com/DSiSc/monkey"
@@ -189,7 +189,7 @@ func TestBFTPolicy_ToConsensus(t *testing.T) {
 	assert.NotNil(t, dbft)
 	assert.Nil(t, err)
 	dbft.core.peers = mockAccounts
-	monkey.Patch(tools.SendEvent, func(tools.Receiver, tools.Event) {
+	monkey.Patch(utils.SendEvent, func(utils.Receiver, utils.Event) {
 		dbft.result <- mockConsensusResult
 	})
 	var b *dbftCore
@@ -210,7 +210,7 @@ func TestBFTPolicy_ToConsensus(t *testing.T) {
 	assert.Equal(t, mockSignset, proposal.Block.Header.SigData)
 
 	dbft.timeout = time.Duration(2)
-	monkey.Patch(tools.SendEvent, func(tools.Receiver, tools.Event) {
+	monkey.Patch(utils.SendEvent, func(utils.Receiver, utils.Event) {
 		return
 	})
 	monkey.PatchInstanceMethod(reflect.TypeOf(b), "SendCommit", func(*dbftCore, *messages.Commit, *types.Block) {

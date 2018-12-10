@@ -8,8 +8,8 @@ import (
 	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/galaxy/consensus/common"
-	"github.com/DSiSc/galaxy/consensus/policy/bft/messages"
-	"github.com/DSiSc/galaxy/consensus/policy/bft/tools"
+	"github.com/DSiSc/galaxy/consensus/messages"
+	"github.com/DSiSc/galaxy/consensus/utils"
 	"github.com/DSiSc/validator/tools/account"
 	"github.com/DSiSc/validator/tools/signature"
 	"net"
@@ -31,8 +31,8 @@ type fbftCore struct {
 	signal          chan common.MessageSignal
 	eventCenter     types.EventCenter
 	blockSwitch     chan<- interface{}
-	consensusPlugin *tools.ConsensusPlugin
-	viewChange      *tools.ViewChange
+	consensusPlugin *common.ConsensusPlugin
+	viewChange      *common.ViewChange
 }
 
 func NewFBFTCore(local account.Account, blockSwitch chan<- interface{}) *fbftCore {
@@ -42,8 +42,8 @@ func NewFBFTCore(local account.Account, blockSwitch chan<- interface{}) *fbftCor
 		result:          make(chan messages.ConsensusResult),
 		signal:          make(chan common.MessageSignal),
 		blockSwitch:     blockSwitch,
-		consensusPlugin: tools.NewConsensusPlugin(),
-		viewChange:      tools.NewViewChange(),
+		consensusPlugin: common.NewConsensusPlugin(),
+		viewChange:      common.NewViewChange(),
 	}
 }
 
@@ -60,13 +60,13 @@ func (instance *fbftCore) receiveRequest(request *messages.Request) {
 		log.Error("request must have signature from producer.")
 		return
 	}
-	_, err := tools.VerifyPayload(request.Payload)
+	_, err := utils.VerifyPayload(request.Payload)
 	if nil != err {
 		log.Error("proposal verified failed with error %v.", err)
 		return
 	}
 	content := instance.consensusPlugin.Add(request.Payload.Header.MixDigest, request.Payload)
-	signData, err := tools.SignPayload(instance.nodes.local, request.Payload.Header.MixDigest)
+	signData, err := utils.SignPayload(instance.nodes.local, request.Payload.Header.MixDigest)
 	if nil != err {
 		log.Error("archive proposal signature failed with error %v.", err)
 		return
@@ -76,7 +76,7 @@ func (instance *fbftCore) receiveRequest(request *messages.Request) {
 			request.Payload.Header.MixDigest, instance.nodes.local)
 		return
 	}
-	err = content.SetState(tools.InConsensus)
+	err = content.SetState(common.InConsensus)
 	if nil != err {
 		log.Error("set content state of %v failed with %v.", request.Payload.Header.MixDigest, err)
 		return
@@ -113,7 +113,7 @@ func (instance *fbftCore) waitResponse(digest types.Hash) {
 		case <-timer.C:
 			log.Info("response has overtime.")
 			signatures, err := instance.maybeCommit(digest)
-			content.SetState(tools.ToConsensus)
+			content.SetState(common.ToConsensus)
 			consensusResult := messages.ConsensusResult{
 				Signatures: signatures,
 				Result:     err,
@@ -124,7 +124,7 @@ func (instance *fbftCore) waitResponse(digest types.Hash) {
 			log.Debug("receive signal of %v.", signal)
 			signatures, err := instance.maybeCommit(digest)
 			if nil == err {
-				content.SetState(tools.ToConsensus)
+				content.SetState(common.ToConsensus)
 				consensusResult := messages.ConsensusResult{
 					Signatures: signatures,
 					Result:     err,
@@ -155,12 +155,12 @@ func (instance *fbftCore) receiveProposal(proposal *messages.Proposal) {
 		return
 	}
 	instance.consensusPlugin.Add(proposal.Payload.Header.MixDigest, proposal.Payload)
-	_, err := tools.VerifyPayload(proposal.Payload)
+	_, err := utils.VerifyPayload(proposal.Payload)
 	if nil != err {
 		log.Error("proposal verified failed with error %v.", err)
 		return
 	}
-	signData, err := tools.SignPayload(instance.nodes.local, proposal.Payload.Header.MixDigest)
+	signData, err := utils.SignPayload(instance.nodes.local, proposal.Payload.Header.MixDigest)
 	if nil != err {
 		log.Error("archive proposal signature failed with error %v.", err)
 		return
@@ -213,7 +213,7 @@ func (instance *fbftCore) receiveResponse(response *messages.Response) {
 		log.Error("get content of %v from response failed with %v.", response.Digest, err)
 		return
 	}
-	if tools.ToConsensus != content.State() {
+	if common.ToConsensus != content.State() {
 		isMaster := instance.nodes.local == instance.nodes.master
 		if !isMaster {
 			log.Info("only master need to process response.")
@@ -235,7 +235,7 @@ func (instance *fbftCore) receiveResponse(response *messages.Response) {
 		instance.signal <- common.ReceiveResponseSignal
 	} else {
 		log.Warn("consensus content state has reached %d, so ignore response from %x.",
-			tools.ToConsensus, response.Account.Address)
+			common.ToConsensus, response.Account.Address)
 	}
 }
 
@@ -251,10 +251,8 @@ func (instance *fbftCore) SendCommit(commit *messages.Commit, block *types.Block
 		log.Error("EncodeMessage failed with %v.", err)
 		return
 	}
-	// peers := tools.AccountFilter([]account.Account{instance.local}, instance.peers)
 	if !commit.Result {
-		log.Error("send the failed consensus.")
-		// messages.BroadcastPeers(msgRaw, committed.MessageType, commit.Digest, peers)
+		log.Error("send the consensus with failed result.")
 		messages.BroadcastPeersFilter(msgRaw, committed.MessageType, commit.Digest, instance.nodes.peers, instance.nodes.local)
 		instance.eventCenter.Notify(types.EventConsensusFailed, nil)
 	} else {
@@ -290,8 +288,6 @@ func (instance *fbftCore) receiveCommit(commit *messages.Commit) {
 }
 
 func (instance *fbftCore) commitBlock(block *types.Block) {
-	// delete(instance.validator, block.Header.MixDigest)
-	// instance.consensusPlugin.Remove(block.Header.MixDigest)
 	chain, _ := blockchain.NewBlockChainByBlockHash(block.Header.PrevBlockHash)
 	preBlock, _ := chain.GetBlockByHash(block.Header.PrevBlockHash)
 	instance.consensusPlugin.Remove(preBlock.HeaderHash)
@@ -325,7 +321,7 @@ func (instance *fbftCore) receiveChangeViewReq(viewChangeReq *messages.ViewChang
 		log.Info("stop timeout master with view num %d.", instance.viewChange.GetCurrentViewNum())
 		instance.timeoutTimer.Stop()
 		instance.viewChange.SetCurrentViewNum(viewChangeReq.ViewNum)
-		instance.nodes.master = tools.GetNodeAccountWithMinId(nodes)
+		instance.nodes.master = utils.GetAccountWithMinId(nodes)
 		instance.eventCenter.Notify(types.EventMasterChange, nil)
 		log.Info("now reach to consensus for viewNum %d and new master is %d.",
 			viewChangeReq.ViewNum, instance.nodes.master.Extension.Id)
@@ -382,7 +378,7 @@ func (self *fbftCore) waitMasterTimeout() {
 	}
 }
 
-func (instance *fbftCore) ProcessEvent(e tools.Event) tools.Event {
+func (instance *fbftCore) ProcessEvent(e utils.Event) utils.Event {
 	var err error
 	switch et := e.(type) {
 	case *messages.Request:
@@ -448,7 +444,7 @@ func handleClient(conn net.Conn, bft *fbftCore) {
 		log.Info("receive request message from producer")
 		// TODO: separate producer and master, so client need send request to master
 		request := payload.(*messages.RequestMessage).Request
-		tools.SendEvent(bft, request)
+		utils.SendEvent(bft, request)
 	case messages.ProposalMessageType:
 		proposal := payload.(*messages.ProposalMessage).Proposal
 		log.Info("receive proposal message form node %d with payload %x.",
@@ -457,7 +453,7 @@ func handleClient(conn net.Conn, bft *fbftCore) {
 			log.Warn("only master can issue a proposal.")
 			return
 		}
-		tools.SendEvent(bft, proposal)
+		utils.SendEvent(bft, proposal)
 	case messages.ResponseMessageType:
 		response := payload.(*messages.ResponseMessage).Response
 		log.Info("receive response message from node %d with payload %x.",
@@ -466,21 +462,21 @@ func handleClient(conn net.Conn, bft *fbftCore) {
 			log.Warn("master will not receive response message from itself.")
 			return
 		}
-		tools.SendEvent(bft, response)
+		utils.SendEvent(bft, response)
 	case messages.SyncBlockReqMessageType:
 		syncBlock := payload.(*messages.SyncBlockReqMessage).SyncBlock
 		log.Info("receive sync block message from node %d", syncBlock.Node.Extension.Id)
-		tools.SendEvent(bft, syncBlock)
+		utils.SendEvent(bft, syncBlock)
 	case messages.SyncBlockRespMessageType:
 		syncBlock := payload.(*messages.SyncBlockRespMessage).SyncBlock
 		log.Info("receive sync blocks from master.")
-		tools.SendEvent(bft, syncBlock)
+		utils.SendEvent(bft, syncBlock)
 	case messages.CommitMessageType:
 		commit := payload.(*messages.CommitMessage).Commit
-		tools.SendEvent(bft, commit)
+		utils.SendEvent(bft, commit)
 	case messages.ViewChangeMessageReqType:
 		viewChange := payload.(*messages.ViewChangeReqMessage).ViewChange
-		tools.SendEvent(bft, viewChange)
+		utils.SendEvent(bft, viewChange)
 	default:
 		if nil == payload {
 			log.Warn("receive handshake, omit it %v.", payload)

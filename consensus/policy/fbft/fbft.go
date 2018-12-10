@@ -5,8 +5,8 @@ import (
 	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/galaxy/consensus/common"
-	"github.com/DSiSc/galaxy/consensus/policy/bft/messages"
-	"github.com/DSiSc/galaxy/consensus/policy/bft/tools"
+	"github.com/DSiSc/galaxy/consensus/messages"
+	"github.com/DSiSc/galaxy/consensus/utils"
 	commonr "github.com/DSiSc/galaxy/role/common"
 	"github.com/DSiSc/validator/tools/account"
 	"time"
@@ -81,7 +81,7 @@ func (instance *FBFTPolicy) ToConsensus(p *common.Proposal) error {
 		Payload:   p.Block,
 	}
 	timer := time.NewTimer(time.Second * instance.timeout)
-	go tools.SendEvent(instance.core, request)
+	go utils.SendEvent(instance.core, request)
 	select {
 	case consensusResult := <-instance.core.result:
 		if nil != consensusResult.Result {

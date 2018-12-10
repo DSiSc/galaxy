@@ -1,4 +1,4 @@
-package tools
+package utils
 
 import (
 	"github.com/DSiSc/blockchain"
