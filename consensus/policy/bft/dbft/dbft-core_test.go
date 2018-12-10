@@ -914,7 +914,7 @@ func TestDbftCore_ProcessEvent7(t *testing.T) {
 	// receive change view request from node 1
 	assert.Equal(t, uint64(0), core.views.viewNum)
 	viewChangeReq := &messages.ViewChangeReq{
-		Id:        mockAccounts[1].Extension.Id,
+		Account:   mockAccounts[1],
 		Nodes:     mockAccounts[1:2],
 		Timestamp: time.Now().Unix(),
 		ViewNum:   uint64(1),
@@ -930,7 +930,7 @@ func TestDbftCore_ProcessEvent7(t *testing.T) {
 	assert.Equal(t, commonc.Viewing, core.views.viewSets[viewChangeReq.ViewNum].status)
 
 	viewChangeReq = &messages.ViewChangeReq{
-		Id:        mockAccounts[1].Extension.Id,
+		Account:   mockAccounts[1],
 		Nodes:     mockAccounts[0:1],
 		Timestamp: time.Now().Unix(),
 		ViewNum:   uint64(1),
@@ -942,7 +942,7 @@ func TestDbftCore_ProcessEvent7(t *testing.T) {
 	assert.Equal(t, commonc.Viewing, core.views.viewSets[viewChangeReq.ViewNum].status)
 
 	viewChangeReq = &messages.ViewChangeReq{
-		Id:        mockAccounts[1].Extension.Id,
+		Account:   mockAccounts[1],
 		Nodes:     mockAccounts[0:3],
 		Timestamp: time.Now().Unix(),
 		ViewNum:   uint64(1),

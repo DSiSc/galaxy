@@ -583,7 +583,7 @@ func (instance *dbftCore) sendChangeViewReq(nodes []account.Account, newView uin
 		MessageType: messages.ViewChangeMessageReqType,
 		PayLoad: &messages.ViewChangeReqMessage{
 			ViewChange: &messages.ViewChangeReq{
-				Id:        instance.local.Extension.Id,
+				Account:   instance.local,
 				Nodes:     nodes,
 				Timestamp: time.Now().Unix(),
 				ViewNum:   newView,
@@ -623,7 +623,7 @@ func addChangeViewAccounts(accounts []account.Account, account2 account.Account)
 }
 
 func (instance *dbftCore) receiveChangeViewReq(viewChangeReq *messages.ViewChangeReq) {
-	log.Info("receive view change request from node %d.", viewChangeReq.Id)
+	log.Info("receive view change request from node %d.", viewChangeReq.Account.Extension.Id)
 	instance.masterTimeout.Stop()
 	if instance.views.status != common.ViewChanging {
 		if instance.views.viewNum < viewChangeReq.ViewNum {
@@ -745,7 +745,7 @@ func (instance *dbftCore) ProcessEvent(e tools.Event) tools.Event {
 		log.Info("receive sycBlockResp len is %d.", len(et.Blocks))
 		instance.receiveSyncBlockResp(et)
 	case *messages.ViewChangeReq:
-		log.Info("receive viewChangeReq from node %d and viewNum %d.", et.Id, et.ViewNum)
+		log.Info("receive viewChangeReq from node %d and viewNum %d.", et.Account.Extension.Id, et.ViewNum)
 		instance.receiveChangeViewReq(et)
 	default:
 		log.Warn("replica %d received an unknown message type %v", instance.local.Extension.Id, et)

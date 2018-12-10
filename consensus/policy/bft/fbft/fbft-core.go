@@ -322,7 +322,7 @@ func (instance *fbftCore) receiveChangeViewReq(viewChangeReq *messages.ViewChang
 		instance.viewChange.SetCurrentViewNum(viewChangeReq.ViewNum)
 		instance.nodes.master = tools.GetNodeAccountWithMinId(nodes)
 		instance.eventCenter.Notify(types.EventMasterChange, nil)
-		log.Info("now reach to consensus for viewNum %d and new master is %vd.",
+		log.Info("now reach to consensus for viewNum %d and new master is %d.",
 			viewChangeReq.ViewNum, instance.nodes.master.Extension.Id)
 	}
 	instance.sendChangeViewReq(nodes, viewChangeReq.ViewNum)
@@ -333,7 +333,7 @@ func (instance *fbftCore) sendChangeViewReq(nodes []account.Account, newView uin
 		MessageType: messages.ViewChangeMessageReqType,
 		PayLoad: &messages.ViewChangeReqMessage{
 			ViewChange: &messages.ViewChangeReq{
-				Id:        instance.nodes.local.Extension.Id,
+				Account:   instance.nodes.local,
 				Nodes:     nodes,
 				Timestamp: time.Now().Unix(),
 				ViewNum:   newView,
@@ -359,6 +359,7 @@ func (self *fbftCore) waitMasterTimeout() {
 				MessageType: messages.ViewChangeMessageReqType,
 				PayLoad: &messages.ViewChangeReqMessage{
 					ViewChange: &messages.ViewChangeReq{
+						Account:   self.nodes.local,
 						Nodes:     []account.Account{self.nodes.local},
 						Timestamp: time.Now().Unix(),
 						ViewNum:   requestViewNum,
@@ -380,22 +381,28 @@ func (instance *fbftCore) ProcessEvent(e tools.Event) tools.Event {
 	var err error
 	switch et := e.(type) {
 	case *messages.Request:
-		log.Info("receive request from replica %d with digest %x.", instance.nodes.local.Extension.Id, et.Payload.Header.MixDigest)
+		log.Info("receive request from replica %d with digest %x.",
+			instance.nodes.local.Extension.Id, et.Payload.Header.MixDigest)
 		instance.receiveRequest(et)
 	case *messages.Proposal:
-		log.Info("receive proposal from replica %d with digest %x.", et.Id, et.Payload.Header.MixDigest)
+		log.Info("receive proposal from replica %d with digest %x.",
+			et.Id, et.Payload.Header.MixDigest)
 		instance.receiveProposal(et)
 	case *messages.Response:
-		log.Info("receive response from replica %d with digest %x.", et.Account.Extension.Id, et.Digest)
+		log.Info("receive response from replica %d with digest %x.",
+			et.Account.Extension.Id, et.Digest)
 		instance.receiveResponse(et)
 	case *messages.Commit:
-		log.Info("receive commit from replica %d with digest %x.", et.Account.Extension.Id, et.Digest)
+		log.Info("receive commit from replica %d with digest %x.",
+			et.Account.Extension.Id, et.Digest)
 		instance.receiveCommit(et)
 	case *messages.ViewChangeReq:
-		log.Info("receive view change request from node %d and viewNum %d.", et.Id, et.ViewNum)
+		log.Info("receive view change request from node %d and viewNum %d.",
+			et.Account.Extension.Id, et.ViewNum)
 		instance.receiveChangeViewReq(et)
 	default:
-		log.Warn("replica %d received an unknown message type %v", instance.nodes.local.Extension.Id, et)
+		log.Warn("replica %d received an unknown message type %v",
+			instance.nodes.local.Extension.Id, et)
 		err = fmt.Errorf("not support type %v", et)
 	}
 	return err

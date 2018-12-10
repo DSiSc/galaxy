@@ -233,7 +233,7 @@ type ViewChangeReqMessage struct {
 }
 
 type ViewChangeReq struct {
-	Id        uint64
+	Account   account.Account
 	Nodes     []account.Account
 	Timestamp int64
 	ViewNum   uint64

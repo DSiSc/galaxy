@@ -635,7 +635,7 @@ func TestFbftCore_ProcessEvent(t *testing.T) {
 	mockViewNum := uint64(0)
 	nodes := []account.Account{mockAccounts[1]}
 	viewChangeReq := &messages.ViewChangeReq{
-		Id:        mockAccounts[1].Extension.Id,
+		Account:   mockAccounts[1],
 		Nodes:     nodes,
 		Timestamp: time.Now().Unix(),
 		ViewNum:   mockViewNum,
@@ -647,7 +647,7 @@ func TestFbftCore_ProcessEvent(t *testing.T) {
 	})
 	mockViewNum = uint64(1)
 	viewChangeReq = &messages.ViewChangeReq{
-		Id:        mockAccounts[1].Extension.Id,
+		Account:   mockAccounts[1],
 		Nodes:     []account.Account{mockAccounts[1]},
 		Timestamp: time.Now().Unix(),
 		ViewNum:   mockViewNum,
@@ -661,7 +661,7 @@ func TestFbftCore_ProcessEvent(t *testing.T) {
 	assert.Equal(t, fcommon.Viewing, request.GetViewRequestState())
 
 	viewChangeReq = &messages.ViewChangeReq{
-		Id:        mockAccounts[2].Extension.Id,
+		Account:   mockAccounts[2],
 		Nodes:     []account.Account{mockAccounts[2]},
 		Timestamp: time.Now().Unix(),
 		ViewNum:   mockViewNum,
