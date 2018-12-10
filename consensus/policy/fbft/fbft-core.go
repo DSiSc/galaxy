@@ -11,7 +11,6 @@ import (
 	"github.com/DSiSc/galaxy/consensus/messages"
 	"github.com/DSiSc/galaxy/consensus/utils"
 	"github.com/DSiSc/validator/tools/account"
-	"github.com/DSiSc/validator/tools/signature"
 	"net"
 	"time"
 )
@@ -150,7 +149,7 @@ func (instance *fbftCore) receiveProposal(proposal *messages.Proposal) {
 		log.Error("proposal must from master %d, while it from %d in fact.", instance.nodes.master.Extension.Id, proposal.Id)
 		return
 	}
-	if !signDataVerify(instance.nodes.master, proposal.Signature, proposal.Payload.Header.MixDigest) {
+	if !utils.SignatureVerify(instance.nodes.master, proposal.Signature, proposal.Payload.Header.MixDigest) {
 		log.Error("proposal signature not from master, please confirm.")
 		return
 	}
@@ -199,14 +198,6 @@ func (instance *fbftCore) maybeCommit(digest types.Hash) ([][]byte, error) {
 	return signatures, nil
 }
 
-func signDataVerify(account account.Account, sign []byte, digest types.Hash) bool {
-	address, err := signature.Verify(digest, sign)
-	if nil != err {
-		log.Error("verify sign %v failed with err %s which expect from %x", sign, err, account.Address)
-	}
-	return account.Address == address
-}
-
 func (instance *fbftCore) receiveResponse(response *messages.Response) {
 	content, err := instance.consensusPlugin.GetContentByHash(response.Digest)
 	if nil != err {
@@ -219,7 +210,7 @@ func (instance *fbftCore) receiveResponse(response *messages.Response) {
 			log.Info("only master need to process response.")
 			return
 		}
-		if !signDataVerify(response.Account, response.Signature, response.Digest) {
+		if !utils.SignatureVerify(response.Account, response.Signature, response.Digest) {
 			log.Error("signature and response sender not in coincidence.")
 			return
 		}
@@ -239,7 +230,19 @@ func (instance *fbftCore) receiveResponse(response *messages.Response) {
 	}
 }
 
-func (instance *fbftCore) SendCommit(commit *messages.Commit, block *types.Block) {
+func (instance *fbftCore) commit(block *types.Block, result bool) {
+	commit := &messages.Commit{
+		Account:    instance.nodes.local,
+		Timestamp:  time.Now().Unix(),
+		Digest:     block.Header.MixDigest,
+		Signatures: block.Header.SigData,
+		BlockHash:  block.HeaderHash,
+		Result:     result,
+	}
+	instance.sendCommit(commit, block)
+}
+
+func (instance *fbftCore) sendCommit(commit *messages.Commit, block *types.Block) {
 	committed := messages.Message{
 		MessageType: messages.CommitMessageType,
 		PayLoad: &messages.CommitMessage{

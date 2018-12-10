@@ -577,7 +577,7 @@ func TestFbftCore_SendCommit(t *testing.T) {
 	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetBlockByHash", func(*blockchain.BlockChain, types.Hash) (*types.Block, error) {
 		return block, nil
 	})
-	go fbft.SendCommit(mockCommit, block)
+	go fbft.sendCommit(mockCommit, block)
 	blocks := <-blockSwitch
 	assert.NotNil(t, blocks)
 	assert.Equal(t, blocks.(*types.Block).HeaderHash, block.HeaderHash)
@@ -608,6 +608,44 @@ func TestFbftCore_SendCommit(t *testing.T) {
 	result := payload.(*messages.CommitMessage).Commit
 	assert.NotNil(t, result)
 	assert.Equal(t, commit, result)
+}
+
+func TestFBFTPolicy_commit(t *testing.T) {
+	mockAccount := account.Account{
+		Address: types.Address{0x33, 0x3c, 0x33, 0x10, 0x82, 0x4b, 0x7c, 0x68,
+			0x51, 0x33, 0xf2, 0xbe, 0xdb, 0x2c, 0xa4, 0xb8, 0xb4, 0xdf, 0x63, 0x3d},
+		Extension: account.AccountExtension{
+			Id:  0,
+			Url: "127.0.0.1:8080",
+		},
+	}
+	var receive = make(chan interface{})
+	core := NewFBFTCore(mockAccount, receive)
+	block := &types.Block{
+		Header: &types.Header{
+			ChainID:       1,
+			PrevBlockHash: MockHash,
+			StateRoot:     MockHash,
+			TxRoot:        MockHash,
+			ReceiptsRoot:  MockHash,
+			Height:        1,
+			Timestamp:     uint64(time.Now().Unix()),
+			SigData:       mockSignset[:4],
+		},
+		Transactions: make([]*types.Transaction, 0),
+	}
+	core.nodes.peers = append(core.nodes.peers, mockAccount)
+	var b *blockchain.BlockChain
+	monkey.Patch(blockchain.NewBlockChainByBlockHash, func(types.Hash) (*blockchain.BlockChain, error) {
+		return b, nil
+	})
+	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetBlockByHash", func(*blockchain.BlockChain, types.Hash) (*types.Block, error) {
+		return block, nil
+	})
+	go core.commit(block, true)
+	received := <-receive
+	assert.NotNil(t, received)
+	assert.Equal(t, received, block)
 }
 
 func TestFbftCore_ProcessEvent(t *testing.T) {

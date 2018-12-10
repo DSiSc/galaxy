@@ -61,18 +61,6 @@ func (instance *FBFTPolicy) Start() {
 	instance.core.Start()
 }
 
-func (instance *FBFTPolicy) commit(block *types.Block, result bool) {
-	commit := &messages.Commit{
-		Account:    instance.core.nodes.local,
-		Timestamp:  time.Now().Unix(),
-		Digest:     block.Header.MixDigest,
-		Signatures: block.Header.SigData,
-		BlockHash:  block.HeaderHash,
-		Result:     result,
-	}
-	instance.core.SendCommit(commit, block)
-}
-
 func (instance *FBFTPolicy) ToConsensus(p *common.Proposal) error {
 	var err error
 	var result bool
@@ -93,12 +81,12 @@ func (instance *FBFTPolicy) ToConsensus(p *common.Proposal) error {
 			result = true
 			log.Info("consensus for %x successfully with signature %x.", p.Block.Header.MixDigest, consensusResult.Signatures)
 		}
-		instance.commit(p.Block, result)
+		instance.core.commit(p.Block, result)
 	case <-timer.C:
 		log.Error("consensus for %x timeout in %d seconds.", p.Block.Header.MixDigest, instance.timeout)
 		err = fmt.Errorf("timeout for consensus")
 		result = false
-		instance.commit(p.Block, result)
+		instance.core.commit(p.Block, result)
 	}
 	return err
 }

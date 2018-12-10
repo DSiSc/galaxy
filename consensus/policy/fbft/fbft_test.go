@@ -2,6 +2,7 @@ package fbft
 
 import (
 	"fmt"
+	"github.com/DSiSc/blockchain"
 	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/galaxy/consensus/common"
@@ -140,11 +141,18 @@ func TestBFTPolicy_ToConsensus(t *testing.T) {
 	assert.NotNil(t, fbft)
 	assert.Nil(t, err)
 	fbft.core.nodes.peers = mockAccounts
+	var mockBlockSwitch = make(chan interface{})
+	fbft.core.blockSwitch = mockBlockSwitch
+	event := NewEvent()
+	event.Subscribe(types.EventConsensusFailed, func(v interface{}) {
+		log.Error("receive consensus failed event.")
+		return
+	})
+	fbft.core.eventCenter = event
 	monkey.Patch(utils.SendEvent, func(utils.Receiver, utils.Event) {
 		fbft.core.result <- mockConsensusResult
 	})
-	var b *fbftCore
-	monkey.PatchInstanceMethod(reflect.TypeOf(b), "SendCommit", func(*fbftCore, *messages.Commit, *types.Block) {
+	monkey.Patch(messages.BroadcastPeersFilter, func([]byte, messages.MessageType, types.Hash, []account.Account, account.Account) {
 		return
 	})
 	proposal := &common.Proposal{
@@ -155,8 +163,19 @@ func TestBFTPolicy_ToConsensus(t *testing.T) {
 		},
 	}
 	assert.Equal(t, 0, len(proposal.Block.Header.SigData))
-	err = fbft.ToConsensus(proposal)
-	assert.Nil(t, err)
+	var b *blockchain.BlockChain
+	monkey.Patch(blockchain.NewBlockChainByBlockHash, func(types.Hash) (*blockchain.BlockChain, error) {
+		return b, nil
+	})
+	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetBlockByHash", func(*blockchain.BlockChain, types.Hash) (*types.Block, error) {
+		return proposal.Block, nil
+	})
+	go func() {
+		err = fbft.ToConsensus(proposal)
+		assert.Nil(t, err)
+	}()
+	block := <-mockBlockSwitch
+	assert.NotNil(t, block)
 	assert.Equal(t, len(mockSignset), len(proposal.Block.Header.SigData))
 	assert.Equal(t, mockSignset, proposal.Block.Header.SigData)
 
@@ -164,46 +183,17 @@ func TestBFTPolicy_ToConsensus(t *testing.T) {
 	monkey.Patch(utils.SendEvent, func(utils.Receiver, utils.Event) {
 		return
 	})
-	monkey.PatchInstanceMethod(reflect.TypeOf(b), "SendCommit", func(*fbftCore, *messages.Commit, *types.Block) {
-		return
-	})
-	err = fbft.ToConsensus(proposal)
-	assert.Equal(t, fmt.Errorf("timeout for consensus"), err)
+	go func() {
+		err = fbft.ToConsensus(proposal)
+		assert.Equal(t, fmt.Errorf("timeout for consensus"), err)
+	}()
+	assert.Equal(t, len(mockSignset), len(proposal.Block.Header.SigData))
+	assert.Equal(t, mockSignset, proposal.Block.Header.SigData)
 }
 
 var MockHash = types.Hash{
 	0x1d, 0xcf, 0x7, 0xba, 0xfc, 0x42, 0xb0, 0x8d, 0xfd, 0x23, 0x9c, 0x45, 0xa4, 0xb9, 0x38, 0xd,
 	0x8d, 0xfe, 0x5d, 0x6f, 0xa7, 0xdb, 0xd5, 0x50, 0xc9, 0x25, 0xb1, 0xb3, 0x4, 0xdc, 0xc5, 0x1c,
-}
-
-func TestBFTPolicy_commit(t *testing.T) {
-	mockAccount := account.Account{
-		Address: types.Address{0x33, 0x3c, 0x33, 0x10, 0x82, 0x4b, 0x7c, 0x68,
-			0x51, 0x33, 0xf2, 0xbe, 0xdb, 0x2c, 0xa4, 0xb8, 0xb4, 0xdf, 0x63, 0x3d},
-		Extension: account.AccountExtension{
-			Id:  0,
-			Url: "127.0.0.1:8080",
-		},
-	}
-	fbft, err := NewFBFTPolicy(mockAccount, timeout, nil)
-	go fbft.Start()
-	assert.NotNil(t, fbft)
-	assert.Nil(t, err)
-	block := &types.Block{
-		Header: &types.Header{
-			ChainID:       1,
-			PrevBlockHash: MockHash,
-			StateRoot:     MockHash,
-			TxRoot:        MockHash,
-			ReceiptsRoot:  MockHash,
-			Height:        1,
-			Timestamp:     uint64(time.Now().Unix()),
-			SigData:       mockSignset[:4],
-		},
-		Transactions: make([]*types.Transaction, 0),
-	}
-	fbft.core.nodes.peers = append(fbft.core.nodes.peers, mockAccount)
-	fbft.commit(block, true)
 }
 
 func TestFBFTPolicy_GetConsensusResult(t *testing.T) {

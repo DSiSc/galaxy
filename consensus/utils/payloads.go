@@ -34,3 +34,11 @@ func SignPayload(account account.Account, digest types.Hash) ([]byte, error) {
 	log.Debug("archive signature for %x successfully with sign %x.", digest, sign)
 	return sign, nil
 }
+
+func SignatureVerify(account account.Account, sign []byte, digest types.Hash) bool {
+	address, err := signature.Verify(digest, sign)
+	if nil != err {
+		log.Error("verify sign %v failed with err %s which expect from %x", sign, err, account.Address)
+	}
+	return account.Address == address
+}
