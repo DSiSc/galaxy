@@ -322,6 +322,7 @@ func (instance *fbftCore) receiveChangeViewReq(viewChangeReq *messages.ViewChang
 		instance.viewChange.SetCurrentViewNum(viewChangeReq.ViewNum)
 		instance.nodes.master = tools.GetNodeAccountWithMinId(nodes)
 		instance.eventCenter.Notify(types.EventMasterChange, nil)
+		instance.timeoutTimer.Stop()
 		log.Info("now reach to consensus for viewNum %d and new master is %d.",
 			viewChangeReq.ViewNum, instance.nodes.master.Extension.Id)
 	}
