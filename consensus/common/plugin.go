@@ -105,11 +105,12 @@ func NewConsensusPlugin() *ConsensusPlugin {
 
 func (self *ConsensusPlugin) Add(digest types.Hash, payload interface{}) *Content {
 	self.mutex.Lock()
+	defer self.mutex.Unlock()
 	if _, ok := self.content[digest]; !ok {
 		log.Info("add content %x to map to prepare consensus process.", digest)
 		self.content[digest] = newContent(digest, payload)
+		return self.content[digest]
 	}
-	self.mutex.Unlock()
 	log.Warn("content %x has exist, please confirm.", digest)
 	return self.content[digest]
 }
