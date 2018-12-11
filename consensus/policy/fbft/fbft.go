@@ -13,14 +13,16 @@ import (
 )
 
 type FBFTPolicy struct {
-	name string
-	core *fbftCore
+	local account.Account
+	name  string
+	core  *fbftCore
 	// time to reach consensus
 	timeout time.Duration
 }
 
 func NewFBFTPolicy(account account.Account, timeout int64, blockSwitch chan<- interface{}) (*FBFTPolicy, error) {
 	policy := &FBFTPolicy{
+		local:   account,
 		name:    common.FBFT_POLICY,
 		timeout: time.Duration(timeout),
 	}
@@ -65,6 +67,7 @@ func (instance *FBFTPolicy) ToConsensus(p *common.Proposal) error {
 	var err error
 	var result bool
 	request := &messages.Request{
+		Account:   instance.local,
 		Timestamp: p.Timestamp,
 		Payload:   p.Block,
 	}

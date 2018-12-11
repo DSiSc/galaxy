@@ -59,10 +59,13 @@ func (instance *fbftCore) receiveRequest(request *messages.Request) {
 		log.Error("request must have signature from producer.")
 		return
 	}
-	_, err := utils.VerifyPayload(request.Payload)
-	if nil != err {
-		log.Error("proposal verified failed with error %v.", err)
-		return
+	if request.Account.Address != instance.nodes.local.Address {
+		log.Info("request from %x, not from %x.", request.Account.Address, instance.nodes.master.Address)
+		_, err := utils.VerifyPayload(request.Payload)
+		if nil != err {
+			log.Error("proposal verified failed with error %v.", err)
+			return
+		}
 	}
 	content := instance.consensusPlugin.Add(request.Payload.Header.MixDigest, request.Payload)
 	signData, err := utils.SignPayload(instance.nodes.local, request.Payload.Header.MixDigest)

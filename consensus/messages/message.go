@@ -164,6 +164,7 @@ type RequestMessage struct {
 
 type Request struct {
 	Timestamp int64
+	Account   account.Account
 	Payload   *types.Block
 }
 
