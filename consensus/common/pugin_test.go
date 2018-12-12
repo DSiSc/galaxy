@@ -9,6 +9,8 @@ import (
 func TestNewConsensusMap(t *testing.T) {
 	plugin := NewConsensusPlugin()
 
+	latestHeight := plugin.GetLatestBlockHeight()
+	assert.Equal(t, uint64(0), latestHeight)
 	content, err := plugin.GetContentByHash(mockHash)
 	assert.Equal(t, fmt.Errorf("content %x not exist, please confirm", mockHash), err)
 	assert.Nil(t, content)

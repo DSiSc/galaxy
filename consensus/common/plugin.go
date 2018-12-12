@@ -93,13 +93,15 @@ func (self *Content) GetContentPayloadByHash(digest types.Hash) interface{} {
 }
 
 type ConsensusPlugin struct {
-	mutex   sync.RWMutex
-	content map[types.Hash]*Content
+	mutex             sync.RWMutex
+	latestBlockHeight uint64
+	content           map[types.Hash]*Content
 }
 
 func NewConsensusPlugin() *ConsensusPlugin {
 	return &ConsensusPlugin{
-		content: make(map[types.Hash]*Content),
+		latestBlockHeight: uint64(0),
+		content:           make(map[types.Hash]*Content),
 	}
 }
 
@@ -129,4 +131,10 @@ func (self *ConsensusPlugin) GetContentByHash(digest types.Hash) (*Content, erro
 		return nil, fmt.Errorf("content %x not exist, please confirm", digest)
 	}
 	return self.content[digest], nil
+}
+
+func (self *ConsensusPlugin) GetLatestBlockHeight() uint64 {
+	self.mutex.RLock()
+	defer self.mutex.RUnlock()
+	return self.latestBlockHeight
 }
