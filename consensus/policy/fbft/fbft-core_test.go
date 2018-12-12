@@ -572,19 +572,11 @@ func TestFbftCore_SendCommit(t *testing.T) {
 	monkey.PatchInstanceMethod(reflect.TypeOf(&c), "Write", func(*net.TCPConn, []byte) (int, error) {
 		return 0, nil
 	})
-	var b *blockchain.BlockChain
-	monkey.Patch(blockchain.NewBlockChainByBlockHash, func(types.Hash) (*blockchain.BlockChain, error) {
-		return b, nil
-	})
-	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetBlockByHash", func(*blockchain.BlockChain, types.Hash) (*types.Block, error) {
-		return block, nil
-	})
+
 	go fbft.sendCommit(mockCommit, block)
 	blocks := <-blockSwitch
 	assert.NotNil(t, blocks)
 	assert.Equal(t, blocks.(*types.Block).HeaderHash, block.HeaderHash)
-	monkey.Unpatch(blockchain.NewBlockChainByBlockHash)
-	monkey.UnpatchInstanceMethod(reflect.TypeOf(b), "GetBlockByHash")
 
 	commit := &messages.Commit{
 		Account:    mockAccounts[0],

@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"github.com/DSiSc/blockchain"
 	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/galaxy/consensus/common"
@@ -307,9 +306,7 @@ func (instance *fbftCore) receiveCommit(commit *messages.Commit) {
 }
 
 func (instance *fbftCore) commitBlock(block *types.Block) {
-	chain, _ := blockchain.NewBlockChainByBlockHash(block.Header.PrevBlockHash)
-	preBlock, _ := chain.GetBlockByHash(block.Header.PrevBlockHash)
-	instance.consensusPlugin.Remove(preBlock.HeaderHash)
+	instance.consensusPlugin.Remove(block.Header.MixDigest)
 	instance.blockSwitch <- block
 	log.Info("try to commit block %d with hash %x to block switch.", block.Header.Height, block.HeaderHash)
 }
