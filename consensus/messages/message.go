@@ -193,6 +193,29 @@ type Response struct {
 	SequenceNum uint64
 }
 
+// sync role assignment from other node
+type SyncRoleAssignmentReqMessage struct {
+	syncRoleAssignmentReq *SyncRoleAssignmentReq
+}
+
+type SyncRoleAssignmentReq struct {
+	Account   account.Account
+	Timestamp int64
+	ViewNum   uint64
+}
+
+// send sync role assignment to other node
+type SyncRoleAssignmentRespMessage struct {
+	syncRoleAssignmentResp *SyncRoleAssignmentResp
+}
+
+type SyncRoleAssignmentResp struct {
+	Account   account.Account
+	ViewNum   uint64
+	Master    account.Account
+	Timestamp int64
+}
+
 // commit msg
 type CommitMessage struct {
 	Commit *Commit
