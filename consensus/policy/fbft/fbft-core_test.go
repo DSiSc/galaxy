@@ -481,18 +481,21 @@ func TestFbftCore_receiveResponse(t *testing.T) {
 	})
 	fbft.eventCenter = event
 	response := &messages.Response{
-		Account:   mockAccounts[1],
-		Timestamp: time.Now().Unix(),
-		Digest:    mockHash,
-		Signature: mockSignset[1],
+		Account:     mockAccounts[1],
+		Timestamp:   time.Now().Unix(),
+		Digest:      mockHash,
+		Signature:   mockSignset[1],
+		SequenceNum: uint64(1),
 	}
-	content := fbft.consensusPlugin.Add(mockHash, nil)
+	block := &types.Block{
+		Header: &types.Header{Height: uint64(1)},
+	}
+	content := fbft.consensusPlugin.Add(mockHash, block)
 	assert.NotNil(t, content)
 	ok := content.AddSignature(mockAccounts[0], mockSignset[0])
 	assert.Equal(t, true, ok)
 	ok = content.AddSignature(mockAccounts[1], mockSignset[1])
 	assert.Equal(t, true, ok)
-	go fbft.waitResponse(mockHash)
 	monkey.Patch(signature.Verify, func(_ keypair.PublicKey, sign []byte) (types.Address, error) {
 		var address types.Address
 		if bytes.Equal(sign[:], mockSignset[0]) {
@@ -509,6 +512,7 @@ func TestFbftCore_receiveResponse(t *testing.T) {
 		}
 		return address, nil
 	})
+	go fbft.waitResponse(mockHash)
 	fbft.receiveResponse(response)
 	ch := <-fbft.result
 	assert.Equal(t, 2, len(ch.Signatures))
@@ -516,10 +520,11 @@ func TestFbftCore_receiveResponse(t *testing.T) {
 	assert.Equal(t, fmt.Errorf("signature not satisfy"), ch.Result)
 
 	response = &messages.Response{
-		Account:   mockAccounts[2],
-		Timestamp: time.Now().Unix(),
-		Digest:    mockHash,
-		Signature: mockSignset[2],
+		Account:     mockAccounts[2],
+		Timestamp:   time.Now().Unix(),
+		Digest:      mockHash,
+		Signature:   mockSignset[2],
+		SequenceNum: uint64(1),
 	}
 	content.SetState(common.InConsensus)
 	go fbft.waitResponse(mockHash)
@@ -530,16 +535,13 @@ func TestFbftCore_receiveResponse(t *testing.T) {
 	assert.Equal(t, common.ToConsensus, content.State())
 
 	response = &messages.Response{
-		Account:   mockAccounts[3],
-		Timestamp: time.Now().Unix(),
-		Digest:    mockHash,
-		Signature: mockSignset[3],
+		Account:     mockAccounts[3],
+		Timestamp:   time.Now().Unix(),
+		Digest:      mockHash,
+		Signature:   mockSignset[3],
+		SequenceNum: uint64(1),
 	}
-	content.SetState(common.InConsensus)
-	go fbft.waitResponse(mockHash)
 	fbft.receiveResponse(response)
-	ch = <-fbft.result
-	assert.Equal(t, len(mockSignset[:3]), len(ch.Signatures))
 	monkey.Unpatch(signature.Verify)
 }
 

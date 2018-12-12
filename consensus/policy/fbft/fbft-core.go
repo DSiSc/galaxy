@@ -115,7 +115,10 @@ func (instance *fbftCore) waitResponse(digest types.Hash) {
 		case <-timer.C:
 			log.Info("response has overtime.")
 			signatures, err := instance.maybeCommit(digest)
-			content.SetState(common.ToConsensus)
+			if nil == err {
+				content.SetState(common.ToConsensus)
+				instance.consensusPlugin.SetLatestBlockHeight(content.GetContentPayload().(*types.Block).Header.Height)
+			}
 			consensusResult := messages.ConsensusResult{
 				Signatures: signatures,
 				Result:     err,
@@ -123,10 +126,11 @@ func (instance *fbftCore) waitResponse(digest types.Hash) {
 			instance.result <- consensusResult
 			return
 		case signal := <-instance.signal:
-			log.Debug("receive signal of %v.", signal)
+			log.Info("receive signal of %v.", signal)
 			signatures, err := instance.maybeCommit(digest)
 			if nil == err {
 				content.SetState(common.ToConsensus)
+				instance.consensusPlugin.SetLatestBlockHeight(content.GetContentPayload().(*types.Block).Header.Height)
 				consensusResult := messages.ConsensusResult{
 					Signatures: signatures,
 					Result:     err,
@@ -171,10 +175,11 @@ func (instance *fbftCore) receiveProposal(proposal *messages.Proposal) {
 		MessageType: messages.ResponseMessageType,
 		PayLoad: &messages.ResponseMessage{
 			Response: &messages.Response{
-				Account:   instance.nodes.local,
-				Timestamp: proposal.Timestamp,
-				Digest:    proposal.Payload.Header.MixDigest,
-				Signature: signData,
+				Account:     instance.nodes.local,
+				Timestamp:   proposal.Timestamp,
+				Digest:      proposal.Payload.Header.MixDigest,
+				Signature:   signData,
+				SequenceNum: proposal.Payload.Header.Height,
 			},
 		},
 	}
@@ -202,6 +207,12 @@ func (instance *fbftCore) maybeCommit(digest types.Hash) ([][]byte, error) {
 }
 
 func (instance *fbftCore) receiveResponse(response *messages.Response) {
+	currentBlockHeight := instance.consensusPlugin.GetLatestBlockHeight()
+	if response.SequenceNum <= currentBlockHeight {
+		log.Error("the response %d from node %d exceed deadline which is %d.",
+			response.SequenceNum, response.Account.Extension.Id, currentBlockHeight)
+		return
+	}
 	content, err := instance.consensusPlugin.GetContentByHash(response.Digest)
 	if nil != err {
 		log.Error("get content of %v from response failed with %v.", response.Digest, err)
@@ -218,7 +229,7 @@ func (instance *fbftCore) receiveResponse(response *messages.Response) {
 			return
 		}
 		if content.AddSignature(response.Account, response.Signature) {
-			log.Debug("commit response message from node %d.", response.Account.Extension.Id)
+			log.Debug("add commit response message from node %d.", response.Account.Extension.Id)
 		} else {
 			existSign, _ := content.GetSignByAccount(response.Account)
 			if !bytes.Equal(existSign[:], response.Signature[:]) {
@@ -283,11 +294,11 @@ func (instance *fbftCore) receiveCommit(commit *messages.Commit) {
 		log.Error("get content of %v from commit failed with %v.", commit.Digest, err)
 		return
 	}
-	payload := content.GetContentPayloadByHash(commit.Digest)
+	payload := content.GetContentPayload()
 	// TODO: verify signature loop
 	payload.(*types.Block).Header.SigData = commit.Signatures
 	payload.(*types.Block).HeaderHash = common.HeaderHash(payload.(*types.Block))
-	if !bytes.Equal(payload.(*types.Block).HeaderHash[:], commit.BlockHash[:]) {
+	if !(payload.(*types.Block).HeaderHash == commit.BlockHash) {
 		log.Error("receive commit not consist, commit is %x, while compute is %x.",
 			commit.BlockHash, payload.(*types.Block).HeaderHash)
 		return

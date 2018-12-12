@@ -186,10 +186,11 @@ type ResponseMessage struct {
 }
 
 type Response struct {
-	Account   account.Account
-	Timestamp int64
-	Digest    types.Hash
-	Signature []byte
+	Account     account.Account
+	Timestamp   int64
+	Digest      types.Hash
+	Signature   []byte
+	SequenceNum uint64
 }
 
 // commit msg

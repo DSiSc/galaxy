@@ -86,7 +86,7 @@ func (self *Content) GetSignMap() map[account.Account][]byte {
 	return self.signMap
 }
 
-func (self *Content) GetContentPayloadByHash(digest types.Hash) interface{} {
+func (self *Content) GetContentPayload() interface{} {
 	self.lock.RLock()
 	defer self.lock.RUnlock()
 	return self.payload
@@ -137,4 +137,10 @@ func (self *ConsensusPlugin) GetLatestBlockHeight() uint64 {
 	self.mutex.RLock()
 	defer self.mutex.RUnlock()
 	return self.latestBlockHeight
+}
+
+func (self *ConsensusPlugin) SetLatestBlockHeight(height uint64) {
+	self.mutex.Lock()
+	self.latestBlockHeight = height
+	self.mutex.Unlock()
 }
