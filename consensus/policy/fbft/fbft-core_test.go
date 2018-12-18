@@ -419,6 +419,13 @@ func TestBftCore_receiveProposal(t *testing.T) {
 			},
 		},
 	}
+	var b *blockchain.BlockChain
+	monkey.Patch(blockchain.NewLatestStateBlockChain, func() (*blockchain.BlockChain, error) {
+		return b, nil
+	})
+	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetCurrentBlockHeight", func(*blockchain.BlockChain) uint64 {
+		return uint64(0)
+	})
 	fbft.receiveProposal(proposal)
 
 	// verify failed: Get NewBlockChainByBlockHash failed
@@ -431,7 +438,6 @@ func TestBftCore_receiveProposal(t *testing.T) {
 	monkey.Patch(signature.Verify, func(keypair.PublicKey, []byte) (types.Address, error) {
 		return mockAccounts[0].Address, nil
 	})
-	var b *blockchain.BlockChain
 	monkey.Patch(blockchain.NewBlockChainByBlockHash, func(types.Hash) (*blockchain.BlockChain, error) {
 		return b, nil
 	})

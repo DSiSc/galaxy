@@ -44,9 +44,10 @@ const (
 )
 
 const (
-	MAX_BUF_LEN        = 1024 * 256
+	MaxBufferLen       = 1024 * 256
 	DefaultViewNum     = uint64(0)
 	DefaultWalterLevel = int64(1)
+	DefaultBlockHeight = uint64(0)
 )
 
 var (
@@ -62,6 +63,11 @@ type ViewRequestState string
 
 const Viewing ViewRequestState = "Viewing"
 const ViewEnd ViewRequestState = "ViewEnd"
+
+type OnlineState string
+
+const GoOnline OnlineState = "ToOnline"
+const Online OnlineState = "Online"
 
 type ConsensusResult struct {
 	View        uint64

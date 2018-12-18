@@ -520,7 +520,7 @@ func (instance *bftCore) Start(account account.Account) {
 func handleConnection(tcpListener *net.TCPListener, bft *bftCore) {
 	for {
 		var conn, _ = tcpListener.AcceptTCP()
-		reader := bufio.NewReaderSize(conn, common.MAX_BUF_LEN)
+		reader := bufio.NewReaderSize(conn, common.MaxBufferLen)
 		msg, err := messages.ReadMessage(reader)
 		if nil != err {
 			log.Error("read message failed with error %v.", err)

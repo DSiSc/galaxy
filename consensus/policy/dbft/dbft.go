@@ -161,3 +161,7 @@ func (self *DBFTPolicy) GetConsensusResult() common.ConsensusResult {
 		Roles:       assignment,
 	}
 }
+
+func (self *DBFTPolicy) Online() {
+	return
+}

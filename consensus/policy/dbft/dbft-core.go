@@ -782,7 +782,7 @@ func (instance *dbftCore) Start(account account.Account) {
 func handleClient(conn net.Conn, bft *dbftCore) {
 	log.Info("receive messages form other node.")
 	defer conn.Close()
-	reader := bufio.NewReaderSize(conn, common.MAX_BUF_LEN)
+	reader := bufio.NewReaderSize(conn, common.MaxBufferLen)
 	msg, err := messages.ReadMessage(reader)
 	if nil != err {
 		log.Error("read message failed with error %v.", err)

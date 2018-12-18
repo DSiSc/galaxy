@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"github.com/DSiSc/blockchain"
 	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/galaxy/consensus/common"
@@ -27,6 +28,8 @@ type fbftCore struct {
 	timeoutTimer    *time.Timer
 	result          chan messages.ConsensusResult
 	signal          chan common.MessageSignal
+	online          chan messages.OnlineResponse
+	onlineWizard    *common.OnlineWizard
 	eventCenter     types.EventCenter
 	blockSwitch     chan<- interface{}
 	consensusPlugin *common.ConsensusPlugin
@@ -39,9 +42,11 @@ func NewFBFTCore(local account.Account, blockSwitch chan<- interface{}) *fbftCor
 		status:          common.ViewNormal,
 		result:          make(chan messages.ConsensusResult),
 		signal:          make(chan common.MessageSignal),
+		online:          make(chan messages.OnlineResponse),
 		blockSwitch:     blockSwitch,
 		consensusPlugin: common.NewConsensusPlugin(),
 		viewChange:      common.NewViewChange(),
+		onlineWizard:    common.NewOnlineWizard(),
 	}
 }
 
@@ -146,7 +151,19 @@ func (instance *fbftCore) waitResponse(digest types.Hash) {
 func (instance *fbftCore) receiveProposal(proposal *messages.Proposal) {
 	isMaster := instance.nodes.local == instance.nodes.master
 	if isMaster {
-		log.Warn("master not need to process proposal.")
+		proposalBlockHeight := proposal.Payload.Header.Height
+		blockChain, err := blockchain.NewLatestStateBlockChain()
+		if nil != err {
+			panic(fmt.Errorf("get latest state block chain failed with err %v", err))
+		}
+		currentBlockHeight := blockChain.GetCurrentBlockHeight()
+		if proposalBlockHeight != 0 && currentBlockHeight < proposalBlockHeight-1 {
+			log.Warn("may be master info is wrong, which block height is %d, while received is %d, so online.", currentBlockHeight, proposalBlockHeight)
+			instance.timeoutTimer.Stop()
+			instance.sendOnlineRequest()
+			return
+		}
+		log.Warn("master will not receive proposal form itself %d.", proposal.Id)
 		return
 	}
 	log.Info("reset timeout master with view num %d.", instance.viewChange.GetCurrentViewNum())
@@ -365,19 +382,19 @@ func (instance *fbftCore) sendChangeViewReq(nodes []account.Account, newView uin
 	messages.BroadcastPeersFilter(msgRaw, syncBlockResMsg.MessageType, types.Hash{}, instance.nodes.peers, instance.nodes.local)
 }
 
-func (self *fbftCore) waitMasterTimeout() {
+func (instance *fbftCore) waitMasterTimeout() {
 	for {
 		select {
-		case <-self.timeoutTimer.C:
-			currentViewNum := self.viewChange.GetCurrentViewNum()
+		case <-instance.timeoutTimer.C:
+			currentViewNum := instance.viewChange.GetCurrentViewNum()
 			requestViewNum := currentViewNum + 1
 			log.Warn("master timeout, issue change view from %d to %d.", currentViewNum, requestViewNum)
 			viewChangeReqMsg := messages.Message{
 				MessageType: messages.ViewChangeMessageReqType,
 				PayLoad: &messages.ViewChangeReqMessage{
 					ViewChange: &messages.ViewChangeReq{
-						Account:   self.nodes.local,
-						Nodes:     []account.Account{self.nodes.local},
+						Account:   instance.nodes.local,
+						Nodes:     []account.Account{instance.nodes.local},
 						Timestamp: time.Now().Unix(),
 						ViewNum:   requestViewNum,
 					},
@@ -388,9 +405,147 @@ func (self *fbftCore) waitMasterTimeout() {
 				log.Error("marshal proposal msg failed with %v.", err)
 				return
 			}
-			messages.BroadcastPeers(msgRaw, viewChangeReqMsg.MessageType, types.Hash{}, self.nodes.peers)
+			messages.BroadcastPeers(msgRaw, viewChangeReqMsg.MessageType, types.Hash{}, instance.nodes.peers)
 			return
 		}
+	}
+}
+
+func (instance *fbftCore) sendOnlineRequest() {
+	log.Info("send online request.")
+	chain, err := blockchain.NewLatestStateBlockChain()
+	if nil != err {
+		panic(fmt.Errorf("get latest state block chain failed with err %v", err))
+	}
+	currentBlockHeight := chain.GetCurrentBlockHeight()
+	onlineMessage := messages.Message{
+		MessageType: messages.OnlineRequestType,
+		PayLoad: &messages.OnlineRequestMessage{
+			OnlineRequest: &messages.OnlineRequest{
+				Account:     instance.nodes.local,
+				BlockHeight: currentBlockHeight,
+				Timestamp:   time.Now().Unix(),
+			},
+		},
+	}
+	msgRaw, err := messages.EncodeMessage(onlineMessage)
+	if nil != err {
+		log.Error("marshal online request msg failed with %v.", err)
+		return
+	}
+	walterLevel := len(instance.nodes.peers) - int(instance.tolerance)
+	if common.DefaultViewNum == currentBlockHeight {
+		// To avoid record error master
+		_, state := instance.onlineWizard.AddOnlineResponse(
+			currentBlockHeight, []account.Account{instance.nodes.local}, walterLevel, instance.nodes.master, instance.viewChange.GetCurrentViewNum())
+		if common.Online == state {
+			instance.eventCenter.Notify(types.EventOnline, nil)
+		}
+	}
+	messages.BroadcastPeersFilter(msgRaw, onlineMessage.MessageType, types.Hash{}, instance.nodes.peers, instance.nodes.local)
+	return
+}
+
+func (instance *fbftCore) receiveOnlineRequest(request *messages.OnlineRequest) {
+	chain, err := blockchain.NewLatestStateBlockChain()
+	if nil != err {
+		panic(fmt.Errorf("get latest state block chain failed with err %v", err))
+	}
+	currentBlockHeight := chain.GetCurrentBlockHeight()
+	currentViewNum := instance.viewChange.GetCurrentViewNum()
+	log.Info("receive online request from node %d with height %d and local height is %d and viewNum is %d.",
+		request.Account.Extension.Id, request.BlockHeight, currentBlockHeight, currentViewNum)
+	onlineResponse := messages.Message{
+		MessageType: messages.OnlineResponseType,
+		PayLoad: &messages.OnlineResponseMessage{
+			OnlineResponse: &messages.OnlineResponse{
+				Account:     instance.nodes.local,
+				BlockHeight: currentBlockHeight,
+				Nodes:       []account.Account{instance.nodes.local},
+				Master:      instance.nodes.master,
+				ViewNum:     currentViewNum,
+				Timestamp:   time.Now().Unix(),
+			},
+		},
+	}
+	if common.DefaultBlockHeight == currentBlockHeight {
+		walterLevel := len(instance.nodes.peers) - int(instance.tolerance)
+		accounts := []account.Account{instance.nodes.local}
+		if currentBlockHeight == request.BlockHeight {
+			log.Info("init online, so add the received node of %d.", request.Account.Extension.Id)
+			accounts = append(accounts, request.Account)
+		}
+		nodes, state := instance.onlineWizard.AddOnlineResponse(currentBlockHeight, accounts, walterLevel, instance.nodes.master, currentViewNum)
+		if common.Online == state {
+			log.Info("now has to be end of online and master is %d.", instance.nodes.master.Extension.Id)
+			instance.eventCenter.Notify(types.EventOnline, nil)
+		}
+		log.Info("now receive %d response for block height %d and state is %v with %d response.", len(nodes), currentBlockHeight, state)
+		onlineResponse.PayLoad.(*messages.OnlineResponseMessage).OnlineResponse.Nodes = nodes
+		msgRaw, err := messages.EncodeMessage(onlineResponse)
+		if nil != err {
+			log.Error("marshal online request msg failed with %v.", err)
+			panic("marshal online request msg failed.")
+		}
+		// init online, so broadcast it
+		messages.BroadcastPeersFilter(msgRaw, onlineResponse.MessageType, types.Hash{}, instance.nodes.peers, instance.nodes.local)
+		return
+	}
+	msgRaw, err := messages.EncodeMessage(onlineResponse)
+	if nil != err {
+		log.Error("marshal online response msg failed with %v.", err)
+		return
+	}
+	// not online first time, so just return result
+	messages.Unicast(request.Account, msgRaw, onlineResponse.MessageType, types.Hash{})
+}
+
+func (instance *fbftCore) receiveOnlineResponse(response *messages.OnlineResponse) {
+	log.Info("receive online response from node %d.", response.Account.Extension.Id)
+	chain, err := blockchain.NewLatestStateBlockChain()
+	if nil != err {
+		panic(fmt.Errorf("get latest state block chain failed with err %v", err))
+	}
+	currentBlockHeight := chain.GetCurrentBlockHeight()
+	if response.BlockHeight < currentBlockHeight {
+		log.Warn("block height received %d less than local %d.", response.BlockHeight, currentBlockHeight)
+		return
+	}
+	state := instance.onlineWizard.GetResponseNodesStateByBlockHeight(response.BlockHeight)
+	if common.Online == state {
+		log.Warn("online state has to be online, so ignore response from node %d with height %d and master %d.",
+			response.Account.Extension.Id, response.BlockHeight, response.Master.Extension.Id)
+		return
+	}
+	walterLevel := len(instance.nodes.peers) - int(instance.tolerance)
+	nodes, state := instance.onlineWizard.AddOnlineResponse(response.BlockHeight, response.Nodes, walterLevel, response.Master, response.ViewNum)
+	if common.Online == state {
+		log.Info("now has to be end of online and master is %d and view num is %d.",
+			response.Master.Extension.Id, response.ViewNum)
+		instance.viewChange.SetCurrentViewNum(response.ViewNum)
+		instance.nodes.master = response.Master
+		instance.eventCenter.Notify(types.EventOnline, nil)
+	}
+	if common.DefaultViewNum == response.BlockHeight {
+		log.Info("init online, so broadcast it.")
+		onlineResponse := messages.Message{
+			MessageType: messages.OnlineResponseType,
+			PayLoad: &messages.OnlineResponseMessage{
+				OnlineResponse: &messages.OnlineResponse{
+					Account:     instance.nodes.local,
+					Nodes:       nodes,
+					BlockHeight: response.BlockHeight,
+					Master:      instance.nodes.master,
+					Timestamp:   time.Now().Unix(),
+				},
+			},
+		}
+		msgRaw, err := messages.EncodeMessage(onlineResponse)
+		if nil != err {
+			log.Error("marshal online response msg failed with %v.", err)
+			return
+		}
+		messages.BroadcastPeersFilter(msgRaw, onlineResponse.MessageType, types.Hash{}, instance.nodes.peers, instance.nodes.local)
 	}
 }
 
@@ -417,6 +572,14 @@ func (instance *fbftCore) ProcessEvent(e utils.Event) utils.Event {
 		log.Info("receive view change request from node %d and viewNum %d.",
 			et.Account.Extension.Id, et.ViewNum)
 		instance.receiveChangeViewReq(et)
+	case *messages.OnlineRequest:
+		log.Info("receive online request from node %d and block height %d.",
+			et.Account.Extension.Id, et.BlockHeight)
+		instance.receiveOnlineRequest(et)
+	case *messages.OnlineResponse:
+		log.Info("receive online response from node %d and block height %d with master %d.",
+			et.Account.Extension.Id, et.BlockHeight, et.Master.Extension.Id)
+		instance.receiveOnlineResponse(et)
 	default:
 		log.Warn("replica %d received an unknown message type %v",
 			instance.nodes.local.Extension.Id, et)
@@ -448,7 +611,7 @@ func (instance *fbftCore) Start() {
 
 func handleClient(conn net.Conn, bft *fbftCore) {
 	defer conn.Close()
-	reader := bufio.NewReaderSize(conn, common.MAX_BUF_LEN)
+	reader := bufio.NewReaderSize(conn, common.MaxBufferLen)
 	msg, err := messages.ReadMessage(reader)
 	if nil != err {
 		log.Error("read message failed with error %v.", err)
@@ -493,6 +656,12 @@ func handleClient(conn net.Conn, bft *fbftCore) {
 	case messages.ViewChangeMessageReqType:
 		viewChange := payload.(*messages.ViewChangeReqMessage).ViewChange
 		utils.SendEvent(bft, viewChange)
+	case messages.OnlineRequestType:
+		onlineRequest := payload.(*messages.OnlineRequestMessage).OnlineRequest
+		utils.SendEvent(bft, onlineRequest)
+	case messages.OnlineResponseType:
+		onlineResponse := payload.(*messages.OnlineResponseMessage).OnlineResponse
+		utils.SendEvent(bft, onlineResponse)
 	default:
 		if nil == payload {
 			log.Warn("receive handshake, omit it %v.", payload)
@@ -500,4 +669,5 @@ func handleClient(conn net.Conn, bft *fbftCore) {
 			log.Error("not support type for %v.", payload)
 		}
 	}
+	return
 }

@@ -7,7 +7,7 @@ import (
 	"github.com/DSiSc/galaxy/consensus/common"
 	"github.com/DSiSc/galaxy/consensus/messages"
 	"github.com/DSiSc/galaxy/consensus/utils"
-	commonr "github.com/DSiSc/galaxy/role/common"
+	roleCommon "github.com/DSiSc/galaxy/role/common"
 	"github.com/DSiSc/validator/tools/account"
 	"time"
 )
@@ -30,10 +30,10 @@ func NewFBFTPolicy(account account.Account, timeout int64, blockSwitch chan<- in
 	return policy, nil
 }
 
-func (instance *FBFTPolicy) Initialization(role map[account.Account]commonr.Roler, peers []account.Account, events types.EventCenter) error {
+func (instance *FBFTPolicy) Initialization(role map[account.Account]roleCommon.Roler, peers []account.Account, events types.EventCenter) error {
 	var masterExist = false
 	for delegate, role := range role {
-		if commonr.Master == role {
+		if roleCommon.Master == role {
 			instance.core.nodes.master = delegate
 			masterExist = true
 		}
@@ -98,20 +98,24 @@ func (instance *FBFTPolicy) Halt() {
 	return
 }
 
-func (self *FBFTPolicy) GetConsensusResult() common.ConsensusResult {
-	role := make(map[account.Account]commonr.Roler)
-	for _, peer := range self.core.nodes.peers {
-		if self.core.nodes.master == peer {
-			role[peer] = commonr.Master
+func (instance *FBFTPolicy) GetConsensusResult() common.ConsensusResult {
+	role := make(map[account.Account]roleCommon.Roler)
+	for _, peer := range instance.core.nodes.peers {
+		if instance.core.nodes.master == peer {
+			role[peer] = roleCommon.Master
 			log.Debug("now master is %d.", peer.Extension.Id)
 			continue
 		}
-		role[peer] = commonr.Slave
+		role[peer] = roleCommon.Slave
 	}
-	log.Debug("now local is %d.", self.core.nodes.local.Extension.Id)
+	log.Debug("now local is %d.", instance.core.nodes.local.Extension.Id)
 	return common.ConsensusResult{
 		View:        uint64(0),
-		Participate: self.core.nodes.peers,
+		Participate: instance.core.nodes.peers,
 		Roles:       role,
 	}
+}
+
+func (instance *FBFTPolicy) Online() {
+	instance.core.sendOnlineRequest()
 }

@@ -187,3 +187,7 @@ func (self *SoloPolicy) GetConsensusResult() common.ConsensusResult {
 		Roles:       self.role,
 	}
 }
+
+func (self *SoloPolicy) Online() {
+	return
+}

@@ -121,3 +121,7 @@ func (self *BFTPolicy) GetConsensusResult() common.ConsensusResult {
 		Roles:       make(map[account.Account]commonr.Roler),
 	}
 }
+
+func (self *BFTPolicy) Online() {
+	return
+}

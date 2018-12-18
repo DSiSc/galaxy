@@ -35,61 +35,61 @@ func newContent(digest types.Hash, payload interface{}) *Content {
 	}
 }
 
-func (self *Content) SetState(state contentState) error {
-	self.lock.Lock()
-	if 1 != (state - self.state) {
-		self.lock.Unlock()
-		return fmt.Errorf("can not move state from %v to %v", self.state, state)
+func (instance *Content) SetState(state contentState) error {
+	instance.lock.Lock()
+	if 1 != (state - instance.state) {
+		instance.lock.Unlock()
+		return fmt.Errorf("can not move state from %v to %v", instance.state, state)
 	}
-	log.Debug("set state from %v to %v.", self.state, state)
-	self.state = state
-	self.lock.Unlock()
+	log.Debug("set state from %v to %v.", instance.state, state)
+	instance.state = state
+	instance.lock.Unlock()
 	return nil
 }
 
-func (self *Content) AddSignature(account account.Account, sign []byte) bool {
-	self.lock.Lock()
-	if _, ok := self.signMap[account]; !ok {
+func (instance *Content) AddSignature(account account.Account, sign []byte) bool {
+	instance.lock.Lock()
+	if _, ok := instance.signMap[account]; !ok {
 		log.Info("add account %d signature.", account.Extension.Id)
-		self.signMap[account] = sign
-		self.signatures = append(self.signatures, sign)
-		self.lock.Unlock()
+		instance.signMap[account] = sign
+		instance.signatures = append(instance.signatures, sign)
+		instance.lock.Unlock()
 		return true
 	}
-	self.lock.Unlock()
+	instance.lock.Unlock()
 	log.Warn("account %d signature has exist.", account.Extension.Id)
 	return false
 }
 
-func (self *Content) Signatures() [][]byte {
-	self.lock.RLock()
-	defer self.lock.RUnlock()
-	return self.signatures
+func (instance *Content) Signatures() [][]byte {
+	instance.lock.RLock()
+	defer instance.lock.RUnlock()
+	return instance.signatures
 }
 
-func (self *Content) State() contentState {
-	self.lock.RLock()
-	defer self.lock.RUnlock()
-	return self.state
+func (instance *Content) State() contentState {
+	instance.lock.RLock()
+	defer instance.lock.RUnlock()
+	return instance.state
 }
 
-func (self *Content) GetSignByAccount(account account.Account) ([]byte, bool) {
-	self.lock.RLock()
-	sign, ok := self.signMap[account]
-	self.lock.RUnlock()
+func (instance *Content) GetSignByAccount(account account.Account) ([]byte, bool) {
+	instance.lock.RLock()
+	sign, ok := instance.signMap[account]
+	instance.lock.RUnlock()
 	return sign, ok
 }
 
-func (self *Content) GetSignMap() map[account.Account][]byte {
-	self.lock.RLock()
-	defer self.lock.RUnlock()
-	return self.signMap
+func (instance *Content) GetSignMap() map[account.Account][]byte {
+	instance.lock.RLock()
+	defer instance.lock.RUnlock()
+	return instance.signMap
 }
 
-func (self *Content) GetContentPayload() interface{} {
-	self.lock.RLock()
-	defer self.lock.RUnlock()
-	return self.payload
+func (instance *Content) GetContentPayload() interface{} {
+	instance.lock.RLock()
+	defer instance.lock.RUnlock()
+	return instance.payload
 }
 
 type ConsensusPlugin struct {
@@ -105,42 +105,135 @@ func NewConsensusPlugin() *ConsensusPlugin {
 	}
 }
 
-func (self *ConsensusPlugin) Add(digest types.Hash, payload interface{}) *Content {
-	self.mutex.Lock()
-	defer self.mutex.Unlock()
-	if _, ok := self.content[digest]; !ok {
+func (instance *ConsensusPlugin) Add(digest types.Hash, payload interface{}) *Content {
+	instance.mutex.Lock()
+	defer instance.mutex.Unlock()
+	if _, ok := instance.content[digest]; !ok {
 		log.Info("add content %x to map to prepare consensus process.", digest)
-		self.content[digest] = newContent(digest, payload)
-		return self.content[digest]
+		instance.content[digest] = newContent(digest, payload)
+		return instance.content[digest]
 	}
 	log.Warn("content %x has exist, please confirm.", digest)
-	return self.content[digest]
+	return instance.content[digest]
 }
 
-func (self *ConsensusPlugin) Remove(digest types.Hash) {
-	self.mutex.Lock()
-	delete(self.content, digest)
-	self.mutex.Unlock()
+func (instance *ConsensusPlugin) Remove(digest types.Hash) {
+	instance.mutex.Lock()
+	delete(instance.content, digest)
+	instance.mutex.Unlock()
 }
 
-func (self *ConsensusPlugin) GetContentByHash(digest types.Hash) (*Content, error) {
-	self.mutex.RLock()
-	defer self.mutex.RUnlock()
-	if _, ok := self.content[digest]; !ok {
+func (instance *ConsensusPlugin) GetContentByHash(digest types.Hash) (*Content, error) {
+	instance.mutex.RLock()
+	defer instance.mutex.RUnlock()
+	if _, ok := instance.content[digest]; !ok {
 		log.Error("content %x not exist, please confirm.", digest)
 		return nil, fmt.Errorf("content %x not exist, please confirm", digest)
 	}
-	return self.content[digest], nil
+	return instance.content[digest], nil
 }
 
-func (self *ConsensusPlugin) GetLatestBlockHeight() uint64 {
-	self.mutex.RLock()
-	defer self.mutex.RUnlock()
-	return self.latestBlockHeight
+func (instance *ConsensusPlugin) GetLatestBlockHeight() uint64 {
+	instance.mutex.RLock()
+	defer instance.mutex.RUnlock()
+	return instance.latestBlockHeight
 }
 
-func (self *ConsensusPlugin) SetLatestBlockHeight(height uint64) {
-	self.mutex.Lock()
-	self.latestBlockHeight = height
-	self.mutex.Unlock()
+func (instance *ConsensusPlugin) SetLatestBlockHeight(height uint64) {
+	instance.mutex.Lock()
+	instance.latestBlockHeight = height
+	instance.mutex.Unlock()
+}
+
+type OnlineWizard struct {
+	mutex           sync.RWMutex
+	blockHeight     uint64
+	blockHeightList []uint64
+	response        map[uint64]*ResponseNodes
+}
+
+type ResponseNodes struct {
+	mutex       sync.RWMutex
+	nodes       []account.Account
+	node        map[types.Address]account.Account
+	state       OnlineState
+	master      account.Account
+	viewNum     uint64
+	walterLevel int
+}
+
+func NewResponseNodes(walterLevel int, master account.Account) *ResponseNodes {
+	return &ResponseNodes{
+		node:        make(map[types.Address]account.Account),
+		state:       GoOnline,
+		master:      master,
+		walterLevel: walterLevel,
+		nodes:       make([]account.Account, 0),
+	}
+}
+
+func (instance *ResponseNodes) AddResponseNodes(node account.Account) ([]account.Account, OnlineState) {
+	instance.mutex.Lock()
+	defer instance.mutex.Unlock()
+	if _, ok := instance.node[node.Address]; !ok {
+		instance.node[node.Address] = node
+		instance.nodes = append(instance.nodes, node)
+	}
+	if len(instance.nodes) >= instance.walterLevel {
+		log.Info("now node has reached consensus, so state from GoOnline to Online")
+		instance.state = Online
+	}
+	return instance.nodes, instance.state
+}
+
+func NewOnlineWizard() *OnlineWizard {
+	return &OnlineWizard{
+		blockHeight:     DefaultBlockHeight,
+		blockHeightList: make([]uint64, 0),
+		response:        make(map[uint64]*ResponseNodes),
+	}
+}
+
+func (instance *OnlineWizard) AddOnlineResponse(blockHeight uint64, nodes []account.Account, walterLevel int, master account.Account, viewNum uint64) ([]account.Account, OnlineState) {
+	instance.mutex.Lock()
+	var nodeList []account.Account
+	var state OnlineState
+	defer instance.mutex.Unlock()
+	if _, ok := instance.response[blockHeight]; !ok {
+		instance.response[blockHeight] = NewResponseNodes(walterLevel, master)
+		instance.blockHeightList = append(instance.blockHeightList, blockHeight)
+	}
+	if master != instance.response[blockHeight].master {
+		panic(fmt.Sprintf("master not in agreement which exist is %d, while receive is %d.",
+			instance.response[blockHeight].master.Extension.Id, master.Extension.Id))
+	}
+	if instance.response[blockHeight].viewNum < viewNum {
+		instance.response[blockHeight].viewNum = viewNum
+	}
+	for _, node := range nodes {
+		nodeList, state = instance.response[blockHeight].AddResponseNodes(node)
+	}
+	return nodeList, state
+}
+
+func (instance *OnlineWizard) GetMasterByBlockHeight(blockHeight uint64) account.Account {
+	instance.mutex.RLock()
+	defer instance.mutex.RUnlock()
+	return instance.response[blockHeight].master
+}
+
+func (instance *OnlineWizard) GetResponseNodesStateByBlockHeight(blockHeight uint64) OnlineState {
+	instance.mutex.Lock()
+	defer instance.mutex.Unlock()
+	if _, ok := instance.response[blockHeight]; !ok {
+		log.Warn("never received %d response before.", blockHeight)
+		return GoOnline
+	}
+	return instance.response[blockHeight].state
+}
+
+func (instance *OnlineWizard) DeleteOnlineResponse(blockHeight uint64) {
+	instance.mutex.Lock()
+	delete(instance.response, blockHeight)
+	instance.mutex.Unlock()
 }

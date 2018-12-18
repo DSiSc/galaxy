@@ -15,14 +15,16 @@ import (
 type MessageType uint32
 
 const (
-	NIL = MessageType(iota)
-	RequestMessageType
-	ProposalMessageType
-	ResponseMessageType
-	CommitMessageType
-	SyncBlockReqMessageType
-	SyncBlockRespMessageType
-	ViewChangeMessageReqType
+	NIL                      = MessageType(iota) // 0, nil ,message
+	RequestMessageType                           // 1, request message for bft
+	ProposalMessageType                          // 2, proposal message for bft
+	ResponseMessageType                          // 3, response message for bft
+	CommitMessageType                            // 4, commit message for bft
+	SyncBlockReqMessageType                      // 5, sync block request
+	SyncBlockRespMessageType                     // 6, sync block response
+	ViewChangeMessageReqType                     // 7, change view request
+	OnlineRequestType                            // 8, node online request
+	OnlineResponseType                           // 9, response for node online request
 )
 
 type Message struct {
@@ -115,6 +117,10 @@ func makeEmptyMessage(MessageType MessageType) (interface{}, error) {
 		return &SyncBlockRespMessage{}, nil
 	case ViewChangeMessageReqType:
 		return &ViewChangeReqMessage{}, nil
+	case OnlineRequestType:
+		return &OnlineRequestMessage{}, nil
+	case OnlineResponseType:
+		return &OnlineResponseMessage{}, nil
 	default:
 		return nil, fmt.Errorf("unknown message type %v", MessageType)
 	}
@@ -193,9 +199,34 @@ type Response struct {
 	SequenceNum uint64
 }
 
+// online request
+type OnlineRequestMessage struct {
+	OnlineRequest *OnlineRequest
+}
+
+type OnlineRequest struct {
+	Account     account.Account
+	Timestamp   int64
+	BlockHeight uint64
+}
+
+// online response
+type OnlineResponseMessage struct {
+	OnlineResponse *OnlineResponse
+}
+
+type OnlineResponse struct {
+	Account     account.Account
+	Timestamp   int64
+	BlockHeight uint64
+	ViewNum     uint64
+	Nodes       []account.Account
+	Master      account.Account
+}
+
 // sync role assignment from other node
 type SyncRoleAssignmentReqMessage struct {
-	syncRoleAssignmentReq *SyncRoleAssignmentReq
+	SyncRoleAssignmentReq *SyncRoleAssignmentReq
 }
 
 type SyncRoleAssignmentReq struct {
@@ -206,7 +237,7 @@ type SyncRoleAssignmentReq struct {
 
 // send sync role assignment to other node
 type SyncRoleAssignmentRespMessage struct {
-	syncRoleAssignmentResp *SyncRoleAssignmentResp
+	SyncRoleAssignmentResp *SyncRoleAssignmentResp
 }
 
 type SyncRoleAssignmentResp struct {
