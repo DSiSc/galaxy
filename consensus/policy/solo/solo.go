@@ -5,7 +5,6 @@ import (
 	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/galaxy/consensus/common"
-	commonr "github.com/DSiSc/galaxy/role/common"
 	"github.com/DSiSc/validator"
 	"github.com/DSiSc/validator/tools/account"
 	"github.com/DSiSc/validator/tools/signature"
@@ -14,12 +13,11 @@ import (
 
 type SoloPolicy struct {
 	name        string
-	account     account.Account
+	local       account.Account
 	tolerance   uint8
 	version     common.Version
 	peers       []account.Account
-	role        map[account.Account]commonr.Roler
-	receipts    types.Receipts
+	master      account.Account
 	eventCenter types.EventCenter
 	blockSwitch chan<- interface{}
 }
@@ -34,7 +32,7 @@ type SoloProposal struct {
 func NewSoloPolicy(account account.Account, blkSwitch chan<- interface{}) (*SoloPolicy, error) {
 	policy := &SoloPolicy{
 		name:        common.SOLO_POLICY,
-		account:     account,
+		local:       account,
 		tolerance:   common.SOLO_CONSENSUS_NUM,
 		blockSwitch: blkSwitch,
 	}
@@ -55,19 +53,15 @@ func (self *SoloPolicy) Halt() {
 	return
 }
 
-func (self *SoloPolicy) Initialization(role map[account.Account]commonr.Roler, account []account.Account, event types.EventCenter, onLine bool) error {
-	if onLine{
+func (self *SoloPolicy) Initialization(master account.Account, accounts []account.Account, event types.EventCenter, onLine bool) error {
+	if onLine {
 		log.Info("online first time.")
 	}
-	if len(role) != len(account) {
-		log.Error("solo core has not been initial, please confirm.")
-		return fmt.Errorf("role and peers not in consistent")
-	}
-	if common.SOLO_CONSENSUS_NUM != uint8(len(account)) {
+	if common.SOLO_CONSENSUS_NUM != uint8(len(accounts)) {
 		return fmt.Errorf("solo policy only support one participate")
 	}
-	self.role = role
-	self.peers = account
+	self.master = master
+	self.peers = accounts
 	self.eventCenter = event
 	return nil
 }
@@ -115,7 +109,7 @@ func (self *SoloPolicy) ToConsensus(p *common.Proposal) error {
 		self.eventCenter.Notify(types.EventConsensusFailed, nil)
 		return fmt.Errorf("not enough valid signature")
 	}
-	if _, ok := validSign[self.account.Address]; !ok {
+	if _, ok := validSign[self.local.Address]; !ok {
 		log.Error("absence self signature.")
 		self.eventCenter.Notify(types.EventConsensusFailed, nil)
 		return fmt.Errorf("absence self signature")
@@ -178,7 +172,6 @@ func (self *SoloPolicy) toConsensus(p *SoloProposal) bool {
 		return false
 	}
 	log.Info("Consensus reached for block %d.", p.proposal.Block.Header.Height)
-	self.receipts = validators.Receipts
 	return true
 }
 
@@ -186,7 +179,7 @@ func (self *SoloPolicy) GetConsensusResult() common.ConsensusResult {
 	return common.ConsensusResult{
 		View:        uint64(0),
 		Participate: self.peers,
-		Roles:       self.role,
+		Master:      self.master,
 	}
 }
 

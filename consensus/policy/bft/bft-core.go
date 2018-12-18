@@ -14,12 +14,14 @@ import (
 	"github.com/DSiSc/validator/tools/signature"
 	"github.com/DSiSc/validator/worker"
 	"net"
+	"sync"
 	"time"
 )
 
 type bftCore struct {
 	local       account.Account
-	master      uint64
+	mutex       sync.RWMutex
+	master      account.Account
 	peers       []account.Account
 	signature   *signData
 	tolerance   uint8
@@ -116,7 +118,7 @@ func (instance *bftCore) unicast(account account.Account, msgPayload []byte, msg
 }
 
 func (instance *bftCore) receiveRequest(request *messages.Request) {
-	isMaster := instance.local.Extension.Id == instance.master
+	isMaster := instance.local == instance.master
 	if !isMaster {
 		log.Info("only master process request.")
 		return
@@ -179,7 +181,9 @@ func (instance *bftCore) waitResponse() {
 			if nil != err {
 				log.Warn("maybe commit errors %s.", err)
 			}
+			instance.mutex.Lock()
 			instance.commit = true
+			instance.mutex.Unlock()
 			consensusResult := &messages.ConsensusResult{
 				Signatures: signatures,
 				Result:     err,
@@ -190,7 +194,9 @@ func (instance *bftCore) waitResponse() {
 			log.Info("receive tunnel")
 			signatures, err := instance.maybeCommit()
 			if len(signatures) == len(instance.peers) {
+				instance.mutex.Lock()
 				instance.commit = true
+				instance.mutex.Unlock()
 				consensusResult := messages.ConsensusResult{
 					Signatures: signatures,
 					Result:     err,
@@ -205,17 +211,16 @@ func (instance *bftCore) waitResponse() {
 }
 
 func (instance *bftCore) receiveProposal(proposal *messages.Proposal) {
-	isMaster := instance.local.Extension.Id == instance.master
+	isMaster := instance.local == instance.master
 	if isMaster {
 		log.Info("master not need to process proposal.")
 		return
 	}
-	if instance.master != proposal.Id {
+	if instance.master.Extension.Id != proposal.Id {
 		log.Error("proposal must from master %d, while it from %d in fact.", instance.master, proposal.Id)
 		return
 	}
-	masterAccount := tools.GetAccountById(instance.peers, instance.master)
-	if !signDataVerify(masterAccount, proposal.Signature, proposal.Payload.Header.MixDigest) {
+	if !signDataVerify(instance.master, proposal.Signature, proposal.Payload.Header.MixDigest) {
 		log.Error("proposal signature not from master, please confirm.")
 		return
 	}
@@ -255,9 +260,9 @@ func (instance *bftCore) receiveProposal(proposal *messages.Proposal) {
 		log.Error("marshal proposal msg failed with %v.", err)
 		return
 	}
-	err = instance.unicast(masterAccount, msgRaw, messages.ResponseMessageType, proposal.Payload.Header.MixDigest)
+	err = instance.unicast(instance.master, msgRaw, messages.ResponseMessageType, proposal.Payload.Header.MixDigest)
 	if err != nil {
-		log.Error("unicast to master %x failed with error %v.", masterAccount.Address, err)
+		log.Error("unicast to master %x failed with error %v.", instance.master.Address, err)
 	}
 }
 
@@ -325,8 +330,10 @@ func signDataVerify(account account.Account, sign []byte, digest types.Hash) boo
 }
 
 func (instance *bftCore) receiveResponse(response *messages.Response) {
+	instance.mutex.RLock()
+	defer instance.mutex.RUnlock()
 	if !instance.commit {
-		isMaster := instance.local.Extension.Id == instance.master
+		isMaster := instance.local == instance.master
 		if !isMaster {
 			log.Info("only master need to process response.")
 			return
@@ -354,8 +361,10 @@ func (instance *bftCore) receiveResponse(response *messages.Response) {
 			}
 			log.Warn("receive duplicate signature from the same validator, ignore it.")
 		}
+		return
 	} else {
 		log.Info("response has be committed, ignore response from %x.", response.Account.Address)
+		return
 	}
 }
 
@@ -537,7 +546,7 @@ func handleConnection(tcpListener *net.TCPListener, bft *bftCore) {
 			proposal := payload.(*messages.ProposalMessage).Proposal
 			log.Info("receive proposal message form node %d with payload %x.",
 				proposal.Id, proposal.Payload.Header.MixDigest)
-			if proposal.Id != bft.master {
+			if proposal.Id != bft.master.Extension.Id {
 				log.Warn("only master can issue a proposal.")
 				continue
 			}
@@ -546,7 +555,7 @@ func handleConnection(tcpListener *net.TCPListener, bft *bftCore) {
 			response := payload.(*messages.ResponseMessage).Response
 			log.Info("receive response message from node %d with payload %x.",
 				response.Account.Extension.Id, response.Digest)
-			if response.Account.Extension.Id == bft.master {
+			if response.Account.Extension.Id == bft.master.Extension.Id {
 				log.Warn("master will not receive response message from itself.")
 				continue
 			}

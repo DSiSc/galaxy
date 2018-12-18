@@ -30,18 +30,8 @@ func NewFBFTPolicy(account account.Account, timeout int64, blockSwitch chan<- in
 	return policy, nil
 }
 
-func (instance *FBFTPolicy) Initialization(role map[account.Account]roleCommon.Roler, peers []account.Account, events types.EventCenter, onLine bool) error {
-	var masterExist = false
-	for delegate, role := range role {
-		if roleCommon.Master == role {
-			instance.core.nodes.master = delegate
-			masterExist = true
-		}
-	}
-	if !masterExist {
-		log.Error("no master exist, please confirm.")
-		return fmt.Errorf("no master exist")
-	}
+func (instance *FBFTPolicy) Initialization(master account.Account, peers []account.Account, events types.EventCenter, onLine bool) error {
+	instance.core.nodes.master = master
 	instance.core.nodes.peers = peers
 	instance.core.eventCenter = events
 	instance.core.tolerance = uint8((len(peers) - 1) / 3)
@@ -49,7 +39,7 @@ func (instance *FBFTPolicy) Initialization(role map[account.Account]roleCommon.R
 	if nil != instance.core.timeoutTimer {
 		instance.core.timeoutTimer.Stop()
 	}
-	if !onLine{
+	if !onLine {
 		instance.core.timeoutTimer = time.NewTimer(30 * time.Second)
 		go instance.core.waitMasterTimeout()
 	}
@@ -114,7 +104,7 @@ func (instance *FBFTPolicy) GetConsensusResult() common.ConsensusResult {
 	return common.ConsensusResult{
 		View:        uint64(0),
 		Participate: instance.core.nodes.peers,
-		Roles:       role,
+		Master:      instance.core.nodes.master,
 	}
 }
 

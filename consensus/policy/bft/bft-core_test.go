@@ -77,9 +77,10 @@ var mockSignset = [][]byte{
 
 func TestBftCore_ProcessEvent(t *testing.T) {
 	var sigChannel = make(chan *messages.ConsensusResult)
-	bft := NewBFTCore(mockAccounts[0], sigChannel)
+	id := 0
+	bft := NewBFTCore(mockAccounts[id], sigChannel)
 	assert.NotNil(t, bft)
-	id := mockAccounts[0].Extension.Id
+
 	err := bft.ProcessEvent(nil)
 	assert.Equal(t, fmt.Errorf("un support type <nil>"), err)
 
@@ -129,7 +130,7 @@ func TestBftCore_ProcessEvent(t *testing.T) {
 			},
 		},
 	}
-	bft.master = id + 1
+	bft.master = mockAccounts[id+1]
 	err = bft.ProcessEvent(mock_proposal)
 	assert.Nil(t, err)
 
@@ -150,7 +151,7 @@ func TestBftCore_ProcessEvent(t *testing.T) {
 		return address, nil
 	})
 
-	bft.master = id
+	bft.master = mockAccounts[id]
 	mockResponse := &messages.Response{
 		Account:   mockAccounts[0],
 		Timestamp: time.Now().Unix(),
@@ -223,8 +224,8 @@ var fakeSignature = []byte{
 }
 
 func TestBftCore_receiveRequest(t *testing.T) {
-	bft := NewBFTCore(mockAccounts[0], sigChannel)
-	id := mockAccounts[0].Extension.Id
+	id := 0
+	bft := NewBFTCore(mockAccounts[id], sigChannel)
 	assert.NotNil(t, bft)
 	bft.peers = mockAccounts
 	// only master process request
@@ -237,10 +238,10 @@ func TestBftCore_receiveRequest(t *testing.T) {
 			},
 		},
 	}
-	bft.master = id + 1
+	bft.master = mockAccounts[id+1]
 	bft.receiveRequest(request)
 	// absence of signature
-	bft.master = id
+	bft.master = mockAccounts[id]
 	bft.receiveRequest(request)
 
 	request.Payload.Header.SigData = append(request.Payload.Header.SigData, fakeSignature)
@@ -348,6 +349,7 @@ func TestBftCore_receiveProposal(t *testing.T) {
 	bft := NewBFTCore(mockAccounts[0], sigChannel)
 	assert.NotNil(t, bft)
 	bft.peers = mockAccounts
+	bft.master = mockAccounts[0]
 	// master receive proposal
 	proposal := &messages.Proposal{
 		Timestamp: 1535414400,
@@ -427,6 +429,7 @@ func TestBftCore_receiveResponse(t *testing.T) {
 	bft := NewBFTCore(mockAccounts[0], sigChannel)
 	assert.NotNil(t, bft)
 	bft.peers = mockAccounts
+	bft.master = mockAccounts[0]
 	bft.digest = mockHash
 	response := &messages.Response{
 		Account:   mockAccounts[1],

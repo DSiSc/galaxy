@@ -109,15 +109,10 @@ func TestBFTPolicy_Initialization(t *testing.T) {
 	assert.NotNil(t, fbft)
 	assert.Nil(t, err)
 
-	assignment := mockRoleAssignment(mockAccounts[3], mockAccounts)
-	err = fbft.Initialization(assignment, mockAccounts, nil, false)
+	err = fbft.Initialization(mockAccounts[3], mockAccounts, nil, false)
 	assert.Equal(t, fbft.core.nodes.peers, mockAccounts)
 	assert.Equal(t, fbft.core.tolerance, uint8((len(mockAccounts)-1)/3))
 	assert.Equal(t, fbft.core.nodes.master, mockAccounts[3])
-
-	assignment[mockAccounts[3]] = commonr.Slave
-	err = fbft.Initialization(assignment, mockAccounts, nil, false)
-	assert.Equal(t, err, fmt.Errorf("no master exist"))
 }
 
 func TestBFTPolicy_Start(t *testing.T) {
@@ -205,6 +200,6 @@ func TestFBFTPolicy_GetConsensusResult(t *testing.T) {
 	fbft.core.nodes.peers = mockAccounts
 	result := fbft.GetConsensusResult()
 	assert.Equal(t, uint64(0), result.View)
-	assert.Equal(t, commonr.Master, result.Roles[mockAccounts[1]])
+	assert.Equal(t, result.Master, result.Master)
 	assert.Equal(t, len(mockAccounts), len(result.Participate))
 }

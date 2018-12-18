@@ -140,11 +140,11 @@ func TestNewdbftCore(t *testing.T) {
 }
 
 func TestDbftCore_ProcessEvent(t *testing.T) {
+	id := 0
 	var sigChannel = make(chan *messages.ConsensusResult)
-	dbft := NewDBFTCore(mockAccounts[0], sigChannel)
+	dbft := NewDBFTCore(mockAccounts[id], sigChannel)
 	dbft.masterTimeout = time.NewTimer(10 * time.Second)
 	assert.NotNil(t, dbft)
-	id := mockAccounts[0].Extension.Id
 	err := dbft.ProcessEvent(nil)
 	assert.Equal(t, fmt.Errorf("un support type <nil>"), err)
 
@@ -194,7 +194,7 @@ func TestDbftCore_ProcessEvent(t *testing.T) {
 			},
 		},
 	}
-	dbft.master = id + 1
+	dbft.master = mockAccounts[id+1]
 	err = dbft.ProcessEvent(mock_proposal)
 	assert.Nil(t, err)
 
@@ -215,7 +215,7 @@ func TestDbftCore_ProcessEvent(t *testing.T) {
 		return address, nil
 	})
 
-	dbft.master = id
+	dbft.master = mockAccounts[id]
 	mockResponse := &messages.Response{
 		Account:   mockAccounts[0],
 		Timestamp: time.Now().Unix(),
@@ -289,9 +289,9 @@ var fakeSignature = []byte{
 }
 
 func TestDftCore_receiveRequest(t *testing.T) {
-	dbft := NewDBFTCore(mockAccounts[0], sigChannel)
+	id := 0
+	dbft := NewDBFTCore(mockAccounts[id], sigChannel)
 	dbft.masterTimeout = time.NewTimer(10 * time.Second)
-	id := mockAccounts[0].Extension.Id
 	assert.NotNil(t, dbft)
 	dbft.peers = mockAccounts
 	// only master process request
@@ -304,10 +304,10 @@ func TestDftCore_receiveRequest(t *testing.T) {
 			},
 		},
 	}
-	dbft.master = id + 1
+	dbft.master = mockAccounts[id+1]
 	dbft.receiveRequest(request)
 	// absence of signature
-	dbft.master = id
+	dbft.master = mockAccounts[id]
 	dbft.receiveRequest(request)
 
 	request.Payload.Header.SigData = append(request.Payload.Header.SigData, fakeSignature)
@@ -410,6 +410,7 @@ func TestDbftCore_receiveProposal(t *testing.T) {
 	dbft.masterTimeout = time.NewTimer(10 * time.Second)
 	assert.NotNil(t, dbft)
 	dbft.peers = mockAccounts
+	dbft.master = mockAccounts[0]
 
 	// master receive proposal
 	proposalHeight := uint64(2)
@@ -513,6 +514,7 @@ func TestDbftCore_receiveResponse(t *testing.T) {
 	assert.NotNil(t, dbft)
 	dbft.peers = mockAccounts
 	dbft.digest = mockHash
+	dbft.master = mockAccounts[0]
 	response := &messages.Response{
 		Account:   mockAccounts[1],
 		Timestamp: time.Now().Unix(),
@@ -857,7 +859,7 @@ func TestDbftCore_ProcessEvent6(t *testing.T) {
 	core.masterTimeout = time.NewTimer(10 * time.Second)
 	core.peers = mockAccounts
 	core.tolerance = 1
-	core.master = uint64(2)
+	core.master = mockAccounts[2]
 	currentHeight := uint64(2)
 	event := NewEvent()
 	event.Subscribe(types.EventMasterChange, func(v interface{}) {
@@ -903,7 +905,7 @@ func TestDbftCore_ProcessEvent7(t *testing.T) {
 	core.masterTimeout = time.NewTimer(10 * time.Second)
 	core.peers = mockAccounts
 	core.tolerance = 1
-	core.master = uint64(3)
+	core.master = mockAccounts[3]
 	event := NewEvent()
 	event.Subscribe(types.EventMasterChange, func(v interface{}) {
 		log.Error("receive view change event.")
@@ -952,5 +954,5 @@ func TestDbftCore_ProcessEvent7(t *testing.T) {
 	assert.Equal(t, common.ViewChanging, core.views.status)
 	assert.Equal(t, 3, len(core.views.viewSets[viewChangeReq.ViewNum].requestNodes))
 	assert.Equal(t, common.ViewEnd, core.views.viewSets[viewChangeReq.ViewNum].status)
-	assert.Equal(t, uint64(0), core.master)
+	assert.Equal(t, mockAccounts[0], core.master)
 }

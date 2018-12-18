@@ -7,7 +7,6 @@ import (
 	"github.com/DSiSc/galaxy/consensus/common"
 	"github.com/DSiSc/galaxy/consensus/messages"
 	"github.com/DSiSc/galaxy/consensus/utils"
-	commonr "github.com/DSiSc/galaxy/role/common"
 	"github.com/DSiSc/validator/tools/account"
 	"time"
 )
@@ -32,26 +31,11 @@ func NewBFTPolicy(account account.Account, timeout int64) (*BFTPolicy, error) {
 	return policy, nil
 }
 
-func (self *BFTPolicy) Initialization(role map[account.Account]commonr.Roler, peers []account.Account, events types.EventCenter, onLine bool) error {
-	if onLine{
+func (self *BFTPolicy) Initialization(master account.Account, peers []account.Account, events types.EventCenter, onLine bool) error {
+	if onLine {
 		log.Info("online first time.")
 	}
-	if len(role) != len(peers) {
-		log.Error("bft core has not been initial, please confirm.")
-		return fmt.Errorf("role and peers not in consistent")
-	}
-	var masterExist bool = false
-	for delegate, role := range role {
-		if commonr.Master == role {
-			self.bftCore.master = delegate.Extension.Id
-			masterExist = true
-			break
-		}
-	}
-	if !masterExist {
-		log.Error("no master exist in delegates")
-		return fmt.Errorf("no master")
-	}
+	self.bftCore.master = master
 	self.bftCore.commit = false
 	self.bftCore.peers = peers
 	self.bftCore.eventCenter = events
@@ -121,7 +105,7 @@ func (self *BFTPolicy) GetConsensusResult() common.ConsensusResult {
 	return common.ConsensusResult{
 		View:        uint64(0),
 		Participate: self.bftCore.peers,
-		Roles:       make(map[account.Account]commonr.Roler),
+		Master:      self.bftCore.master,
 	}
 }
 

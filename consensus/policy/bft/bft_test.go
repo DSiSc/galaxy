@@ -60,24 +60,15 @@ func TestBFTPolicy_Initialization(t *testing.T) {
 	assert.NotNil(t, bft)
 	assert.Nil(t, err)
 
-	assignment := mockRoleAssignment(mockAccounts[3], mockAccounts)
-	err = bft.Initialization(assignment, mockAccounts[:3], nil, false)
-	assert.Equal(t, err, fmt.Errorf("role and peers not in consistent"))
-
-	assignment[mockAccounts[3]] = commonr.Master
-	err = bft.Initialization(assignment, mockAccounts, nil, false)
+	err = bft.Initialization(mockAccounts[3], mockAccounts, nil, true)
 	assert.Equal(t, bft.bftCore.peers, mockAccounts)
 	assert.Equal(t, bft.bftCore.tolerance, uint8((len(mockAccounts)-1)/3))
-	assert.Equal(t, bft.bftCore.master, mockAccounts[3].Extension.Id)
+	assert.Equal(t, bft.bftCore.master, mockAccounts[3])
 	assert.Equal(t, 0, len(bft.bftCore.validator))
 	assert.Equal(t, 0, len(bft.bftCore.payloads))
 	assert.NotNil(t, bft.bftCore.signature)
 	assert.Equal(t, 0, len(bft.bftCore.signature.signMap))
 	assert.Equal(t, 0, len(bft.bftCore.signature.signatures))
-
-	assignment[mockAccounts[3]] = commonr.Slave
-	err = bft.Initialization(assignment, mockAccounts, nil, false)
-	assert.Equal(t, err, fmt.Errorf("no master"))
 }
 
 func TestBFTPolicy_Start(t *testing.T) {
@@ -90,40 +81,6 @@ func TestBFTPolicy_Start(t *testing.T) {
 	bft.Start()
 	monkey.UnpatchInstanceMethod(reflect.TypeOf(b), "Start")
 }
-
-/*
-func TestBFTPolicy_Halt(t *testing.T) {
-	local := account.Account{
-		Address: types.Address{0x33, 0x3c, 0x33, 0x10, 0x82, 0x4b, 0x7c, 0x68, 0x51, 0x33, 0xf2, 0xbe, 0xdb, 0x2c, 0xa4, 0xb8, 0xb4, 0xdf, 0x63, 0x3d},
-		Extension: account.AccountExtension{
-			Id:  0,
-			Url: "127.0.0.1:8080",
-		},
-	}
-	bft, err := NewBFTPolicy(local)
-	assert.Nil(t, err)
-	go bft.Start()
-	var sign = [][]byte{{0x33, 0x3c, 0x33, 0x10, 0x82}}
-	time.Sleep(5*time.Second)
-	request := &messages.Request{
-		Timestamp: time.Now().Unix(),
-		Payload:   &types.Block{
-			Header:&types.Header{
-				Height:1,
-				SigData:sign,
-			},
-		},
-	}
-	var ch = make(chan messages.SignatureSet)
-	bft.bftCore = NewBFTCore(uint64(0), ch)
-	bft.bftCore.master = uint64(0)
-	bft.bftCore.peers = []account.Account{local}
-	bft.bftCore.tolerance = 0
-	go tools.SendEvent(bft.bftCore, request)
-	result := <-bft.result
-	assert.NotNil(t, result)
-}
-*/
 
 var mockConsensusResult = &messages.ConsensusResult{
 	Signatures: mockSignset,
@@ -205,15 +162,9 @@ func TestFBFTPolicy_GetConsensusResult(t *testing.T) {
 	var timeout = int64(10)
 	bft, err := NewBFTPolicy(mockAccounts[0], timeout)
 	assert.Nil(t, err)
-
-	var assignment = make(map[account.Account]commonr.Roler)
-	assignment[mockAccounts[0]] = commonr.Master
-	assignment[mockAccounts[1]] = commonr.Slave
-	assignment[mockAccounts[2]] = commonr.Slave
-	assignment[mockAccounts[3]] = commonr.Slave
-	bft.Initialization(assignment, mockAccounts, nil, false)
-
-	bft.bftCore.master = 1
+	bft.Initialization(mockAccounts[0], mockAccounts, nil, false)
 	result := bft.GetConsensusResult()
 	assert.Equal(t, uint64(0), result.View)
+	assert.Equal(t, mockAccounts[0], result.Master)
+	assert.Equal(t, len(mockAccounts), len(result.Participate))
 }

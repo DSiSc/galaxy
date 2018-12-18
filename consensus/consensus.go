@@ -10,13 +10,12 @@ import (
 	"github.com/DSiSc/galaxy/consensus/policy/fbft"
 	"github.com/DSiSc/galaxy/consensus/policy/solo"
 	"github.com/DSiSc/galaxy/participates"
-	commonr "github.com/DSiSc/galaxy/role/common"
 	"github.com/DSiSc/validator/tools/account"
 )
 
 type Consensus interface {
 	PolicyName() string
-	Initialization(map[account.Account]commonr.Roler, []account.Account, types.EventCenter, bool) error
+	Initialization(account.Account, []account.Account, types.EventCenter, bool) error
 	ToConsensus(p *common.Proposal) error
 	GetConsensusResult() common.ConsensusResult
 	Online()

@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/DSiSc/craft/types"
-	"github.com/DSiSc/galaxy/role/common"
 	"github.com/DSiSc/validator/tools/account"
 )
 
@@ -72,7 +71,7 @@ const Online OnlineState = "Online"
 type ConsensusResult struct {
 	View        uint64
 	Participate []account.Account
-	Roles       map[account.Account]common.Roler
+	Master      account.Account
 }
 
 type MessageSignal uint8

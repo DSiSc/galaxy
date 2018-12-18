@@ -7,7 +7,6 @@ import (
 	"github.com/DSiSc/galaxy/consensus/common"
 	"github.com/DSiSc/galaxy/consensus/messages"
 	"github.com/DSiSc/galaxy/consensus/utils"
-	commonr "github.com/DSiSc/galaxy/role/common"
 	"github.com/DSiSc/validator/tools/account"
 	"time"
 )
@@ -32,26 +31,8 @@ func NewDBFTPolicy(account account.Account, timeout int64) (*DBFTPolicy, error) 
 	return policy, nil
 }
 
-func (self *DBFTPolicy) Initialization(role map[account.Account]commonr.Roler, peers []account.Account, events types.EventCenter, onLine bool) error {
-	if onLine{
-		log.Info("online first time.")
-	}
-	if len(role) != len(peers) {
-		log.Error("dbft core has not been initial, please confirm.")
-		return fmt.Errorf("role and peers not in consistent")
-	}
-	var masterExist bool = false
-	for delegate, role := range role {
-		if commonr.Master == role {
-			self.core.master = delegate.Extension.Id
-			masterExist = true
-			break
-		}
-	}
-	if !masterExist {
-		log.Error("no master exist in delegates")
-		return fmt.Errorf("no master")
-	}
+func (self *DBFTPolicy) Initialization(master account.Account, peers []account.Account, events types.EventCenter, onLine bool) error {
+	self.core.master = master
 	self.core.commit = false
 	self.core.peers = peers
 	self.core.eventCenter = events
@@ -60,10 +41,12 @@ func (self *DBFTPolicy) Initialization(role map[account.Account]commonr.Roler, p
 		signatures: make([][]byte, 0),
 		signMap:    make(map[account.Account][]byte),
 	}
-	// Add timer
-	timer := time.NewTimer(30 * time.Second)
-	self.core.masterTimeout = timer
-	go self.core.waitMasterTimeOut(timer)
+	if !onLine {
+		// Add timer
+		timer := time.NewTimer(30 * time.Second)
+		self.core.masterTimeout = timer
+		go self.core.waitMasterTimeOut(timer)
+	}
 	return nil
 }
 
@@ -150,18 +133,10 @@ func (self *DBFTPolicy) Halt() {
 }
 
 func (self *DBFTPolicy) GetConsensusResult() common.ConsensusResult {
-	var assignment = make(map[account.Account]commonr.Roler)
-	for _, node := range self.core.peers {
-		if node.Extension.Id == self.core.master {
-			assignment[node] = commonr.Master
-			continue
-		}
-		assignment[node] = commonr.Slave
-	}
 	return common.ConsensusResult{
 		View:        self.core.views.viewNum,
 		Participate: self.core.peers,
-		Roles:       assignment,
+		Master:      self.core.master,
 	}
 }
 
