@@ -51,14 +51,15 @@ func Test_RoleAssignments(t *testing.T) {
 	asserts.Nil(err)
 	asserts.NotNil(policy)
 
-	roles, errs := policy.RoleAssignments(mockAccounts[:1])
+	roles, master, errs := policy.RoleAssignments(mockAccounts[:1])
 	asserts.Nil(errs)
 	asserts.NotNil(roles)
 	asserts.Equal(1, len(roles))
 	asserts.Equal(common.Master, roles[mockAccounts[0]])
+	asserts.Equal(mockAccounts[0], master)
 
 	policy.participates = mockAccounts
-	roles, errs = policy.RoleAssignments(mockAccounts)
+	roles, _, errs = policy.RoleAssignments(mockAccounts)
 	asserts.Nil(roles)
 	asserts.Equal(fmt.Errorf("more than one participate"), errs)
 }
@@ -70,9 +71,10 @@ func TestSoloPolicy_GetRoles(t *testing.T) {
 	asserts.Nil(err)
 	asserts.NotNil(policy)
 	fmt.Println()
-	roles, err := policy.RoleAssignments(mockAccounts[:1])
+	roles, master, err := policy.RoleAssignments(mockAccounts[:1])
 	asserts.Nil(err)
 	asserts.NotNil(roles)
+	asserts.Equal(mockAccounts[0], master)
 
 	role, err := policy.GetRoles(mockAccounts[0])
 	asserts.Nil(err)
@@ -90,9 +92,9 @@ func TestSoloPolicy_ChangeRoleAssignment(t *testing.T) {
 	policy, err := NewSoloPolicy()
 	asserts.Nil(err)
 	asserts.NotNil(policy)
-	fmt.Println()
-	roles, err := policy.RoleAssignments(mockAccounts[:1])
+	roles, master, err := policy.RoleAssignments(mockAccounts[:1])
 	asserts.Equal(common.Master, roles[mockAccounts[0]])
+	asserts.Equal(mockAccounts[0], master)
 
 	asserts.Nil(err)
 	asserts.NotNil(roles)

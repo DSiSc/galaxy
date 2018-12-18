@@ -21,27 +21,28 @@ func NewDPOSPolicy() (*DPOSPolicy, error) {
 	return policy, nil
 }
 
-func (self *DPOSPolicy) RoleAssignments(participates []account.Account) (map[account.Account]common.Roler, error) {
-	// TODO: simply we decide master by block height, while it will support appoint external
+func (self *DPOSPolicy) RoleAssignments(participates []account.Account) (map[account.Account]common.Roler, account.Account, error) {
 	block, ok := blockchain.NewLatestStateBlockChain()
 	if nil != ok {
 		log.Error("Get NewLatestStateBlockChain failed.")
-		return nil, fmt.Errorf("get NewLatestStateBlockChain failed")
+		return nil, account.Account{}, fmt.Errorf("get NewLatestStateBlockChain failed")
 	}
 	self.participates = participates
 	delegates := len(self.participates)
 	self.assignments = make(map[account.Account]common.Roler, delegates)
 	currentBlockHeight := block.GetCurrentBlock().Header.Height
-	masterIndex := (currentBlockHeight + 1) % uint64(delegates)
+	masterId := (currentBlockHeight + 1) % uint64(delegates)
 	// masterIndex := currentBlockHeight % uint64(delegates)
-	for index, delegate := range self.participates {
-		if index == int(masterIndex) {
+	var master account.Account
+	for _, delegate := range self.participates {
+		if delegate.Extension.Id == masterId {
 			self.assignments[delegate] = common.Master
+			master = delegate
 		} else {
 			self.assignments[delegate] = common.Slave
 		}
 	}
-	return self.assignments, nil
+	return self.assignments, master, nil
 }
 
 func (self *DPOSPolicy) GetRoles(account account.Account) (common.Roler, error) {

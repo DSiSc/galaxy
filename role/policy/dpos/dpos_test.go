@@ -70,7 +70,7 @@ func TestDPOSPolicy_RoleAssignments(t *testing.T) {
 	assert.NotNil(t, dposPolicy)
 	assert.Nil(t, err)
 
-	assignment, err := dposPolicy.RoleAssignments(mockAccounts)
+	assignment, master, err := dposPolicy.RoleAssignments(mockAccounts)
 	assert.Nil(t, assignment)
 	assert.Equal(t, fmt.Errorf("get NewLatestStateBlockChain failed"), err)
 
@@ -87,11 +87,12 @@ func TestDPOSPolicy_RoleAssignments(t *testing.T) {
 			},
 		}
 	})
-	assignment, err3 := dposPolicy.RoleAssignments(mockAccounts)
+	assignment, master, err3 := dposPolicy.RoleAssignments(mockAccounts)
 	assert.NotNil(t, assignment)
 	assert.Nil(t, err3)
 	address := mockAccounts[height+1]
 	assert.Equal(t, common.Master, assignment[address])
+	assert.Equal(t, address, master)
 	assert.Equal(t, common.Slave, assignment[mockAccounts[height]])
 	monkey.UnpatchAll()
 }
@@ -117,7 +118,7 @@ func TestDPOSPolicy_AppointRole(t *testing.T) {
 			},
 		}
 	})
-	assignment, err3 := dposPolicy.RoleAssignments(mockAccounts)
+	assignment, _, err3 := dposPolicy.RoleAssignments(mockAccounts)
 	assert.NotNil(t, assignment)
 	assert.Nil(t, err3)
 
@@ -158,7 +159,7 @@ func TestDPOSPolicy_GetRoles(t *testing.T) {
 			},
 		}
 	})
-	assignment, err := dposPolicy.RoleAssignments(mockAccounts)
+	assignment, _, err := dposPolicy.RoleAssignments(mockAccounts)
 	assert.NotNil(t, assignment)
 	assert.Nil(t, err)
 
@@ -207,7 +208,7 @@ func TestSoloPolicy_ChangeRoleAssignment(t *testing.T) {
 		}
 	})
 	dposPolicy.participates = mockAccounts
-	assignment, err := dposPolicy.RoleAssignments(dposPolicy.participates)
+	assignment, _, err := dposPolicy.RoleAssignments(dposPolicy.participates)
 	asserts.NotNil(assignment)
 	asserts.Nil(err)
 	asserts.Equal(common.Master, assignment[mockAccounts[1]])

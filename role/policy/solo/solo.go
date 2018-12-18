@@ -20,16 +20,16 @@ func NewSoloPolicy() (*SoloPolicy, error) {
 	return soloPolicy, nil
 }
 
-func (self *SoloPolicy) RoleAssignments(accounts []account.Account) (map[account.Account]common.Roler, error) {
+func (self *SoloPolicy) RoleAssignments(accounts []account.Account) (map[account.Account]common.Roler, account.Account, error) {
 	participates := len(accounts)
 	if 1 != participates {
 		log.Error("solo role policy only support one participate.")
-		return nil, fmt.Errorf("more than one participate")
+		return nil, account.Account{}, fmt.Errorf("more than one participate")
 	}
 	self.participates = accounts
 	self.assignments = make(map[account.Account]common.Roler, participates)
 	self.assignments[self.participates[0]] = common.Master
-	return self.assignments, nil
+	return self.assignments, self.participates[0], nil
 }
 
 func (self *SoloPolicy) GetRoles(address account.Account) (common.Roler, error) {

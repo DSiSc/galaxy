@@ -12,9 +12,9 @@ import (
 
 type Role interface {
 	PolicyName() string
-	RoleAssignments(accounts []account.Account) (map[account.Account]common.Roler, error)
+	RoleAssignments([]account.Account) (map[account.Account]common.Roler, account.Account, error)
 	ChangeRoleAssignment(map[account.Account]common.Roler, uint64)
-	GetRoles(address account.Account) (common.Roler, error)
+	GetRoles(account.Account) (common.Roler, error)
 }
 
 func NewRole(conf config.RoleConfig) (Role, error) {
