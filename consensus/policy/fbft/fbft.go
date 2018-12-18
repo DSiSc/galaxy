@@ -30,7 +30,7 @@ func NewFBFTPolicy(account account.Account, timeout int64, blockSwitch chan<- in
 	return policy, nil
 }
 
-func (instance *FBFTPolicy) Initialization(role map[account.Account]roleCommon.Roler, peers []account.Account, events types.EventCenter) error {
+func (instance *FBFTPolicy) Initialization(role map[account.Account]roleCommon.Roler, peers []account.Account, events types.EventCenter, onLine bool) error {
 	var masterExist = false
 	for delegate, role := range role {
 		if roleCommon.Master == role {
@@ -49,8 +49,10 @@ func (instance *FBFTPolicy) Initialization(role map[account.Account]roleCommon.R
 	if nil != instance.core.timeoutTimer {
 		instance.core.timeoutTimer.Stop()
 	}
-	instance.core.timeoutTimer = time.NewTimer(30 * time.Second)
-	go instance.core.waitMasterTimeout()
+	if !onLine{
+		instance.core.timeoutTimer = time.NewTimer(30 * time.Second)
+		go instance.core.waitMasterTimeout()
+	}
 	return nil
 }
 

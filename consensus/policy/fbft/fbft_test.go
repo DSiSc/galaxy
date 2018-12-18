@@ -110,13 +110,13 @@ func TestBFTPolicy_Initialization(t *testing.T) {
 	assert.Nil(t, err)
 
 	assignment := mockRoleAssignment(mockAccounts[3], mockAccounts)
-	err = fbft.Initialization(assignment, mockAccounts, nil)
+	err = fbft.Initialization(assignment, mockAccounts, nil, false)
 	assert.Equal(t, fbft.core.nodes.peers, mockAccounts)
 	assert.Equal(t, fbft.core.tolerance, uint8((len(mockAccounts)-1)/3))
 	assert.Equal(t, fbft.core.nodes.master, mockAccounts[3])
 
 	assignment[mockAccounts[3]] = commonr.Slave
-	err = fbft.Initialization(assignment, mockAccounts, nil)
+	err = fbft.Initialization(assignment, mockAccounts, nil, false)
 	assert.Equal(t, err, fmt.Errorf("no master exist"))
 }
 

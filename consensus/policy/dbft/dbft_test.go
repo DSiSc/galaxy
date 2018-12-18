@@ -115,11 +115,11 @@ func TestBFTPolicy_Initialization(t *testing.T) {
 	assert.Nil(t, err)
 
 	assignment := mockRoleAssignment(mockAccounts[3], mockAccounts)
-	err = dbft.Initialization(assignment, mockAccounts[:3], nil)
+	err = dbft.Initialization(assignment, mockAccounts[:3], nil, false)
 	assert.Equal(t, err, fmt.Errorf("role and peers not in consistent"))
 
 	assignment[mockAccounts[3]] = commonr.Master
-	err = dbft.Initialization(assignment, mockAccounts, nil)
+	err = dbft.Initialization(assignment, mockAccounts, nil, false)
 	assert.Equal(t, dbft.core.peers, mockAccounts)
 	assert.Equal(t, dbft.core.tolerance, uint8((len(mockAccounts)-1)/3))
 	assert.Equal(t, dbft.core.master, mockAccounts[3].Extension.Id)
@@ -130,7 +130,7 @@ func TestBFTPolicy_Initialization(t *testing.T) {
 	assert.Equal(t, 0, len(dbft.core.signature.signatures))
 
 	assignment[mockAccounts[3]] = commonr.Slave
-	err = dbft.Initialization(assignment, mockAccounts, nil)
+	err = dbft.Initialization(assignment, mockAccounts, nil, false)
 	assert.Equal(t, err, fmt.Errorf("no master"))
 }
 
@@ -264,7 +264,7 @@ func TestDBFTPolicy_GetConsensusResult(t *testing.T) {
 	assignment[mockAccounts[1]] = commonr.Slave
 	assignment[mockAccounts[2]] = commonr.Slave
 	assignment[mockAccounts[3]] = commonr.Slave
-	dbft.Initialization(assignment, mockAccounts, nil)
+	dbft.Initialization(assignment, mockAccounts, nil, false)
 
 	dbft.core.views.viewNum = 1
 	dbft.core.master = 1

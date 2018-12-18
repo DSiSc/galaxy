@@ -32,7 +32,10 @@ func NewBFTPolicy(account account.Account, timeout int64) (*BFTPolicy, error) {
 	return policy, nil
 }
 
-func (self *BFTPolicy) Initialization(role map[account.Account]commonr.Roler, peers []account.Account, events types.EventCenter) error {
+func (self *BFTPolicy) Initialization(role map[account.Account]commonr.Roler, peers []account.Account, events types.EventCenter, onLine bool) error {
+	if onLine{
+		log.Info("online first time.")
+	}
 	if len(role) != len(peers) {
 		log.Error("bft core has not been initial, please confirm.")
 		return fmt.Errorf("role and peers not in consistent")

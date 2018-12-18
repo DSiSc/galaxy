@@ -248,7 +248,7 @@ func TestSoloPolicy_ToConsensus(t *testing.T) {
 	assert.NotNil(t, sub1)
 	proposal := mock_proposal()
 	sp, _ := NewSoloPolicy(mockAccounts[0], blockSwitch)
-	err := sp.Initialization(role, mockAccounts[:1], event)
+	err := sp.Initialization(role, mockAccounts[:1], event, false)
 	assert.Nil(t, err)
 
 	err = sp.ToConsensus(proposal)
@@ -324,13 +324,13 @@ func TestSoloPolicy_Initialization(t *testing.T) {
 	sp, _ := NewSoloPolicy(mockAccounts[0], nil)
 	var role = make(map[account.Account]commonr.Roler)
 	role[mockAccounts[0]] = commonr.Master
-	err := sp.Initialization(role, mockAccounts[:2], nil)
+	err := sp.Initialization(role, mockAccounts[:2], nil, false)
 	assert.Equal(t, err, fmt.Errorf("role and peers not in consistent"))
 
-	err = sp.Initialization(role, mockAccounts[:1], nil)
+	err = sp.Initialization(role, mockAccounts[:1], nil, false)
 	assert.Nil(t, err)
 
 	role[mockAccounts[1]] = commonr.Slave
-	err = sp.Initialization(role, mockAccounts[:2], nil)
+	err = sp.Initialization(role, mockAccounts[:2], nil, false)
 	assert.Equal(t, err, fmt.Errorf("solo policy only support one participate"))
 }

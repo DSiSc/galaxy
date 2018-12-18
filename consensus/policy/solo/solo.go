@@ -55,8 +55,10 @@ func (self *SoloPolicy) Halt() {
 	return
 }
 
-func (self *SoloPolicy) Initialization(role map[account.Account]commonr.Roler, account []account.Account, event types.EventCenter) error {
-	log.Info("Initial solo policy.")
+func (self *SoloPolicy) Initialization(role map[account.Account]commonr.Roler, account []account.Account, event types.EventCenter, onLine bool) error {
+	if onLine{
+		log.Info("online first time.")
+	}
 	if len(role) != len(account) {
 		log.Error("solo core has not been initial, please confirm.")
 		return fmt.Errorf("role and peers not in consistent")

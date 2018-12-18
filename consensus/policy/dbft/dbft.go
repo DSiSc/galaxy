@@ -32,7 +32,10 @@ func NewDBFTPolicy(account account.Account, timeout int64) (*DBFTPolicy, error) 
 	return policy, nil
 }
 
-func (self *DBFTPolicy) Initialization(role map[account.Account]commonr.Roler, peers []account.Account, events types.EventCenter) error {
+func (self *DBFTPolicy) Initialization(role map[account.Account]commonr.Roler, peers []account.Account, events types.EventCenter, onLine bool) error {
+	if onLine{
+		log.Info("online first time.")
+	}
 	if len(role) != len(peers) {
 		log.Error("dbft core has not been initial, please confirm.")
 		return fmt.Errorf("role and peers not in consistent")

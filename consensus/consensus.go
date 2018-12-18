@@ -16,7 +16,7 @@ import (
 
 type Consensus interface {
 	PolicyName() string
-	Initialization(map[account.Account]commonr.Roler, []account.Account, types.EventCenter) error
+	Initialization(map[account.Account]commonr.Roler, []account.Account, types.EventCenter, bool) error
 	ToConsensus(p *common.Proposal) error
 	GetConsensusResult() common.ConsensusResult
 	Online()

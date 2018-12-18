@@ -225,7 +225,7 @@ func (instance *fbftCore) maybeCommit(digest types.Hash) ([][]byte, error) {
 func (instance *fbftCore) receiveResponse(response *messages.Response) {
 	currentBlockHeight := instance.consensusPlugin.GetLatestBlockHeight()
 	if response.SequenceNum <= currentBlockHeight {
-		log.Error("the response %d from node %d exceed deadline which is %d.",
+		log.Warn("the response %d from node %d exceed deadline which is %d.",
 			response.SequenceNum, response.Account.Extension.Id, currentBlockHeight)
 		return
 	}
@@ -480,7 +480,7 @@ func (instance *fbftCore) receiveOnlineRequest(request *messages.OnlineRequest) 
 			log.Info("now has to be end of online and master is %d.", instance.nodes.master.Extension.Id)
 			instance.eventCenter.Notify(types.EventOnline, nil)
 		}
-		log.Info("now receive %d response for block height %d and state is %v with %d response.", len(nodes), currentBlockHeight, state)
+		log.Info("now receive %d response for block height %d and state is %v.", len(nodes), currentBlockHeight, state)
 		onlineResponse.PayLoad.(*messages.OnlineResponseMessage).OnlineResponse.Nodes = nodes
 		msgRaw, err := messages.EncodeMessage(onlineResponse)
 		if nil != err {
