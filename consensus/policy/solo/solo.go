@@ -189,5 +189,6 @@ func (self *SoloPolicy) GetConsensusResult() common.ConsensusResult {
 }
 
 func (self *SoloPolicy) Online() {
+	self.eventCenter.Notify(types.EventOnline, nil)
 	return
 }
