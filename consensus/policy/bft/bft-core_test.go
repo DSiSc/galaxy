@@ -353,6 +353,7 @@ func TestBftCore_receiveProposal(t *testing.T) {
 	// master receive proposal
 	proposal := &messages.Proposal{
 		Timestamp: 1535414400,
+		Account:   mockAccounts[0],
 		Payload: &types.Block{
 			Header: &types.Header{
 				Height:    0,

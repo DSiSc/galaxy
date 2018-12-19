@@ -172,7 +172,7 @@ func (instance *dbftCore) receiveRequest(request *messages.Request) {
 		MessageType: messages.ProposalMessageType,
 		PayLoad: &messages.ProposalMessage{
 			Proposal: &messages.Proposal{
-				Id:        instance.local.Extension.Id,
+				Account:   instance.local,
 				Timestamp: request.Timestamp,
 				Payload:   request.Payload,
 				Signature: signData,
@@ -240,8 +240,8 @@ func (instance *dbftCore) receiveProposal(proposal *messages.Proposal) {
 		log.Info("master not need to process proposal.")
 		return
 	}
-	if instance.master.Extension.Id != proposal.Id {
-		log.Error("proposal must from master %d, while it from %d in fact.", instance.master, proposal.Id)
+	if instance.master != proposal.Account {
+		log.Error("proposal must from master %d, while it from %d in fact.", instance.master, proposal.Account.Extension.Id)
 		return
 	}
 	if !signDataVerify(instance.master, proposal.Signature, proposal.Payload.Header.MixDigest) {
@@ -738,7 +738,7 @@ func (instance *dbftCore) ProcessEvent(e utils.Event) utils.Event {
 		log.Info("receive request from replica %d.", instance.local.Extension.Id)
 		instance.receiveRequest(et)
 	case *messages.Proposal:
-		log.Info("receive proposal from replica %d with digest %x.", et.Id, et.Payload.Header.MixDigest)
+		log.Info("receive proposal from replica %d with digest %x.", et.Account.Extension.Id, et.Payload.Header.MixDigest)
 		instance.receiveProposal(et)
 	case *messages.Response:
 		log.Info("receive response from replica %d with digest %x.", et.Account.Extension.Id, et.Digest)
@@ -806,8 +806,8 @@ func handleClient(conn net.Conn, bft *dbftCore) {
 	case messages.ProposalMessageType:
 		proposal := payload.(*messages.ProposalMessage).Proposal
 		log.Info("receive proposal message form node %d with payload %x.",
-			proposal.Id, proposal.Payload.Header.MixDigest)
-		if proposal.Id != bft.master.Extension.Id {
+			proposal.Account.Extension.Id, proposal.Payload.Header.MixDigest)
+		if proposal.Account != bft.master {
 			log.Warn("only master can issue a proposal.")
 			return
 		}

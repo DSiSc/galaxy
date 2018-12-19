@@ -415,6 +415,7 @@ func TestDbftCore_receiveProposal(t *testing.T) {
 	// master receive proposal
 	proposalHeight := uint64(2)
 	proposal := &messages.Proposal{
+		Account:   mockAccounts[0],
 		Timestamp: 1535414400,
 		Payload: &types.Block{
 			Header: &types.Header{

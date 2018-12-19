@@ -92,7 +92,7 @@ func (instance *fbftCore) receiveRequest(request *messages.Request) {
 		MessageType: messages.ProposalMessageType,
 		PayLoad: &messages.ProposalMessage{
 			Proposal: &messages.Proposal{
-				Id:        instance.nodes.local.Extension.Id,
+				Account:   instance.nodes.local,
 				Timestamp: request.Timestamp,
 				Payload:   request.Payload,
 				Signature: signData,
@@ -160,37 +160,38 @@ func (instance *fbftCore) receiveProposal(proposal *messages.Proposal) {
 	if isMaster {
 		if proposalBlockHeight != 0 && currentBlockHeight < proposalBlockHeight-1 {
 			log.Warn("may be master info is wrong, which block height is %d, while received is %d, so change master to %d.",
-				currentBlockHeight, proposalBlockHeight, proposal.Id)
+				currentBlockHeight, proposalBlockHeight, proposal.Account.Extension.Id)
 			instance.timeoutTimer.Stop()
-			instance.nodes.master = utils.GetAccountById(instance.nodes.peers, proposal.Id)
+			instance.nodes.master = proposal.Account
 			go func() {
 				log.Warn("now node %d with height %d fall behind with node %d with height %d.",
-					instance.nodes.local.Extension.Id, currentBlockHeight, proposal.Id, proposal.Payload.Header.Height)
-				target := utils.GetAccountById(instance.nodes.peers, proposal.Id)
-				instance.tryToSyncBlock(currentBlockHeight+1, proposalBlockHeight, target)
+					instance.nodes.local.Extension.Id, currentBlockHeight, proposal.Account.Extension.Id, proposal.Payload.Header.Height)
+				instance.tryToSyncBlock(currentBlockHeight+1, proposalBlockHeight, proposal.Account)
 			}()
 			return
 		}
-		log.Warn("master will not receive proposal form itself %d.", proposal.Id)
+		log.Error("master will not receive proposal form itself %d.", proposal.Account.Extension.Id)
 		return
 	}
-	if proposalBlockHeight > currentBlockHeight+1 {
-		go func() {
-			log.Warn("now node %d with height %d fall behind with node %d with height %d.",
-				instance.nodes.local.Extension.Id, currentBlockHeight, proposal.Id, proposal.Payload.Header.Height)
-			target := utils.GetAccountById(instance.nodes.peers, proposal.Id)
-			instance.tryToSyncBlock(currentBlockHeight+1, proposalBlockHeight-1, target)
-		}()
+	if instance.nodes.master != proposal.Account {
+		log.Error("proposal must from master %d, while it from %d in fact.", instance.nodes.master.Extension.Id, proposal.Account.Extension.Id)
+		if proposalBlockHeight > currentBlockHeight+1 {
+			go func() {
+				log.Warn("now node %d with height %d fall behind with node %d with height %d.",
+					instance.nodes.local.Extension.Id, currentBlockHeight, proposal.Account.Extension.Id, proposal.Payload.Header.Height)
+				instance.tryToSyncBlock(currentBlockHeight+1, proposalBlockHeight-1, proposal.Account)
+			}()
+			log.Warn("receive proposal with height %d larger than local %d, so change master from %d to %d.",
+				proposal.Payload.Header.Height, currentBlockHeight, instance.nodes.local.Extension.Id, proposal.Account.Extension.Id)
+			instance.nodes.master = proposal.Account
+		}
+		return
 	}
 	log.Info("reset timeout master with view num %d.", instance.viewChange.GetCurrentViewNum())
 	if nil != instance.timeoutTimer {
 		instance.timeoutTimer.Reset(10 * time.Second)
 	} else {
 		instance.timeoutTimer = time.NewTimer(10 * time.Second)
-	}
-	if instance.nodes.master.Extension.Id != proposal.Id {
-		log.Error("proposal must from master %d, while it from %d in fact.", instance.nodes.master.Extension.Id, proposal.Id)
-		return
 	}
 	if !utils.SignatureVerify(instance.nodes.master, proposal.Signature, proposal.Payload.Header.MixDigest) {
 		log.Error("proposal signature not from master, please confirm.")
@@ -668,7 +669,7 @@ func (instance *fbftCore) ProcessEvent(e utils.Event) utils.Event {
 		instance.receiveRequest(et)
 	case *messages.Proposal:
 		log.Info("receive proposal from replica %d with digest %x.",
-			et.Id, et.Payload.Header.MixDigest)
+			et.Account.Extension.Id, et.Payload.Header.MixDigest)
 		instance.receiveProposal(et)
 	case *messages.Response:
 		log.Info("receive response from replica %d with digest %x.",
@@ -744,11 +745,7 @@ func handleClient(conn net.Conn, bft *fbftCore) {
 	case messages.ProposalMessageType:
 		proposal := payload.(*messages.ProposalMessage).Proposal
 		log.Info("receive proposal message form node %d with payload %x.",
-			proposal.Id, proposal.Payload.Header.MixDigest)
-		if proposal.Id != bft.nodes.master.Extension.Id {
-			log.Warn("only master can issue a proposal.")
-			return
-		}
+			proposal.Account.Extension.Id, proposal.Payload.Header.MixDigest)
 		utils.SendEvent(bft, proposal)
 	case messages.ResponseMessageType:
 		response := payload.(*messages.ResponseMessage).Response

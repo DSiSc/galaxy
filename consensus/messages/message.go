@@ -180,7 +180,7 @@ type ProposalMessage struct {
 }
 
 type Proposal struct {
-	Id        uint64
+	Account   account.Account
 	Timestamp int64
 	Payload   *types.Block
 	Signature []byte
