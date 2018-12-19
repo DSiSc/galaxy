@@ -65,7 +65,7 @@ const ViewEnd ViewRequestState = "ViewEnd"
 
 type OnlineState string
 
-const GoOnline OnlineState = "ToOnline"
+const GoOnline OnlineState = "GoOnline"
 const Online OnlineState = "Online"
 
 type ConsensusResult struct {
