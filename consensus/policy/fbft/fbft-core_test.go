@@ -142,6 +142,13 @@ func TestBftCore_ProcessEvent(t *testing.T) {
 			MixDigest: mockHash,
 		},
 	}
+	var b *blockchain.BlockChain
+	monkey.Patch(blockchain.NewLatestStateBlockChain, func() (*blockchain.BlockChain, error) {
+		return b, nil
+	})
+	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetCurrentBlockHeight", func(*blockchain.BlockChain) uint64 {
+		return uint64(0)
+	})
 	fbft := NewFBFTCore(mockAccounts[0], nil)
 	fbft.timeoutTimer = time.NewTimer(30 * time.Second)
 	fbft.consensusPlugin = common.NewConsensusPlugin()
@@ -162,7 +169,6 @@ func TestBftCore_ProcessEvent(t *testing.T) {
 	fbft.ProcessEvent(mock_request)
 
 	fbft.nodes.master = mockAccounts[0]
-	var b *blockchain.BlockChain
 	monkey.Patch(blockchain.NewBlockChainByBlockHash, func(types.Hash) (*blockchain.BlockChain, error) {
 		return b, nil
 	})

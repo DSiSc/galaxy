@@ -172,6 +172,12 @@ func NewResponseNodes(walterLevel int, master account.Account) *ResponseNodes {
 	}
 }
 
+func (instance *ResponseNodes) GetResponseState() OnlineState {
+	instance.mutex.RLock()
+	defer instance.mutex.RUnlock()
+	return instance.state
+}
+
 func (instance *ResponseNodes) AddResponseNodes(node account.Account) ([]account.Account, OnlineState) {
 	instance.mutex.Lock()
 	defer instance.mutex.Unlock()
@@ -196,16 +202,27 @@ func NewOnlineWizard() *OnlineWizard {
 
 func (instance *OnlineWizard) AddOnlineResponse(blockHeight uint64, nodes []account.Account, walterLevel int, master account.Account, viewNum uint64) ([]account.Account, OnlineState) {
 	instance.mutex.Lock()
+	defer instance.mutex.Unlock()
 	var nodeList []account.Account
 	var state OnlineState
-	defer instance.mutex.Unlock()
 	if _, ok := instance.response[blockHeight]; !ok {
 		instance.response[blockHeight] = NewResponseNodes(walterLevel, master)
 		instance.blockHeightList = append(instance.blockHeightList, blockHeight)
 	}
+	if blockHeight > instance.blockHeight {
+		log.Info("update block height from %d to %d.", instance.blockHeight, blockHeight)
+		instance.blockHeight = blockHeight
+		instance.response[blockHeight].master = master
+	}
 	if master != instance.response[blockHeight].master {
-		panic(fmt.Sprintf("master not in agreement which exist is %d, while receive is %d.",
-			instance.response[blockHeight].master.Extension.Id, master.Extension.Id))
+		log.Error("master not in agreement which exist is %d, while receive is %d.",
+			instance.response[blockHeight].master.Extension.Id, master.Extension.Id)
+		if instance.response[blockHeight].viewNum < viewNum {
+			instance.response[blockHeight].master = master
+		} else {
+			panic(fmt.Sprintf("master not in agreement which exist is %d, while receive is %d.",
+				instance.response[blockHeight].master.Extension.Id, master.Extension.Id))
+		}
 	}
 	if instance.response[blockHeight].viewNum < viewNum {
 		instance.response[blockHeight].viewNum = viewNum
@@ -214,6 +231,24 @@ func (instance *OnlineWizard) AddOnlineResponse(blockHeight uint64, nodes []acco
 		nodeList, state = instance.response[blockHeight].AddResponseNodes(node)
 	}
 	return nodeList, state
+}
+
+func (instance *OnlineWizard) GetCurrentState() OnlineState {
+	instance.mutex.RLock()
+	defer instance.mutex.RUnlock()
+	return instance.response[instance.blockHeight].GetResponseState()
+}
+
+func (instance *OnlineWizard) GetCurrentStateByHeight(blockHeight uint64) OnlineState {
+	instance.mutex.RLock()
+	defer instance.mutex.RUnlock()
+	return instance.response[blockHeight].GetResponseState()
+}
+
+func (instance *OnlineWizard) GetCurrentHeight() uint64 {
+	instance.mutex.RLock()
+	defer instance.mutex.RUnlock()
+	return instance.blockHeight
 }
 
 func (instance *OnlineWizard) GetMasterByBlockHeight(blockHeight uint64) account.Account {

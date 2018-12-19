@@ -28,10 +28,10 @@ func filterAccount(black account.Account, accounts []account.Account) []account.
 	return all
 }
 
-func GetAccountById(peers []account.Account, except uint64) account.Account {
+func GetAccountById(peers []account.Account, expect uint64) account.Account {
 	var temp account.Account
 	for _, peer := range peers {
-		if peer.Extension.Id == except {
+		if peer.Extension.Id == expect {
 			temp = peer
 		}
 	}

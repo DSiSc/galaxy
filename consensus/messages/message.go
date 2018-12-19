@@ -275,7 +275,7 @@ type SyncBlockReq struct {
 
 // sync block response msg
 type SyncBlockRespMessage struct {
-	SyncBlock *SyncBlockResp
+	SyncBlockResp *SyncBlockResp
 }
 
 type SyncBlockResp struct {

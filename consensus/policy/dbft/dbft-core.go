@@ -826,7 +826,7 @@ func handleClient(conn net.Conn, bft *dbftCore) {
 		log.Info("receive sync block message from node %d", syncBlock.Node.Extension.Id)
 		utils.SendEvent(bft, syncBlock)
 	case messages.SyncBlockRespMessageType:
-		syncBlock := payload.(*messages.SyncBlockRespMessage).SyncBlock
+		syncBlock := payload.(*messages.SyncBlockRespMessage).SyncBlockResp
 		log.Info("receive sync blocks from master.")
 		utils.SendEvent(bft, syncBlock)
 	case messages.CommitMessageType:
