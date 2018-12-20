@@ -20,10 +20,10 @@ func NewParticipates(conf config.ParticipateConfig) (Participates, error) {
 	var participates Participates
 	participatesPolicy := conf.PolicyName
 	switch participatesPolicy {
-	case common.SOLO_POLICY:
+	case common.SoloPolicy:
 		log.Info("Get participates policy is solo.")
 		participates, err = solo.NewSoloPolicy()
-	case common.DPOS_POLICY:
+	case common.DposPolicy:
 		log.Info("Get participates policy is dpos.")
 		participates, err = dpos.NewDPOSPolicy(conf.Delegates)
 	default:

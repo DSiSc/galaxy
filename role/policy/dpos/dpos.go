@@ -16,41 +16,41 @@ type DPOSPolicy struct {
 
 func NewDPOSPolicy() (*DPOSPolicy, error) {
 	policy := &DPOSPolicy{
-		name: common.DPOS_POLICY,
+		name: common.DposPolicy,
 	}
 	return policy, nil
 }
 
-func (self *DPOSPolicy) RoleAssignments(participates []account.Account) (map[account.Account]common.Roler, account.Account, error) {
+func (instance *DPOSPolicy) RoleAssignments(participates []account.Account) (map[account.Account]common.Roler, account.Account, error) {
 	block, ok := blockchain.NewLatestStateBlockChain()
 	if nil != ok {
 		log.Error("Get NewLatestStateBlockChain failed.")
 		return nil, account.Account{}, fmt.Errorf("get NewLatestStateBlockChain failed")
 	}
-	self.participates = participates
-	delegates := len(self.participates)
-	self.assignments = make(map[account.Account]common.Roler, delegates)
+	instance.participates = participates
+	delegates := len(instance.participates)
+	instance.assignments = make(map[account.Account]common.Roler, delegates)
 	currentBlockHeight := block.GetCurrentBlock().Header.Height
 	masterId := (currentBlockHeight + 1) % uint64(delegates)
 	// masterIndex := currentBlockHeight % uint64(delegates)
 	var master account.Account
-	for _, delegate := range self.participates {
+	for _, delegate := range instance.participates {
 		if delegate.Extension.Id == masterId {
-			self.assignments[delegate] = common.Master
+			instance.assignments[delegate] = common.Master
 			master = delegate
 		} else {
-			self.assignments[delegate] = common.Slave
+			instance.assignments[delegate] = common.Slave
 		}
 	}
-	return self.assignments, master, nil
+	return instance.assignments, master, nil
 }
 
-func (self *DPOSPolicy) GetRoles(account account.Account) (common.Roler, error) {
-	if 0 == len(self.assignments) {
+func (instance *DPOSPolicy) GetRoles(account account.Account) (common.Roler, error) {
+	if 0 == len(instance.assignments) {
 		log.Error("role assignment has not been executed.")
 		return common.UnKnown, common.AssignmentNotBeExecute
 	}
-	if role, ok := self.assignments[account]; !ok {
+	if role, ok := instance.assignments[account]; !ok {
 		log.Error("account %x is not a delegate, please confirm.", account)
 		// TODO: verify normal node or unknown
 		return common.UnKnown, fmt.Errorf("accont not a delegate")
@@ -60,18 +60,18 @@ func (self *DPOSPolicy) GetRoles(account account.Account) (common.Roler, error) 
 	}
 }
 
-func (self *DPOSPolicy) PolicyName() string {
-	return self.name
+func (instance *DPOSPolicy) PolicyName() string {
+	return instance.name
 }
 
-func (self *DPOSPolicy) AppointRole(master account.Account) error {
-	if _, ok := self.assignments[master]; !ok {
+func (instance *DPOSPolicy) AppointRole(master account.Account) error {
+	if _, ok := instance.assignments[master]; !ok {
 		log.Error("account %x has not assign role, please confirm.", master)
 		return fmt.Errorf("appoint account is not a delegate")
 	}
 	var preMaster account.Account
 	var exist bool = false
-	for delegate, role := range self.assignments {
+	for delegate, role := range instance.assignments {
 		if common.Master == role {
 			preMaster = delegate
 			exist = true
@@ -82,12 +82,12 @@ func (self *DPOSPolicy) AppointRole(master account.Account) error {
 		log.Error("no master in delegates, please confirm.")
 		return fmt.Errorf("no master exist in current delegates")
 	}
-	self.assignments[master] = common.Master
-	self.assignments[preMaster] = common.Slave
+	instance.assignments[master] = common.Master
+	instance.assignments[preMaster] = common.Slave
 	return nil
 }
 
-func (self *DPOSPolicy) ChangeRoleAssignment(assignments map[account.Account]common.Roler, master uint64) {
+func (instance *DPOSPolicy) ChangeRoleAssignment(assignments map[account.Account]common.Roler, master uint64) {
 	for account, _ := range assignments {
 		if account.Extension.Id == master {
 			assignments[account] = common.Master
@@ -95,5 +95,5 @@ func (self *DPOSPolicy) ChangeRoleAssignment(assignments map[account.Account]com
 		}
 		assignments[account] = common.Slave
 	}
-	self.assignments = assignments
+	instance.assignments = assignments
 }

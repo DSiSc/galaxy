@@ -35,11 +35,11 @@ const (
 )
 
 const (
-	SOLO_POLICY        = "solo"
-	SOLO_CONSENSUS_NUM = uint8(1)
-	BFT_POLICY         = "bft"
-	FBFT_POLICY        = "fbft"
-	DBFT_POLICY        = "dbft"
+	SoloPolicy       = "solo"
+	SoloConsensusNum = uint8(1)
+	BftPolicy        = "bft"
+	FbftPolicy       = "fbft"
+	DbftPolicy       = "dbft"
 )
 
 const (

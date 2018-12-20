@@ -84,14 +84,14 @@ func TestNewBFTPolicy(t *testing.T) {
 	dbft, err := NewDBFTPolicy(mockAccounts[0], timeout)
 	assert.NotNil(t, dbft)
 	assert.Nil(t, err)
-	assert.Equal(t, common.DBFT_POLICY, dbft.name)
+	assert.Equal(t, common.DbftPolicy, dbft.name)
 	assert.NotNil(t, dbft.core)
 	assert.Equal(t, mockAccounts[0].Extension.Id, dbft.core.local.Extension.Id)
 }
 
 func TestBFTPolicy_PolicyName(t *testing.T) {
 	dbft, _ := NewDBFTPolicy(mockAccounts[0], timeout)
-	assert.Equal(t, common.DBFT_POLICY, dbft.name)
+	assert.Equal(t, common.DbftPolicy, dbft.name)
 	assert.Equal(t, dbft.name, dbft.PolicyName())
 	assert.Equal(t, mockAccounts[0].Extension.Id, dbft.core.local.Extension.Id)
 }

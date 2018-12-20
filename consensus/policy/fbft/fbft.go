@@ -23,7 +23,7 @@ type FBFTPolicy struct {
 func NewFBFTPolicy(account account.Account, timeout int64, blockSwitch chan<- interface{}) (*FBFTPolicy, error) {
 	policy := &FBFTPolicy{
 		local:   account,
-		name:    common.FBFT_POLICY,
+		name:    common.FbftPolicy,
 		timeout: time.Duration(timeout),
 	}
 	policy.core = NewFBFTCore(account, blockSwitch)

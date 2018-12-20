@@ -11,14 +11,14 @@ type SoloPolicy struct {
 }
 
 func NewSoloPolicy() (*SoloPolicy, error) {
-	return &SoloPolicy{name: common.SOLO_POLICY}, nil
+	return &SoloPolicy{name: common.SoloPolicy}, nil
 }
 
-func (self *SoloPolicy) PolicyName() string {
-	return self.name
+func (instance *SoloPolicy) PolicyName() string {
+	return instance.name
 }
 
-func (self *SoloPolicy) GetParticipates() ([]account.Account, error) {
+func (instance *SoloPolicy) GetParticipates() ([]account.Account, error) {
 	participates := make([]account.Account, 0, 1)
 	participate := account.Account{
 		Address: types.Address{

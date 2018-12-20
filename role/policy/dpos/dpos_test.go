@@ -51,17 +51,17 @@ func TestNewDPOSPolicy(t *testing.T) {
 	policy, err := NewDPOSPolicy()
 	assert.Nil(t, err)
 	assert.NotNil(t, policy)
-	assert.Equal(t, common.DPOS_POLICY, policy.name)
+	assert.Equal(t, common.DposPolicy, policy.name)
 }
 
 func TestDPOSPolicy_PolicyName(t *testing.T) {
 	policy, _ := NewDPOSPolicy()
-	assert.Equal(t, common.DPOS_POLICY, policy.name)
+	assert.Equal(t, common.DposPolicy, policy.name)
 	assert.Equal(t, policy.name, policy.PolicyName())
 }
 
 var participateConf = config.ParticipateConfig{
-	PolicyName: common.DPOS_POLICY,
+	PolicyName: common.DposPolicy,
 	Delegates:  4,
 }
 

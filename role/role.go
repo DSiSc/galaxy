@@ -22,10 +22,10 @@ func NewRole(conf config.RoleConfig) (Role, error) {
 	var role Role
 	rolePolicy := conf.PolicyName
 	switch rolePolicy {
-	case common.SOLO_POLICY:
+	case common.SoloPolicy:
 		log.Info("Get role policy is solo.")
 		role, err = solo.NewSoloPolicy()
-	case common.DPOS_POLICY:
+	case common.DposPolicy:
 		log.Info("Get role policy is dpos.")
 		role, err = dpos.NewDPOSPolicy()
 	default:

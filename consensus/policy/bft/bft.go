@@ -22,7 +22,7 @@ type BFTPolicy struct {
 
 func NewBFTPolicy(account account.Account, timeout int64) (*BFTPolicy, error) {
 	policy := &BFTPolicy{
-		name:    common.BFT_POLICY,
+		name:    common.BftPolicy,
 		account: account,
 		timeout: time.Duration(timeout),
 		result:  make(chan *messages.ConsensusResult),
@@ -31,54 +31,54 @@ func NewBFTPolicy(account account.Account, timeout int64) (*BFTPolicy, error) {
 	return policy, nil
 }
 
-func (self *BFTPolicy) Initialization(master account.Account, peers []account.Account, events types.EventCenter, onLine bool) error {
+func (instance *BFTPolicy) Initialization(master account.Account, peers []account.Account, events types.EventCenter, onLine bool) error {
 	if onLine {
 		log.Info("online first time.")
 	}
-	self.bftCore.master = master
-	self.bftCore.commit = false
-	self.bftCore.peers = peers
-	self.bftCore.eventCenter = events
-	self.bftCore.tolerance = uint8((len(peers) - 1) / 3)
-	self.bftCore.signature = &signData{
+	instance.bftCore.master = master
+	instance.bftCore.commit = false
+	instance.bftCore.peers = peers
+	instance.bftCore.eventCenter = events
+	instance.bftCore.tolerance = uint8((len(peers) - 1) / 3)
+	instance.bftCore.signature = &signData{
 		signatures: make([][]byte, 0),
 		signMap:    make(map[account.Account][]byte),
 	}
 	return nil
 }
 
-func (self *BFTPolicy) PolicyName() string {
-	return self.name
+func (instance *BFTPolicy) PolicyName() string {
+	return instance.name
 }
 
-func (self *BFTPolicy) Start() {
+func (instance *BFTPolicy) Start() {
 	log.Info("start bft policy service.")
-	self.bftCore.Start(self.account)
+	instance.bftCore.Start(instance.account)
 }
 
-func (self *BFTPolicy) commit(block *types.Block, result bool) {
+func (instance *BFTPolicy) commit(block *types.Block, result bool) {
 	commit := &messages.Commit{
-		Account:    self.account,
+		Account:    instance.account,
 		Timestamp:  time.Now().Unix(),
 		Digest:     block.Header.MixDigest,
 		Signatures: block.Header.SigData,
 		BlockHash:  block.HeaderHash,
 		Result:     result,
 	}
-	self.bftCore.SendCommit(commit, block)
+	instance.bftCore.SendCommit(commit, block)
 }
 
-func (self *BFTPolicy) ToConsensus(p *common.Proposal) error {
+func (instance *BFTPolicy) ToConsensus(p *common.Proposal) error {
 	var err error
 	var result = false
 	request := &messages.Request{
 		Timestamp: p.Timestamp,
 		Payload:   p.Block,
 	}
-	timer := time.NewTimer(time.Second * self.timeout)
-	go utils.SendEvent(self.bftCore, request)
+	timer := time.NewTimer(time.Second * instance.timeout)
+	go utils.SendEvent(instance.bftCore, request)
 	select {
-	case consensusResult := <-self.result:
+	case consensusResult := <-instance.result:
 		if nil != consensusResult.Result {
 			log.Error("consensus for %x failed with error %v.", p.Block.Header.MixDigest, consensusResult.Result)
 			err = consensusResult.Result
@@ -88,27 +88,27 @@ func (self *BFTPolicy) ToConsensus(p *common.Proposal) error {
 			result = true
 			log.Info("consensus for %x successfully with signature %x.", p.Block.Header.MixDigest, consensusResult.Signatures)
 		}
-		go self.commit(p.Block, result)
+		go instance.commit(p.Block, result)
 	case <-timer.C:
-		log.Error("consensus for %x timeout in %d seconds.", p.Block.Header.MixDigest, self.timeout)
+		log.Error("consensus for %x timeout in %d seconds.", p.Block.Header.MixDigest, instance.timeout)
 		err = fmt.Errorf("timeout for consensus")
-		go self.commit(p.Block, result)
+		go instance.commit(p.Block, result)
 	}
 	return err
 }
 
-func (self *BFTPolicy) Halt() {
+func (instance *BFTPolicy) Halt() {
 	return
 }
 
-func (self *BFTPolicy) GetConsensusResult() common.ConsensusResult {
+func (instance *BFTPolicy) GetConsensusResult() common.ConsensusResult {
 	return common.ConsensusResult{
 		View:        uint64(0),
-		Participate: self.bftCore.peers,
-		Master:      self.bftCore.master,
+		Participate: instance.bftCore.peers,
+		Master:      instance.bftCore.master,
 	}
 }
 
-func (self *BFTPolicy) Online() {
+func (instance *BFTPolicy) Online() {
 	return
 }

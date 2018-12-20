@@ -22,7 +22,7 @@ type DBFTPolicy struct {
 
 func NewDBFTPolicy(account account.Account, timeout int64) (*DBFTPolicy, error) {
 	policy := &DBFTPolicy{
-		name:    common.DBFT_POLICY,
+		name:    common.DbftPolicy,
 		account: account,
 		timeout: time.Duration(timeout),
 		result:  make(chan *messages.ConsensusResult),
@@ -31,26 +31,26 @@ func NewDBFTPolicy(account account.Account, timeout int64) (*DBFTPolicy, error) 
 	return policy, nil
 }
 
-func (self *DBFTPolicy) Initialization(master account.Account, peers []account.Account, events types.EventCenter, onLine bool) error {
-	self.core.master = master
-	self.core.commit = false
-	self.core.peers = peers
-	self.core.eventCenter = events
-	self.core.tolerance = uint8((len(peers) - 1) / 3)
-	self.core.signature = &signData{
+func (instance *DBFTPolicy) Initialization(master account.Account, peers []account.Account, events types.EventCenter, onLine bool) error {
+	instance.core.master = master
+	instance.core.commit = false
+	instance.core.peers = peers
+	instance.core.eventCenter = events
+	instance.core.tolerance = uint8((len(peers) - 1) / 3)
+	instance.core.signature = &signData{
 		signatures: make([][]byte, 0),
 		signMap:    make(map[account.Account][]byte),
 	}
 	if !onLine {
 		// Add timer
 		timer := time.NewTimer(30 * time.Second)
-		self.core.masterTimeout = timer
-		go self.core.waitMasterTimeOut(timer)
+		instance.core.masterTimeout = timer
+		go instance.core.waitMasterTimeOut(timer)
 	}
 	return nil
 }
 
-func (self *DBFTPolicy) waitMasterTimeOut(timer *time.Timer) {
+func (instance *DBFTPolicy) waitMasterTimeOut(timer *time.Timer) {
 	for {
 		select {
 		case <-timer.C:
@@ -59,9 +59,9 @@ func (self *DBFTPolicy) waitMasterTimeOut(timer *time.Timer) {
 				MessageType: messages.ViewChangeMessageReqType,
 				PayLoad: &messages.ViewChangeReqMessage{
 					ViewChange: &messages.ViewChangeReq{
-						Nodes:     []account.Account{self.core.local},
+						Nodes:     []account.Account{instance.core.local},
 						Timestamp: time.Now().Unix(),
-						ViewNum:   self.core.views.viewNum + 1,
+						ViewNum:   instance.core.views.viewNum + 1,
 					},
 				},
 			}
@@ -70,44 +70,44 @@ func (self *DBFTPolicy) waitMasterTimeOut(timer *time.Timer) {
 				log.Error("marshal proposal msg failed with %v.", err)
 				return
 			}
-			messages.BroadcastPeers(msgRaw, viewChangeReqMsg.MessageType, types.Hash{}, self.core.peers)
+			messages.BroadcastPeers(msgRaw, viewChangeReqMsg.MessageType, types.Hash{}, instance.core.peers)
 			return
 		}
 	}
 }
 
-func (self *DBFTPolicy) PolicyName() string {
-	return self.name
+func (instance *DBFTPolicy) PolicyName() string {
+	return instance.name
 }
 
-func (self *DBFTPolicy) Start() {
+func (instance *DBFTPolicy) Start() {
 	log.Info("start dbft policy service.")
-	self.core.Start(self.account)
+	instance.core.Start(instance.account)
 }
 
-func (self *DBFTPolicy) commit(block *types.Block, result bool) {
+func (instance *DBFTPolicy) commit(block *types.Block, result bool) {
 	commit := &messages.Commit{
-		Account:    self.account,
+		Account:    instance.account,
 		Timestamp:  time.Now().Unix(),
 		Digest:     block.Header.MixDigest,
 		Signatures: block.Header.SigData,
 		BlockHash:  block.HeaderHash,
 		Result:     result,
 	}
-	self.core.SendCommit(commit, block)
+	instance.core.SendCommit(commit, block)
 }
 
-func (self *DBFTPolicy) ToConsensus(p *common.Proposal) error {
+func (instance *DBFTPolicy) ToConsensus(p *common.Proposal) error {
 	var err error
 	var result = false
 	request := &messages.Request{
 		Timestamp: p.Timestamp,
 		Payload:   p.Block,
 	}
-	timer := time.NewTimer(time.Second * self.timeout)
-	go utils.SendEvent(self.core, request)
+	timer := time.NewTimer(time.Second * instance.timeout)
+	go utils.SendEvent(instance.core, request)
 	select {
-	case consensusResult := <-self.result:
+	case consensusResult := <-instance.result:
 		if nil != consensusResult.Result {
 			log.Error("consensus for %x failed with error %v.", p.Block.Header.MixDigest, consensusResult.Result)
 			err = consensusResult.Result
@@ -117,29 +117,29 @@ func (self *DBFTPolicy) ToConsensus(p *common.Proposal) error {
 			result = true
 			log.Info("consensus for %x successfully with signature %x.", p.Block.Header.MixDigest, consensusResult.Signatures)
 		}
-		go self.commit(p.Block, result)
+		go instance.commit(p.Block, result)
 		timer.Stop()
 	case <-timer.C:
-		log.Error("consensus for %x timeout in %d seconds.", p.Block.Header.MixDigest, self.timeout)
+		log.Error("consensus for %x timeout in %d seconds.", p.Block.Header.MixDigest, instance.timeout)
 		err = fmt.Errorf("timeout for consensus")
-		go self.commit(p.Block, result)
+		go instance.commit(p.Block, result)
 		timer.Stop()
 	}
 	return err
 }
 
-func (self *DBFTPolicy) Halt() {
+func (instance *DBFTPolicy) Halt() {
 	return
 }
 
-func (self *DBFTPolicy) GetConsensusResult() common.ConsensusResult {
+func (instance *DBFTPolicy) GetConsensusResult() common.ConsensusResult {
 	return common.ConsensusResult{
-		View:        self.core.views.viewNum,
-		Participate: self.core.peers,
-		Master:      self.core.master,
+		View:        instance.core.views.viewNum,
+		Participate: instance.core.peers,
+		Master:      instance.core.master,
 	}
 }
 
-func (self *DBFTPolicy) Online() {
+func (instance *DBFTPolicy) Online() {
 	return
 }

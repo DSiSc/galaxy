@@ -703,7 +703,7 @@ func (instance *dbftCore) commitBlock(block *types.Block) {
 	log.Info("end write block %d with hash %x with success.", block.Header.Height, block.HeaderHash)
 }
 
-func (self *dbftCore) waitMasterTimeOut(timer *time.Timer) {
+func (instance *dbftCore) waitMasterTimeOut(timer *time.Timer) {
 	for {
 		select {
 		case <-timer.C:
@@ -712,19 +712,19 @@ func (self *dbftCore) waitMasterTimeOut(timer *time.Timer) {
 				MessageType: messages.ViewChangeMessageReqType,
 				PayLoad: &messages.ViewChangeReqMessage{
 					ViewChange: &messages.ViewChangeReq{
-						Nodes:     []account.Account{self.local},
+						Nodes:     []account.Account{instance.local},
 						Timestamp: time.Now().Unix(),
-						ViewNum:   self.views.viewNum + 1,
+						ViewNum:   instance.views.viewNum + 1,
 					},
 				},
 			}
-			log.Info("view change from local %d to expect %d.", self.views.viewNum, self.views.viewNum+1)
+			log.Info("view change from local %d to expect %d.", instance.views.viewNum, instance.views.viewNum+1)
 			msgRaw, err := messages.EncodeMessage(viewChangeReqMsg)
 			if nil != err {
 				log.Error("marshal proposal msg failed with %v.", err)
 				return
 			}
-			messages.BroadcastPeers(msgRaw, viewChangeReqMsg.MessageType, types.Hash{}, self.peers)
+			messages.BroadcastPeers(msgRaw, viewChangeReqMsg.MessageType, types.Hash{}, instance.peers)
 			return
 		}
 	}
@@ -817,7 +817,7 @@ func handleClient(conn net.Conn, bft *dbftCore) {
 		log.Info("receive response message from node %d with payload %x.",
 			response.Account.Extension.Id, response.Digest)
 		if response.Account.Extension.Id == bft.master.Extension.Id {
-			log.Warn("master will not receive response message from itself.")
+			log.Warn("master will not receive response message from itinstance.")
 			return
 		}
 		utils.SendEvent(bft, response)

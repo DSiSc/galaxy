@@ -15,29 +15,29 @@ type SoloPolicy struct {
 
 func NewSoloPolicy() (*SoloPolicy, error) {
 	soloPolicy := &SoloPolicy{
-		name: common.SOLO_POLICY,
+		name: common.SoloPolicy,
 	}
 	return soloPolicy, nil
 }
 
-func (self *SoloPolicy) RoleAssignments(accounts []account.Account) (map[account.Account]common.Roler, account.Account, error) {
+func (instance *SoloPolicy) RoleAssignments(accounts []account.Account) (map[account.Account]common.Roler, account.Account, error) {
 	participates := len(accounts)
 	if 1 != participates {
 		log.Error("solo role policy only support one participate.")
 		return nil, account.Account{}, fmt.Errorf("more than one participate")
 	}
-	self.participates = accounts
-	self.assignments = make(map[account.Account]common.Roler, participates)
-	self.assignments[self.participates[0]] = common.Master
-	return self.assignments, self.participates[0], nil
+	instance.participates = accounts
+	instance.assignments = make(map[account.Account]common.Roler, participates)
+	instance.assignments[instance.participates[0]] = common.Master
+	return instance.assignments, instance.participates[0], nil
 }
 
-func (self *SoloPolicy) GetRoles(address account.Account) (common.Roler, error) {
-	if 0 == len(self.assignments) {
+func (instance *SoloPolicy) GetRoles(address account.Account) (common.Roler, error) {
+	if 0 == len(instance.assignments) {
 		log.Error("RoleAssignments must be called before.")
 		return common.UnKnown, common.AssignmentNotBeExecute
 	}
-	if role, ok := self.assignments[address]; !ok {
+	if role, ok := instance.assignments[address]; !ok {
 		log.Error("wrong address which nobody knows in solo policy")
 		return common.UnKnown, fmt.Errorf("wrong address")
 	} else {
@@ -45,11 +45,11 @@ func (self *SoloPolicy) GetRoles(address account.Account) (common.Roler, error) 
 	}
 }
 
-func (self *SoloPolicy) PolicyName() string {
-	return self.name
+func (instance *SoloPolicy) PolicyName() string {
+	return instance.name
 }
 
-func (self *SoloPolicy) ChangeRoleAssignment(assignments map[account.Account]common.Roler, master uint64) {
+func (instance *SoloPolicy) ChangeRoleAssignment(assignments map[account.Account]common.Roler, master uint64) {
 	for account, _ := range assignments {
 		if account.Extension.Id == master {
 			assignments[account] = common.Master
@@ -57,5 +57,5 @@ func (self *SoloPolicy) ChangeRoleAssignment(assignments map[account.Account]com
 		}
 		assignments[account] = common.Slave
 	}
-	self.assignments = assignments
+	instance.assignments = assignments
 }

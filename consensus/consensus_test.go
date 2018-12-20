@@ -43,17 +43,17 @@ func Test_NewConsensus(t *testing.T) {
 	asserts.NotNil(method)
 	asserts.True(exist)
 
-	conf = mockConf(common.BFT_POLICY)
+	conf = mockConf(common.BftPolicy)
 	consensus, err = NewConsensus(conf, mockAccount, nil)
-	asserts.Equal(common.BFT_POLICY, consensus.PolicyName())
+	asserts.Equal(common.BftPolicy, consensus.PolicyName())
 
-	conf = mockConf(common.FBFT_POLICY)
+	conf = mockConf(common.FbftPolicy)
 	consensus, err = NewConsensus(conf, mockAccount, nil)
-	asserts.Equal(common.FBFT_POLICY, consensus.PolicyName())
+	asserts.Equal(common.FbftPolicy, consensus.PolicyName())
 
-	conf = mockConf(common.DBFT_POLICY)
+	conf = mockConf(common.DbftPolicy)
 	consensus, err = NewConsensus(conf, mockAccount, nil)
-	asserts.Equal(common.DBFT_POLICY, consensus.PolicyName())
+	asserts.Equal(common.DbftPolicy, consensus.PolicyName())
 
 	policyName := "Nil"
 	conf = mockConf(policyName)

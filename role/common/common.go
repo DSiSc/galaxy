@@ -13,8 +13,8 @@ const (
 )
 
 const (
-	SOLO_POLICY = "solo"
-	DPOS_POLICY = "dpos"
+	SoloPolicy = "solo"
+	DposPolicy = "dpos"
 )
 
 var (

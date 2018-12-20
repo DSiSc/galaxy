@@ -33,7 +33,7 @@ func Test_NewSoloPolicy(t *testing.T) {
 	policy, err := NewSoloPolicy()
 	asserts.Nil(err)
 	asserts.NotNil(policy)
-	asserts.Equal(common.SOLO_POLICY, policy.name)
+	asserts.Equal(common.SoloPolicy, policy.name)
 	asserts.Equal(0, len(policy.participates))
 }
 

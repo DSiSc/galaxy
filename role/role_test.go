@@ -47,7 +47,7 @@ func Test_NewRole(t *testing.T) {
 	role, err := NewRole(conf)
 	asserts.Nil(err)
 	asserts.NotNil(role)
-	asserts.Equal(common.SOLO_POLICY, role.PolicyName())
+	asserts.Equal(common.SoloPolicy, role.PolicyName())
 
 	p := reflect.TypeOf(role)
 	method, exist := p.MethodByName("PolicyName")
@@ -65,7 +65,7 @@ func Test_NewRole(t *testing.T) {
 	role, err = NewRole(mock_dpos_conf())
 	asserts.Nil(err)
 	asserts.NotNil(role)
-	asserts.Equal(common.DPOS_POLICY, role.PolicyName())
+	asserts.Equal(common.DposPolicy, role.PolicyName())
 
 	fakeConf := config.RoleConfig{
 		PolicyName: "unknown",

@@ -182,8 +182,8 @@ func TestNewSoloPolicy(t *testing.T) {
 	asserts := assert.New(t)
 	sp, err := NewSoloPolicy(mockAccounts[0], nil)
 	asserts.Nil(err)
-	asserts.Equal(uint8(common.SOLO_CONSENSUS_NUM), sp.tolerance)
-	asserts.Equal(common.SOLO_POLICY, sp.name)
+	asserts.Equal(uint8(common.SoloConsensusNum), sp.tolerance)
+	asserts.Equal(common.SoloPolicy, sp.name)
 }
 
 func Test_toSoloProposal(t *testing.T) {
@@ -298,7 +298,7 @@ func TestSoloPolicy_PolicyName(t *testing.T) {
 	sp, err := NewSoloPolicy(mockAccounts[0], nil)
 	assert.Nil(t, err)
 	assert.NotNil(t, sp)
-	assert.Equal(t, common.SOLO_POLICY, sp.PolicyName())
+	assert.Equal(t, common.SoloPolicy, sp.PolicyName())
 }
 
 func Test_toConsensus(t *testing.T) {

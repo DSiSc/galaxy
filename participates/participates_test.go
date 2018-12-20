@@ -1,6 +1,7 @@
 package participates
 
 import (
+	"github.com/DSiSc/galaxy/participates/common"
 	"github.com/DSiSc/galaxy/participates/config"
 	"github.com/stretchr/testify/assert"
 	"testing"
@@ -15,7 +16,7 @@ func mock_conf(policy string) config.ParticipateConfig {
 
 func Test_NewParticipates(t *testing.T) {
 	asserts := assert.New(t)
-	conf := mock_conf("solo")
+	conf := mock_conf(common.SoloPolicy)
 	participate, err := NewParticipates(conf)
 	asserts.NotNil(participate)
 	asserts.Nil(err)
@@ -25,9 +26,9 @@ func Test_NewParticipates(t *testing.T) {
 	asserts.NotNil(err)
 	asserts.Nil(participate)
 
-	conf = mock_conf("dpos")
+	conf = mock_conf(common.DposPolicy)
 	participate, err = NewParticipates(conf)
 	asserts.Nil(err)
 	asserts.NotNil(participate)
-	asserts.Equal("dpos", participate.PolicyName())
+	asserts.Equal(common.DposPolicy, participate.PolicyName())
 }

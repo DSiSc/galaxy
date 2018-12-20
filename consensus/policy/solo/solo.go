@@ -31,66 +31,66 @@ type SoloProposal struct {
 
 func NewSoloPolicy(account account.Account, blkSwitch chan<- interface{}) (*SoloPolicy, error) {
 	policy := &SoloPolicy{
-		name:        common.SOLO_POLICY,
+		name:        common.SoloPolicy,
 		local:       account,
-		tolerance:   common.SOLO_CONSENSUS_NUM,
+		tolerance:   common.SoloConsensusNum,
 		blockSwitch: blkSwitch,
 	}
 	return policy, nil
 }
 
-func (self *SoloPolicy) PolicyName() string {
-	return self.name
+func (instance *SoloPolicy) PolicyName() string {
+	return instance.name
 }
 
-func (self *SoloPolicy) Start() {
+func (instance *SoloPolicy) Start() {
 	log.Info("Start solo policy service.")
 	return
 }
 
-func (self *SoloPolicy) Halt() {
+func (instance *SoloPolicy) Halt() {
 	log.Warn("Stop solo policy service.")
 	return
 }
 
-func (self *SoloPolicy) Initialization(master account.Account, accounts []account.Account, event types.EventCenter, onLine bool) error {
+func (instance *SoloPolicy) Initialization(master account.Account, accounts []account.Account, event types.EventCenter, onLine bool) error {
 	if onLine {
 		log.Info("online first time.")
 	}
-	if common.SOLO_CONSENSUS_NUM != uint8(len(accounts)) {
+	if common.SoloConsensusNum != uint8(len(accounts)) {
 		return fmt.Errorf("solo policy only support one participate")
 	}
-	self.master = master
-	self.peers = accounts
-	self.eventCenter = event
+	instance.master = master
+	instance.peers = accounts
+	instance.eventCenter = event
 	return nil
 }
 
-func (self *SoloPolicy) toSoloProposal(p *common.Proposal) *SoloProposal {
-	if self.version == math.MaxUint64 {
-		self.version = 0
+func (instance *SoloPolicy) toSoloProposal(p *common.Proposal) *SoloProposal {
+	if instance.version == math.MaxUint64 {
+		instance.version = 0
 	}
 	return &SoloProposal{
 		proposal: p,
-		version:  self.version + 1,
+		version:  instance.version + 1,
 		status:   common.Proposing,
 	}
 }
 
 // to get consensus
-func (self *SoloPolicy) ToConsensus(p *common.Proposal) error {
+func (instance *SoloPolicy) ToConsensus(p *common.Proposal) error {
 	var err error
-	proposal := self.toSoloProposal(p)
-	err = self.prepareConsensus(proposal)
+	proposal := instance.toSoloProposal(p)
+	err = instance.prepareConsensus(proposal)
 	if err != nil {
 		log.Error("Prepare proposal failed.")
-		self.eventCenter.Notify(types.EventConsensusFailed, nil)
+		instance.eventCenter.Notify(types.EventConsensusFailed, nil)
 		return fmt.Errorf("prepare proposal failed")
 	}
-	ok := self.toConsensus(proposal)
+	ok := instance.toConsensus(proposal)
 	if ok == false {
 		log.Error("Local verify failed.")
-		self.eventCenter.Notify(types.EventConsensusFailed, nil)
+		instance.eventCenter.Notify(types.EventConsensusFailed, nil)
 		return fmt.Errorf("local verify failed")
 	}
 	// verify num of sign
@@ -104,40 +104,40 @@ func (self *SoloPolicy) ToConsensus(p *common.Proposal) error {
 		}
 		validSign[signAddress] = value
 	}
-	if uint8(len(validSign)) < common.SOLO_CONSENSUS_NUM {
+	if uint8(len(validSign)) < common.SoloConsensusNum {
 		log.Error("Not enough valid signature which is %d.", len(validSign))
-		self.eventCenter.Notify(types.EventConsensusFailed, nil)
+		instance.eventCenter.Notify(types.EventConsensusFailed, nil)
 		return fmt.Errorf("not enough valid signature")
 	}
-	if _, ok := validSign[self.local.Address]; !ok {
+	if _, ok := validSign[instance.local.Address]; !ok {
 		log.Error("absence self signature.")
-		self.eventCenter.Notify(types.EventConsensusFailed, nil)
+		instance.eventCenter.Notify(types.EventConsensusFailed, nil)
 		return fmt.Errorf("absence self signature")
 	}
-	err = self.submitConsensus(proposal)
+	err = instance.submitConsensus(proposal)
 	if err != nil {
 		log.Error("Submit proposal failed.")
-		self.eventCenter.Notify(types.EventConsensusFailed, nil)
+		instance.eventCenter.Notify(types.EventConsensusFailed, nil)
 		return fmt.Errorf("submit proposal failed")
 	}
 	if proposal.status != common.Committed {
 		log.Error("Not to consensus.")
-		self.eventCenter.Notify(types.EventConsensusFailed, nil)
+		instance.eventCenter.Notify(types.EventConsensusFailed, nil)
 		return fmt.Errorf("consensus status fault")
 	}
-	self.version = proposal.version
+	instance.version = proposal.version
 	p.Block.HeaderHash = common.HeaderHash(p.Block)
-	self.commitBlock(p.Block)
+	instance.commitBlock(p.Block)
 	return err
 }
 
-func (self *SoloPolicy) commitBlock(block *types.Block) {
+func (instance *SoloPolicy) commitBlock(block *types.Block) {
 	log.Info("send block to block switch.")
-	self.blockSwitch <- block
+	instance.blockSwitch <- block
 }
 
-func (self *SoloPolicy) prepareConsensus(p *SoloProposal) error {
-	if p.version <= self.version {
+func (instance *SoloPolicy) prepareConsensus(p *SoloProposal) error {
+	if p.version <= instance.version {
 		log.Error("Proposal version segment less than version which has confirmed.")
 		return fmt.Errorf("proposal version less than confirmed")
 	}
@@ -149,7 +149,7 @@ func (self *SoloPolicy) prepareConsensus(p *SoloProposal) error {
 	return nil
 }
 
-func (self *SoloPolicy) submitConsensus(p *SoloProposal) error {
+func (instance *SoloPolicy) submitConsensus(p *SoloProposal) error {
 	if p.status != common.Propose {
 		log.Error("Proposal status must be Propose to submit consensus.")
 		return fmt.Errorf("proposal status must be Propose")
@@ -158,13 +158,13 @@ func (self *SoloPolicy) submitConsensus(p *SoloProposal) error {
 	return nil
 }
 
-func (self *SoloPolicy) toConsensus(p *SoloProposal) bool {
-	if uint8(len(self.peers)) != common.SOLO_CONSENSUS_NUM {
+func (instance *SoloPolicy) toConsensus(p *SoloProposal) bool {
+	if uint8(len(instance.peers)) != common.SoloConsensusNum {
 		log.Error("Solo participates invalid.")
 		return false
 	}
 
-	local := self.peers[0]
+	local := instance.peers[0]
 	validators := validator.NewValidator(&local)
 	_, ok := validators.ValidateBlock(p.proposal.Block)
 	if nil != ok {
@@ -175,15 +175,15 @@ func (self *SoloPolicy) toConsensus(p *SoloProposal) bool {
 	return true
 }
 
-func (self *SoloPolicy) GetConsensusResult() common.ConsensusResult {
+func (instance *SoloPolicy) GetConsensusResult() common.ConsensusResult {
 	return common.ConsensusResult{
 		View:        uint64(0),
-		Participate: self.peers,
-		Master:      self.master,
+		Participate: instance.peers,
+		Master:      instance.master,
 	}
 }
 
-func (self *SoloPolicy) Online() {
-	self.eventCenter.Notify(types.EventOnline, nil)
+func (instance *SoloPolicy) Online() {
+	instance.eventCenter.Notify(types.EventOnline, nil)
 	return
 }
