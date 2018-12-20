@@ -1,6 +1,7 @@
 package consensus
 
 import (
+	"fmt"
 	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/galaxy/consensus/common"
@@ -9,7 +10,6 @@ import (
 	"github.com/DSiSc/galaxy/consensus/policy/dbft"
 	"github.com/DSiSc/galaxy/consensus/policy/fbft"
 	"github.com/DSiSc/galaxy/consensus/policy/solo"
-	"github.com/DSiSc/galaxy/participates"
 	"github.com/DSiSc/validator/tools/account"
 )
 
@@ -23,7 +23,7 @@ type Consensus interface {
 	Halt()
 }
 
-func NewConsensus(participates participates.Participates, conf config.ConsensusConfig, account account.Account, blockSwitch chan<- interface{}) (Consensus, error) {
+func NewConsensus(conf config.ConsensusConfig, account account.Account, blockSwitch chan<- interface{}) (Consensus, error) {
 	var err error
 	var consensus Consensus
 	switch conf.PolicyName {
@@ -40,7 +40,7 @@ func NewConsensus(participates participates.Participates, conf config.ConsensusC
 		log.Info("Get consensus policy is dbft.")
 		consensus, err = dbft.NewDBFTPolicy(account, conf.Timeout)
 	default:
-		log.Error("Now, we only support solo policy consensus.")
+		err = fmt.Errorf("unsupport consensus type %v", conf.PolicyName)
 	}
 	return consensus, err
 }

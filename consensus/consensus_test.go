@@ -1,7 +1,9 @@
 package consensus
 
 import (
+	"fmt"
 	"github.com/DSiSc/craft/types"
+	"github.com/DSiSc/galaxy/consensus/common"
 	"github.com/DSiSc/galaxy/consensus/config"
 	"github.com/DSiSc/validator/tools/account"
 	"github.com/stretchr/testify/assert"
@@ -27,7 +29,7 @@ var mockAccount = account.Account{
 func Test_NewConsensus(t *testing.T) {
 	asserts := assert.New(t)
 	conf := mockConf("solo")
-	consensus, err := NewConsensus(nil, conf, mockAccount, nil)
+	consensus, err := NewConsensus(conf, mockAccount, nil)
 	asserts.Nil(err)
 	asserts.NotNil(consensus)
 	asserts.Equal("solo", consensus.PolicyName())
@@ -41,11 +43,20 @@ func Test_NewConsensus(t *testing.T) {
 	asserts.NotNil(method)
 	asserts.True(exist)
 
-	conf = mockConf("bft")
-	consensus, err = NewConsensus(nil, conf, mockAccount, nil)
-	asserts.Equal("bft", consensus.PolicyName())
+	conf = mockConf(common.BFT_POLICY)
+	consensus, err = NewConsensus(conf, mockAccount, nil)
+	asserts.Equal(common.BFT_POLICY, consensus.PolicyName())
 
-	conf = mockConf("fbft")
-	consensus, err = NewConsensus(nil, conf, mockAccount, nil)
-	asserts.Equal("fbft", consensus.PolicyName())
+	conf = mockConf(common.FBFT_POLICY)
+	consensus, err = NewConsensus(conf, mockAccount, nil)
+	asserts.Equal(common.FBFT_POLICY, consensus.PolicyName())
+
+	conf = mockConf(common.DBFT_POLICY)
+	consensus, err = NewConsensus(conf, mockAccount, nil)
+	asserts.Equal(common.DBFT_POLICY, consensus.PolicyName())
+
+	policyName := "Nil"
+	conf = mockConf(policyName)
+	consensus, err = NewConsensus(conf, mockAccount, nil)
+	asserts.Equal(err, fmt.Errorf("unsupport consensus type %v", policyName))
 }
