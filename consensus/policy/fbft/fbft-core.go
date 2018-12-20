@@ -541,13 +541,15 @@ func (instance *fbftCore) sendOnlineRequest() {
 	walterLevel := len(instance.nodes.peers) - int(instance.tolerance)
 	currentHeight := instance.onlineWizard.GetCurrentHeight()
 	var state common.OnlineState
-	_, state = instance.onlineWizard.AddOnlineResponse(
-		currentBlockHeight, []account.Account{instance.nodes.local}, walterLevel, instance.nodes.master, instance.viewChange.GetCurrentViewNum())
-	if currentHeight > currentBlockHeight {
-		state = instance.onlineWizard.GetCurrentState()
-	}
-	if common.Online == state {
-		instance.eventCenter.Notify(types.EventOnline, nil)
+	if currentBlockHeight == common.DefaultBlockHeight {
+		_, state = instance.onlineWizard.AddOnlineResponse(
+			currentBlockHeight, []account.Account{instance.nodes.local}, walterLevel, instance.nodes.master, instance.viewChange.GetCurrentViewNum())
+		if currentHeight > currentBlockHeight {
+			state = instance.onlineWizard.GetCurrentState()
+		}
+		if common.Online == state {
+			instance.eventCenter.Notify(types.EventOnline, nil)
+		}
 	}
 	messages.BroadcastPeersFilter(msgRaw, onlineMessage.MessageType, types.Hash{}, instance.nodes.peers, instance.nodes.local)
 	return
