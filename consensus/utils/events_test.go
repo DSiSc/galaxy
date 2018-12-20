@@ -5,27 +5,26 @@ import (
 	"testing"
 )
 
-type mockEvent struct {
-	processed bool
+type MockReceive struct {
+	init bool
 }
 
-func (self *mockEvent) ProcessEvent(e Event) Event {
-	self.processed = true
-	return nil
-}
-
-func newMockEvent() Receiver {
-	return &mockEvent{
-		processed: false,
+func NewMockReceive() Receiver {
+	return &MockReceive{
+		init: true,
 	}
 }
 
-func TestSendEvent(t *testing.T) {
-	mock := newMockEvent()
-	event := mock.(*mockEvent)
-	assert.NotNil(t, event)
-	assert.Equal(t, false, event.processed)
+var signal interface{}
 
-	mock.ProcessEvent(nil)
-	assert.Equal(t, true, event.processed)
+func (instance *MockReceive) ProcessEvent(e Event) Event {
+	signal = e
+	return nil
+}
+
+func TestSendEvent2(t *testing.T) {
+	receive := NewMockReceive()
+	assert.Equal(t, true, receive.(*MockReceive).init)
+	SendEvent(receive, 2)
+	assert.Equal(t, 2, signal)
 }
