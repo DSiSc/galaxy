@@ -203,3 +203,72 @@ func TestFBFTPolicy_GetConsensusResult(t *testing.T) {
 	assert.Equal(t, result.Master, result.Master)
 	assert.Equal(t, len(mockAccounts), len(result.Participate))
 }
+
+func TestFBFTPolicy_ToConsensus(t *testing.T) {
+	proposal := &common.Proposal{
+		Block: &types.Block{
+			Header: &types.Header{
+				Height: 0,
+			},
+		},
+	}
+	var timeout = int64(1)
+	blockSwitch := make(chan interface{})
+	fbft, err := NewFBFTPolicy(mockAccounts[0], timeout, blockSwitch)
+	assert.Nil(t, err)
+	event := NewEvent()
+	event.Subscribe(types.EventConsensusFailed, func(v interface{}) {
+		log.Error("receive consensus failed event.")
+		return
+	})
+	monkey.Patch(messages.BroadcastPeersFilter, func([]byte, messages.MessageType, types.Hash, []account.Account, account.Account) {
+		return
+	})
+	monkey.Patch(utils.SendEvent, func(utils.Receiver, utils.Event) {
+		return
+	})
+	fbft.core.eventCenter = event
+	err = fbft.ToConsensus(proposal)
+	assert.Equal(t, fmt.Errorf("timeout for consensus"), err)
+	go func() {
+		result := messages.ConsensusResult{
+			Signatures: make([][]byte, 0),
+			Result:     fmt.Errorf("error of consensus"),
+		}
+		fbft.core.result <- result
+	}()
+	err = fbft.ToConsensus(proposal)
+	assert.Equal(t, fmt.Errorf("error of consensus"), err)
+	monkey.UnpatchAll()
+}
+
+func TestFBFTPolicy_Halt(t *testing.T) {
+	var timeout = int64(1)
+	fbft, err := NewFBFTPolicy(mockAccounts[0], timeout, nil)
+	assert.Nil(t, err)
+	fbft.Halt()
+}
+
+func TestFBFTPolicy_Online(t *testing.T) {
+	var timeout = int64(1)
+	event := NewEvent()
+	event.Subscribe(types.EventOnline, func(v interface{}) {
+		log.Error("receive online event.")
+		return
+	})
+	fbft, err := NewFBFTPolicy(mockAccounts[0], timeout, nil)
+	assert.Nil(t, err)
+	var b *blockchain.BlockChain
+	monkey.Patch(blockchain.NewLatestStateBlockChain, func() (*blockchain.BlockChain, error) {
+		return b, nil
+	})
+	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetCurrentBlockHeight", func(*blockchain.BlockChain) uint64 {
+		return uint64(0)
+	})
+	monkey.Patch(messages.BroadcastPeersFilter, func([]byte, messages.MessageType, types.Hash, []account.Account, account.Account) {
+		return
+	})
+	fbft.core.eventCenter = event
+	fbft.Online()
+	monkey.UnpatchAll()
+}
