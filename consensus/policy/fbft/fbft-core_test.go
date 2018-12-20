@@ -10,6 +10,7 @@ import (
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/galaxy/consensus/common"
 	"github.com/DSiSc/galaxy/consensus/messages"
+	"github.com/DSiSc/galaxy/consensus/utils"
 	"github.com/DSiSc/monkey"
 	"github.com/DSiSc/validator/tools/account"
 	"github.com/DSiSc/validator/tools/signature"
@@ -788,4 +789,136 @@ func TestFbftCore_ProcessEvent3(t *testing.T) {
 	err = core.ProcessEvent(onlineResponse)
 	assert.Nil(t, err)
 	monkey.UnpatchAll()
+}
+
+func mockBlocks(num int) []*types.Block {
+	blocks := make([]*types.Block, 0)
+	for index := 1; index <= num; index++ {
+		block := &types.Block{
+			Header: &types.Header{
+				Height: uint64(index),
+			},
+		}
+		blocks = append(blocks, block)
+	}
+	return blocks
+}
+
+func TestFbftCore_ProcessEvent4(t *testing.T) {
+	syncBlockReq := &messages.SyncBlockReq{
+		Account:    mockAccounts[0],
+		Timestamp:  time.Now().Unix(),
+		BlockStart: uint64(2),
+		BlockEnd:   uint64(5),
+	}
+	var b *blockchain.BlockChain
+	monkey.Patch(blockchain.NewLatestStateBlockChain, func() (*blockchain.BlockChain, error) {
+		return b, nil
+	})
+	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetBlockByHeight", func(ch *blockchain.BlockChain, height uint64) (*types.Block, error) {
+		return &types.Block{
+			Header: &types.Header{
+				Height: height,
+			},
+		}, nil
+	})
+	monkey.Patch(messages.Unicast, func(account.Account, []byte, messages.MessageType, types.Hash) error {
+		return nil
+	})
+	core := NewFBFTCore(mockAccounts[0], nil)
+	err := core.ProcessEvent(syncBlockReq)
+	assert.Nil(t, err)
+
+	syncBlockResp := &messages.SyncBlockResp{
+		Blocks: mockBlocks(3),
+	}
+	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetCurrentBlockHeight", func(*blockchain.BlockChain) uint64 {
+		return uint64(1)
+	})
+	var w *worker.Worker
+	monkey.PatchInstanceMethod(reflect.TypeOf(w), "VerifyBlock", func(*worker.Worker) error {
+		return fmt.Errorf("verify block failed")
+	})
+	err = core.ProcessEvent(syncBlockResp)
+	assert.Nil(t, err)
+
+	monkey.PatchInstanceMethod(reflect.TypeOf(w), "VerifyBlock", func(*worker.Worker) error {
+		return nil
+	})
+	monkey.PatchInstanceMethod(reflect.TypeOf(b), "WriteBlockWithReceipts", func(*blockchain.BlockChain, *types.Block, []*types.Receipt) error {
+		return fmt.Errorf("write block failed")
+	})
+	err = core.ProcessEvent(syncBlockResp)
+	assert.Nil(t, err)
+	monkey.UnpatchAll()
+}
+
+func TestFbftCore_ProcessEvent5(t *testing.T) {
+	proposalBlockHeight := uint64(2)
+	proposal := &messages.Proposal{
+		Account:   mockAccounts[0],
+		Timestamp: time.Now().Unix(),
+		Payload: &types.Block{
+			Header: &types.Header{
+				Height:    proposalBlockHeight,
+				MixDigest: mockHash,
+			},
+		},
+	}
+	var b *blockchain.BlockChain
+	monkey.Patch(blockchain.NewLatestStateBlockChain, func() (*blockchain.BlockChain, error) {
+		return b, nil
+	})
+	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetCurrentBlockHeight", func(*blockchain.BlockChain) uint64 {
+		return uint64(0)
+	})
+	core := NewFBFTCore(mockAccounts[0], nil)
+	core.nodes = &nodesInfo{
+		local:  mockAccounts[1],
+		master: mockAccounts[1],
+		peers:  mockAccounts,
+	}
+	err := core.ProcessEvent(proposal)
+	assert.Nil(t, err)
+
+	monkey.Patch(messages.Unicast, func(account.Account, []byte, messages.MessageType, types.Hash) error {
+		return nil
+	})
+	core.nodes.master = mockAccounts[2]
+	err = core.ProcessEvent(proposal)
+	assert.Nil(t, err)
+
+	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetCurrentBlockHeight", func(*blockchain.BlockChain) uint64 {
+		return uint64(1)
+	})
+	monkey.Patch(utils.SignatureVerify, func(account.Account, []byte, types.Hash) bool {
+		return false
+	})
+	core.nodes.master = mockAccounts[0]
+	err = core.ProcessEvent(proposal)
+	assert.Nil(t, err)
+
+	monkey.Patch(utils.SignatureVerify, func(account.Account, []byte, types.Hash) bool {
+		return true
+	})
+	monkey.Patch(utils.VerifyPayload, func(*types.Block) (types.Receipts, error) {
+		return nil, fmt.Errorf("verify payload failed")
+	})
+	err = core.ProcessEvent(proposal)
+	assert.Nil(t, err)
+
+	monkey.Patch(utils.VerifyPayload, func(*types.Block) (types.Receipts, error) {
+		return nil, nil
+	})
+	monkey.Patch(utils.SignPayload, func(account.Account, types.Hash) ([]byte, error) {
+		return nil, fmt.Errorf("sign payload failed")
+	})
+	err = core.ProcessEvent(proposal)
+	assert.Nil(t, err)
+
+	monkey.Patch(utils.SignPayload, func(account.Account, types.Hash) ([]byte, error) {
+		return nil, nil
+	})
+	err = core.ProcessEvent(proposal)
+	assert.Nil(t, err)
 }

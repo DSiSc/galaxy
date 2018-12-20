@@ -161,7 +161,9 @@ func (instance *fbftCore) receiveProposal(proposal *messages.Proposal) {
 		if proposalBlockHeight != 0 && currentBlockHeight < proposalBlockHeight-1 {
 			log.Warn("may be master info is wrong, which block height is %d, while received is %d, so change master to %d.",
 				currentBlockHeight, proposalBlockHeight, proposal.Account.Extension.Id)
-			instance.timeoutTimer.Stop()
+			if nil != instance.timeoutTimer {
+				instance.timeoutTimer.Stop()
+			}
 			instance.nodes.master = proposal.Account
 			go func() {
 				log.Warn("now node %d with height %d fall behind with node %d with height %d.",
