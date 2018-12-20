@@ -707,3 +707,85 @@ func TestFbftCore_ProcessEvent(t *testing.T) {
 	currentViewNum = fbft.viewChange.GetCurrentViewNum()
 	assert.Equal(t, mockViewNum, currentViewNum)
 }
+
+func TestFbftCore_ProcessEvent2(t *testing.T) {
+	onlineReq := &messages.OnlineRequest{
+		Account:     mockAccounts[1],
+		Timestamp:   time.Now().Unix(),
+		BlockHeight: common.DefaultBlockHeight,
+	}
+	var b *blockchain.BlockChain
+	monkey.Patch(blockchain.NewLatestStateBlockChain, func() (*blockchain.BlockChain, error) {
+		return b, nil
+	})
+	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetCurrentBlockHeight", func(*blockchain.BlockChain) uint64 {
+		return uint64(0)
+	})
+	monkey.Patch(messages.BroadcastPeersFilter, func([]byte, messages.MessageType, types.Hash, []account.Account, account.Account) {
+		return
+	})
+	core := NewFBFTCore(mockAccounts[0], nil)
+	core.nodes = &nodesInfo{
+		local:  mockAccounts[0],
+		master: mockAccounts[1],
+		peers:  mockAccounts,
+	}
+	// if receive default block request and equal to local, then record it and broadcast
+	err := core.ProcessEvent(onlineReq)
+	assert.Nil(t, err)
+	// if local not default block height, just response to requester
+	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetCurrentBlockHeight", func(*blockchain.BlockChain) uint64 {
+		return uint64(1)
+	})
+	monkey.Patch(messages.Unicast, func(account.Account, []byte, messages.MessageType, types.Hash) error {
+		return nil
+	})
+	err = core.ProcessEvent(onlineReq)
+	assert.Nil(t, err)
+	monkey.UnpatchAll()
+}
+
+func TestFbftCore_ProcessEvent3(t *testing.T) {
+	onlineResponse := &messages.OnlineResponse{
+		Account:     mockAccounts[0],
+		Timestamp:   time.Now().Unix(),
+		BlockHeight: common.DefaultBlockHeight,
+		ViewNum:     common.DefaultViewNum,
+		Master:      mockAccounts[1],
+		Nodes:       []account.Account{mockAccounts[0], mockAccounts[1]},
+	}
+	var b *blockchain.BlockChain
+	monkey.Patch(blockchain.NewLatestStateBlockChain, func() (*blockchain.BlockChain, error) {
+		return b, nil
+	})
+	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetCurrentBlockHeight", func(*blockchain.BlockChain) uint64 {
+		return onlineResponse.BlockHeight + 1
+	})
+	core := NewFBFTCore(mockAccounts[0], nil)
+	err := core.ProcessEvent(onlineResponse)
+	assert.Nil(t, err)
+
+	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetCurrentBlockHeight", func(*blockchain.BlockChain) uint64 {
+		return onlineResponse.BlockHeight
+	})
+	onlineResponse.Nodes = append(onlineResponse.Nodes, mockAccounts[2])
+	monkey.Patch(messages.BroadcastPeersFilter, func([]byte, messages.MessageType, types.Hash, []account.Account, account.Account) {
+		return
+	})
+	event := NewEvent()
+	event.Subscribe(types.EventOnline, func(v interface{}) {
+		log.Error("receive online event.")
+		return
+	})
+	core = NewFBFTCore(mockAccounts[0], nil)
+	core.tolerance = 1
+	core.nodes = &nodesInfo{
+		local:  mockAccounts[1],
+		master: mockAccounts[1],
+		peers:  mockAccounts,
+	}
+	core.eventCenter = event
+	err = core.ProcessEvent(onlineResponse)
+	assert.Nil(t, err)
+	monkey.UnpatchAll()
+}

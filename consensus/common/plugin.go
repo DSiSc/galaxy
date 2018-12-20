@@ -242,6 +242,10 @@ func (instance *OnlineWizard) GetCurrentState() OnlineState {
 func (instance *OnlineWizard) GetCurrentStateByHeight(blockHeight uint64) OnlineState {
 	instance.mutex.RLock()
 	defer instance.mutex.RUnlock()
+	if _, ok := instance.response[blockHeight]; !ok {
+		log.Debug("block height %d info not exists.", blockHeight)
+		return GoOnline
+	}
 	return instance.response[blockHeight].GetResponseState()
 }
 
