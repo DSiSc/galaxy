@@ -261,8 +261,8 @@ func (instance *dbftCore) receiveProposal(proposal *messages.Proposal) {
 		syncBlockMessage := messages.Message{
 			MessageType: messages.SyncBlockReqMessageType,
 			PayLoad: &messages.SyncBlockReqMessage{
-				SyncBlock: &messages.SyncBlockReq{
-					Node:       instance.local,
+				SyncBlockReq: &messages.SyncBlockReq{
+					Account:    instance.local,
 					Timestamp:  time.Now().Unix(),
 					BlockStart: currentHeight + 1,
 					BlockEnd:   proposal.Payload.Header.Height - 1,
@@ -541,7 +541,7 @@ func (instance *dbftCore) receiveSyncBlockReq(syncBlockReq *messages.SyncBlockRe
 		if nil != err {
 			panic(fmt.Sprintf("get block by height %d with error %v", index, err))
 		}
-		log.Info("sync block from node %x with block height %d.", syncBlockReq.Node.Address, index)
+		log.Info("sync block from node %x with block height %d.", syncBlockReq.Account.Address, index)
 		syncBlocks = append(syncBlocks, block)
 	}
 	syncBlockResMsg := messages.Message{
@@ -556,7 +556,7 @@ func (instance *dbftCore) receiveSyncBlockReq(syncBlockReq *messages.SyncBlockRe
 	}
 	// TODO: sign the digest
 	var mockDigest types.Hash
-	err = messages.Unicast(syncBlockReq.Node, msgRaw, messages.SyncBlockRespMessageType, mockDigest)
+	err = messages.Unicast(syncBlockReq.Account, msgRaw, messages.SyncBlockRespMessageType, mockDigest)
 	if nil != err {
 		log.Error("unicast sync block message failed with error %v.", err)
 	}
@@ -747,7 +747,7 @@ func (instance *dbftCore) ProcessEvent(e utils.Event) utils.Event {
 		log.Info("receive commit from replica %d with digest %x.", et.Account.Extension.Id, et.Digest)
 		instance.receiveCommit(et)
 	case *messages.SyncBlockReq:
-		log.Info("receive sycBlockReq from replica %d form %d to %d.", et.Node.Extension.Id, et.BlockStart, et.BlockEnd)
+		log.Info("receive sycBlockReq from replica %d form %d to %d.", et.Account.Extension.Id, et.BlockStart, et.BlockEnd)
 		instance.receiveSyncBlockReq(et)
 	case *messages.SyncBlockResp:
 		log.Info("receive sycBlockResp len is %d.", len(et.Blocks))
@@ -822,8 +822,8 @@ func handleClient(conn net.Conn, bft *dbftCore) {
 		}
 		utils.SendEvent(bft, response)
 	case messages.SyncBlockReqMessageType:
-		syncBlock := payload.(*messages.SyncBlockReqMessage).SyncBlock
-		log.Info("receive sync block message from node %d", syncBlock.Node.Extension.Id)
+		syncBlock := payload.(*messages.SyncBlockReqMessage).SyncBlockReq
+		log.Info("receive sync block message from node %d", syncBlock.Account.Extension.Id)
 		utils.SendEvent(bft, syncBlock)
 	case messages.SyncBlockRespMessageType:
 		syncBlock := payload.(*messages.SyncBlockRespMessage).SyncBlockResp

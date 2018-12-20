@@ -1,6 +1,7 @@
 package messages
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/monkey"
@@ -164,4 +165,190 @@ func TestBftCore_unicast(t *testing.T) {
 	assert.NotNil(t, err)
 
 	monkey.UnpatchAll()
+}
+
+func mockBlocks(num int) []*types.Block {
+	blocks := make([]*types.Block, 0)
+	for index := 0; index < num; index++ {
+		block := &types.Block{
+			Header: &types.Header{
+				Height: uint64(index),
+			},
+		}
+		blocks = append(blocks, block)
+	}
+	return blocks
+}
+
+func TestReadMessage(t *testing.T) {
+	request := Message{
+		MessageType: RequestMessageType,
+		PayLoad: &RequestMessage{
+			Request: &Request{
+				Account:   mockAccounts[0],
+				Timestamp: time.Now().Unix(),
+				Payload:   mockBlocks(1)[0],
+			},
+		},
+	}
+	msgRaw, err := EncodeMessage(request)
+	assert.NotNil(t, msgRaw)
+	assert.Nil(t, err)
+	r := bytes.NewReader(msgRaw)
+	message, err := ReadMessage(r)
+	assert.Nil(t, err)
+	assert.Equal(t, request, message)
+
+	response := Message{
+		MessageType: ProposalMessageType,
+		PayLoad: &ProposalMessage{
+			Proposal: &Proposal{
+				Account:   mockAccounts[0],
+				Timestamp: time.Now().Unix(),
+				Signature: mockHash[:],
+				Payload:   mockBlocks(1)[0],
+			},
+		},
+	}
+	msgRaw, err = EncodeMessage(response)
+	assert.NotNil(t, msgRaw)
+	assert.Nil(t, err)
+	r = bytes.NewReader(msgRaw)
+	message, err = ReadMessage(r)
+	assert.Nil(t, err)
+	assert.Equal(t, response, message)
+
+	response = Message{
+		MessageType: ResponseMessageType,
+		PayLoad: &ResponseMessage{
+			Response: &Response{
+				Account:     mockAccounts[0],
+				Timestamp:   time.Now().Unix(),
+				Digest:      mockHash,
+				Signature:   mockHash[:],
+				SequenceNum: uint64(1),
+			},
+		},
+	}
+	msgRaw, err = EncodeMessage(response)
+	assert.NotNil(t, msgRaw)
+	assert.Nil(t, err)
+	r = bytes.NewReader(msgRaw)
+	message, err = ReadMessage(r)
+	assert.Nil(t, err)
+	assert.Equal(t, response, message)
+
+	commit := Message{
+		MessageType: CommitMessageType,
+		PayLoad: &CommitMessage{
+			Commit: &Commit{
+				Account:    mockAccounts[0],
+				Timestamp:  time.Now().Unix(),
+				BlockHash:  mockHash,
+				Digest:     mockHash,
+				Signatures: [][]byte{mockHash[:], mockHash[:]},
+				Result:     false,
+			},
+		},
+	}
+	msgRaw, err = EncodeMessage(commit)
+	assert.NotNil(t, msgRaw)
+	assert.Nil(t, err)
+	r = bytes.NewReader(msgRaw)
+	message, err = ReadMessage(r)
+	assert.Nil(t, err)
+	assert.Equal(t, commit, message)
+
+	syncBlockReq := Message{
+		MessageType: SyncBlockReqMessageType,
+		PayLoad: &SyncBlockReqMessage{
+			SyncBlockReq: &SyncBlockReq{
+				Account:    mockAccounts[0],
+				Timestamp:  time.Now().Unix(),
+				BlockStart: uint64(1),
+				BlockEnd:   uint64(2),
+			},
+		},
+	}
+	msgRaw, err = EncodeMessage(syncBlockReq)
+	assert.NotNil(t, msgRaw)
+	assert.Nil(t, err)
+	r = bytes.NewReader(msgRaw)
+	message, err = ReadMessage(r)
+	assert.Nil(t, err)
+	assert.Equal(t, syncBlockReq, message)
+
+	syncBlockResp := Message{
+		MessageType: SyncBlockRespMessageType,
+		PayLoad: &SyncBlockRespMessage{
+			SyncBlockResp: &SyncBlockResp{
+				Blocks: mockBlocks(10),
+			},
+		},
+	}
+	msgRaw, err = EncodeMessage(syncBlockResp)
+	assert.NotNil(t, msgRaw)
+	assert.Nil(t, err)
+	r = bytes.NewReader(msgRaw)
+	message, err = ReadMessage(r)
+	assert.Nil(t, err)
+	assert.Equal(t, syncBlockResp, message)
+
+	viewChangeReq := Message{
+		MessageType: ViewChangeMessageReqType,
+		PayLoad: &ViewChangeReqMessage{
+			ViewChange: &ViewChangeReq{
+				Account:   mockAccounts[0],
+				Nodes:     mockAccounts,
+				Timestamp: time.Now().Unix(),
+				ViewNum:   uint64(1),
+			},
+		},
+	}
+	msgRaw, err = EncodeMessage(viewChangeReq)
+	assert.NotNil(t, msgRaw)
+	assert.Nil(t, err)
+	r = bytes.NewReader(msgRaw)
+	message, err = ReadMessage(r)
+	assert.Nil(t, err)
+	assert.Equal(t, viewChangeReq, message)
+
+	onlineRequest := Message{
+		MessageType: OnlineRequestType,
+		PayLoad: &OnlineRequestMessage{
+			OnlineRequest: &OnlineRequest{
+				Account:     mockAccounts[0],
+				Timestamp:   time.Now().Unix(),
+				BlockHeight: uint64(1),
+			},
+		},
+	}
+	msgRaw, err = EncodeMessage(onlineRequest)
+	assert.NotNil(t, msgRaw)
+	assert.Nil(t, err)
+	r = bytes.NewReader(msgRaw)
+	message, err = ReadMessage(r)
+	assert.Nil(t, err)
+	assert.Equal(t, onlineRequest, message)
+
+	onlineResponse := Message{
+		MessageType: OnlineResponseType,
+		PayLoad: &OnlineResponseMessage{
+			OnlineResponse: &OnlineResponse{
+				Account:     mockAccounts[0],
+				Timestamp:   time.Now().Unix(),
+				BlockHeight: uint64(1),
+				Nodes:       mockAccounts,
+				ViewNum:     uint64(1),
+				Master:      mockAccounts[1],
+			},
+		},
+	}
+	msgRaw, err = EncodeMessage(onlineResponse)
+	assert.NotNil(t, msgRaw)
+	assert.Nil(t, err)
+	r = bytes.NewReader(msgRaw)
+	message, err = ReadMessage(r)
+	assert.Nil(t, err)
+	assert.Equal(t, onlineResponse, message)
 }

@@ -745,8 +745,8 @@ func TestDbftCore_ProcessEvent3(t *testing.T) {
 	syncBlockMessage := messages.Message{
 		MessageType: messages.SyncBlockReqMessageType,
 		PayLoad: &messages.SyncBlockReqMessage{
-			SyncBlock: &messages.SyncBlockReq{
-				Node:       slaveAccount,
+			SyncBlockReq: &messages.SyncBlockReq{
+				Account:    slaveAccount,
 				Timestamp:  time.Now().Unix(),
 				BlockStart: currentHeight + 1,
 				BlockEnd:   currentHeight + 2,
@@ -832,7 +832,7 @@ func TestDbftCore_ProcessEvent5(t *testing.T) {
 	core := NewDBFTCore(mockAccounts[0], sigChannel)
 	core.masterTimeout = time.NewTimer(10 * time.Second)
 	syncBlockReq := &messages.SyncBlockReq{
-		Node:       mockAccounts[1],
+		Account:    mockAccounts[1],
 		Timestamp:  time.Now().Unix(),
 		BlockStart: uint64(1),
 		BlockEnd:   uint64(2),

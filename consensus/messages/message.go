@@ -263,11 +263,11 @@ type Commit struct {
 
 // sync block request msg
 type SyncBlockReqMessage struct {
-	SyncBlock *SyncBlockReq
+	SyncBlockReq *SyncBlockReq
 }
 
 type SyncBlockReq struct {
-	Node       account.Account
+	Account    account.Account
 	Timestamp  int64
 	BlockStart uint64
 	BlockEnd   uint64

@@ -234,8 +234,8 @@ func (instance *fbftCore) tryToSyncBlock(start uint64, end uint64, target accoun
 		syncBlockRequest := messages.Message{
 			MessageType: messages.SyncBlockReqMessageType,
 			PayLoad: &messages.SyncBlockReqMessage{
-				SyncBlock: &messages.SyncBlockReq{
-					Node:       instance.nodes.local,
+				SyncBlockReq: &messages.SyncBlockReq{
+					Account:    instance.nodes.local,
 					Timestamp:  time.Now().Unix(),
 					BlockStart: index,
 					BlockEnd:   index,
@@ -280,7 +280,7 @@ func (instance *fbftCore) receiveSyncBlockRequest(request *messages.SyncBlockReq
 		log.Error("encode syncBlockResponse msg failed with %v.", err)
 		return
 	}
-	messages.Unicast(request.Node, msgRaw, syncBlockResponse.MessageType, types.Hash{})
+	messages.Unicast(request.Account, msgRaw, syncBlockResponse.MessageType, types.Hash{})
 }
 
 func (instance *fbftCore) receiveSyncBlockResponse(response *messages.SyncBlockResp) {
@@ -681,7 +681,7 @@ func (instance *fbftCore) ProcessEvent(e utils.Event) utils.Event {
 		instance.receiveCommit(et)
 	case *messages.SyncBlockReq:
 		log.Info("receive sync block request from replica %d with start %d and end %d.",
-			et.Node.Extension.Id, et.BlockStart, et.BlockEnd)
+			et.Account.Extension.Id, et.BlockStart, et.BlockEnd)
 		instance.receiveSyncBlockRequest(et)
 	case *messages.SyncBlockResp:
 		log.Info("receive sync block response of %d blocks.", len(et.Blocks))
@@ -757,8 +757,8 @@ func handleClient(conn net.Conn, bft *fbftCore) {
 		}
 		utils.SendEvent(bft, response)
 	case messages.SyncBlockReqMessageType:
-		syncBlock := payload.(*messages.SyncBlockReqMessage).SyncBlock
-		log.Info("receive sync block request message from node %d", syncBlock.Node.Extension.Id)
+		syncBlock := payload.(*messages.SyncBlockReqMessage).SyncBlockReq
+		log.Info("receive sync block request message from node %d", syncBlock.Account.Extension.Id)
 		utils.SendEvent(bft, syncBlock)
 	case messages.SyncBlockRespMessageType:
 		syncBlock := payload.(*messages.SyncBlockRespMessage).SyncBlockResp
