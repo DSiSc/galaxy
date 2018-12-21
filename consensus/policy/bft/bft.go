@@ -5,6 +5,7 @@ import (
 	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/galaxy/consensus/common"
+	"github.com/DSiSc/galaxy/consensus/config"
 	"github.com/DSiSc/galaxy/consensus/messages"
 	"github.com/DSiSc/galaxy/consensus/utils"
 	"github.com/DSiSc/validator/tools/account"
@@ -20,20 +21,20 @@ type BFTPolicy struct {
 	result  chan *messages.ConsensusResult
 }
 
-func NewBFTPolicy(account account.Account, timeout int64) (*BFTPolicy, error) {
+func NewBFTPolicy(account account.Account, timeout config.ConsensusTimeout) (*BFTPolicy, error) {
 	policy := &BFTPolicy{
 		name:    common.BftPolicy,
 		account: account,
-		timeout: time.Duration(timeout),
+		timeout: time.Duration(timeout.TimeoutToChangeView),
 		result:  make(chan *messages.ConsensusResult),
 	}
 	policy.bftCore = NewBFTCore(account, policy.result)
 	return policy, nil
 }
 
-func (instance *BFTPolicy) Initialization(master account.Account, peers []account.Account, events types.EventCenter, onLine bool) error {
+func (instance *BFTPolicy) Initialization(master account.Account, peers []account.Account, events types.EventCenter, onLine bool) {
 	if onLine {
-		log.Info("online first time.")
+		log.Debug("online first time.")
 	}
 	instance.bftCore.master = master
 	instance.bftCore.commit = false
@@ -44,7 +45,7 @@ func (instance *BFTPolicy) Initialization(master account.Account, peers []accoun
 		signatures: make([][]byte, 0),
 		signMap:    make(map[account.Account][]byte),
 	}
-	return nil
+	return
 }
 
 func (instance *BFTPolicy) PolicyName() string {

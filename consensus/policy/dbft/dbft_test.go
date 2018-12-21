@@ -5,10 +5,11 @@ import (
 	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/galaxy/consensus/common"
+	consensusConfig "github.com/DSiSc/galaxy/consensus/config"
 	"github.com/DSiSc/galaxy/consensus/messages"
 	"github.com/DSiSc/galaxy/consensus/utils"
 	"github.com/DSiSc/galaxy/participates/config"
-	commonr "github.com/DSiSc/galaxy/role/common"
+	roleCommon "github.com/DSiSc/galaxy/role/common"
 	"github.com/DSiSc/monkey"
 	"github.com/DSiSc/validator/tools/account"
 	"github.com/stretchr/testify/assert"
@@ -78,7 +79,9 @@ func mock_conf(policy string) config.ParticipateConfig {
 	}
 }
 
-var timeout = int64(10)
+var timeout = consensusConfig.ConsensusTimeout{
+	TimeoutToChangeView: int64(10000),
+}
 
 func TestNewBFTPolicy(t *testing.T) {
 	dbft, err := NewDBFTPolicy(mockAccounts[0], timeout)
@@ -96,14 +99,14 @@ func TestBFTPolicy_PolicyName(t *testing.T) {
 	assert.Equal(t, mockAccounts[0].Extension.Id, dbft.core.local.Extension.Id)
 }
 
-func mockRoleAssignment(master account.Account, accounts []account.Account) map[account.Account]commonr.Roler {
+func mockRoleAssignment(master account.Account, accounts []account.Account) map[account.Account]roleCommon.Roler {
 	delegates := len(accounts)
-	assignments := make(map[account.Account]commonr.Roler, delegates)
+	assignments := make(map[account.Account]roleCommon.Roler, delegates)
 	for _, delegate := range accounts {
 		if delegate == master {
-			assignments[delegate] = commonr.Master
+			assignments[delegate] = roleCommon.Master
 		} else {
-			assignments[delegate] = commonr.Slave
+			assignments[delegate] = roleCommon.Slave
 		}
 	}
 	return assignments
@@ -113,7 +116,7 @@ func TestBFTPolicy_Initialization(t *testing.T) {
 	dbft, err := NewDBFTPolicy(mockAccounts[0], timeout)
 	assert.NotNil(t, dbft)
 	assert.Nil(t, err)
-	err = dbft.Initialization(mockAccounts[3], mockAccounts, nil, true)
+	dbft.Initialization(mockAccounts[3], mockAccounts, nil, true)
 	assert.Equal(t, dbft.core.peers, mockAccounts)
 	assert.Equal(t, dbft.core.tolerance, uint8((len(mockAccounts)-1)/3))
 	assert.Equal(t, dbft.core.master, mockAccounts[3])
@@ -216,7 +219,6 @@ func TestDBFTPolicy_GetConsensusResult(t *testing.T) {
 	assert.Nil(t, err)
 
 	dbft.Initialization(mockAccounts[0], mockAccounts, nil, false)
-
 	dbft.core.views.viewNum = 1
 	result := dbft.GetConsensusResult()
 	assert.Equal(t, mockAccounts[0], result.Master)

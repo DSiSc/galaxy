@@ -245,10 +245,9 @@ func TestSoloPolicy_ToConsensus(t *testing.T) {
 	assert.NotNil(t, sub1)
 	proposal := mock_proposal()
 	sp, _ := NewSoloPolicy(mockAccounts[0], blockSwitch)
-	err := sp.Initialization(mockAccounts[0], mockAccounts[:1], event, false)
-	assert.Nil(t, err)
+	sp.Initialization(mockAccounts[0], mockAccounts[:1], event, false)
 
-	err = sp.ToConsensus(proposal)
+	err := sp.ToConsensus(proposal)
 	asserts.Equal(err, fmt.Errorf("local verify failed"))
 
 	var v *validator.Validator
@@ -319,9 +318,5 @@ func TestSoloPolicy_Halt(t *testing.T) {
 
 func TestSoloPolicy_Initialization(t *testing.T) {
 	sp, _ := NewSoloPolicy(mockAccounts[0], nil)
-	err := sp.Initialization(mockAccounts[0], mockAccounts[:2], nil, false)
-	assert.Equal(t, err, fmt.Errorf("solo policy only support one participate"))
-
-	err = sp.Initialization(mockAccounts[0], mockAccounts[:1], nil, true)
-	assert.Nil(t, err)
+	sp.Initialization(mockAccounts[0], mockAccounts[:1], nil, true)
 }

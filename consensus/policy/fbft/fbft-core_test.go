@@ -151,7 +151,7 @@ func TestBftCore_ProcessEvent(t *testing.T) {
 		return uint64(0)
 	})
 	fbft := NewFBFTCore(mockAccounts[0], nil)
-	fbft.timeoutTimer = time.NewTimer(30 * time.Second)
+	fbft.coreTimer.timeToChangeViewTimer = time.NewTimer(30 * time.Second)
 	fbft.consensusPlugin = common.NewConsensusPlugin()
 	content := fbft.consensusPlugin.Add(mockHash, block)
 	assert.NotNil(t, content)
@@ -298,7 +298,7 @@ var fakeSignature = []byte{
 
 func TestBftCore_receiveRequest(t *testing.T) {
 	fbft := NewFBFTCore(mockAccounts[0], nil)
-	fbft.timeoutTimer = time.NewTimer(30 * time.Second)
+	fbft.coreTimer.timeToChangeViewTimer = time.NewTimer(30 * time.Second)
 	assert.NotNil(t, fbft)
 	fbft.nodes.peers = mockAccounts
 	// only master process request
@@ -346,11 +346,7 @@ func TestBftCore_receiveRequest(t *testing.T) {
 		return 0, nil
 	})
 	fbft.receiveRequest(request)
-	monkey.Unpatch(net.ResolveTCPAddr)
-	monkey.Unpatch(net.DialTCP)
-	monkey.Unpatch(signature.Sign)
-	monkey.UnpatchInstanceMethod(reflect.TypeOf(w), "VerifyBlock")
-	monkey.UnpatchInstanceMethod(reflect.TypeOf(&c), "Write")
+	monkey.UnpatchAll()
 }
 
 func TestNewFBFTCore_broadcast(t *testing.T) {
@@ -412,7 +408,7 @@ func TestBftCore_unicast(t *testing.T) {
 
 func TestBftCore_receiveProposal(t *testing.T) {
 	fbft := NewFBFTCore(mockAccounts[0], nil)
-	fbft.timeoutTimer = time.NewTimer(30 * time.Second)
+	fbft.coreTimer.timeToChangeViewTimer = time.NewTimer(30 * time.Second)
 	assert.NotNil(t, fbft)
 	fbft.nodes.peers = mockAccounts
 	fbft.nodes.master = mockAccounts[0]
@@ -486,6 +482,7 @@ func TestFbftCore_receiveResponse(t *testing.T) {
 	fbft := NewFBFTCore(mockAccounts[0], nil)
 	fbft.nodes.peers = mockAccounts
 	fbft.nodes.master = mockAccounts[0]
+	fbft.coreTimer.timeToCollectResponseMsg = 1000
 	fbft.tolerance = 1
 	event := NewEvent()
 	event.Subscribe(types.EventMasterChange, func(v interface{}) {
@@ -658,7 +655,7 @@ func TestFBFTPolicy_commit(t *testing.T) {
 func TestFbftCore_ProcessEvent(t *testing.T) {
 	blockSwitch := make(chan interface{})
 	fbft := NewFBFTCore(mockAccounts[0], blockSwitch)
-	fbft.timeoutTimer = time.NewTimer(30 * time.Second)
+	fbft.coreTimer.timeToChangeViewTimer = time.NewTimer(30 * time.Second)
 	fbft.nodes.peers = mockAccounts
 	fbft.tolerance = 1
 	event := NewEvent()

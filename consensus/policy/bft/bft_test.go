@@ -5,6 +5,7 @@ import (
 	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/galaxy/consensus/common"
+	consensusConfig "github.com/DSiSc/galaxy/consensus/config"
 	"github.com/DSiSc/galaxy/consensus/messages"
 	tools "github.com/DSiSc/galaxy/consensus/utils"
 	"github.com/DSiSc/galaxy/participates/config"
@@ -24,7 +25,9 @@ func mock_conf(policy string) config.ParticipateConfig {
 	}
 }
 
-var timeout = int64(10)
+var timeout = consensusConfig.ConsensusTimeout{
+	TimeoutToChangeView: int64(10000),
+}
 
 func TestNewBFTPolicy(t *testing.T) {
 	bft, err := NewBFTPolicy(mockAccounts[0], timeout)
@@ -60,7 +63,7 @@ func TestBFTPolicy_Initialization(t *testing.T) {
 	assert.NotNil(t, bft)
 	assert.Nil(t, err)
 
-	err = bft.Initialization(mockAccounts[3], mockAccounts, nil, true)
+	bft.Initialization(mockAccounts[3], mockAccounts, nil, true)
 	assert.Equal(t, bft.bftCore.peers, mockAccounts)
 	assert.Equal(t, bft.bftCore.tolerance, uint8((len(mockAccounts)-1)/3))
 	assert.Equal(t, bft.bftCore.master, mockAccounts[3])
@@ -159,7 +162,6 @@ func TestBFTPolicy_commit(t *testing.T) {
 }
 
 func TestFBFTPolicy_GetConsensusResult(t *testing.T) {
-	var timeout = int64(10)
 	bft, err := NewBFTPolicy(mockAccounts[0], timeout)
 	assert.Nil(t, err)
 	bft.Initialization(mockAccounts[0], mockAccounts, nil, false)

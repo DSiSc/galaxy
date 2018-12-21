@@ -5,9 +5,9 @@ import (
 	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/galaxy/consensus/common"
+	"github.com/DSiSc/galaxy/consensus/config"
 	"github.com/DSiSc/galaxy/consensus/messages"
 	"github.com/DSiSc/galaxy/consensus/utils"
-	roleCommon "github.com/DSiSc/galaxy/role/common"
 	"github.com/DSiSc/validator/tools/account"
 	"time"
 )
@@ -17,33 +17,37 @@ type FBFTPolicy struct {
 	name  string
 	core  *fbftCore
 	// time to reach consensus
-	timeout time.Duration
+	timeout config.ConsensusTimeout
 }
 
-func NewFBFTPolicy(account account.Account, timeout int64, blockSwitch chan<- interface{}) (*FBFTPolicy, error) {
+func NewFBFTPolicy(account account.Account, timeout config.ConsensusTimeout, blockSwitch chan<- interface{}) (*FBFTPolicy, error) {
 	policy := &FBFTPolicy{
 		local:   account,
 		name:    common.FbftPolicy,
-		timeout: time.Duration(timeout),
+		timeout: timeout,
 	}
 	policy.core = NewFBFTCore(account, blockSwitch)
 	return policy, nil
 }
 
-func (instance *FBFTPolicy) Initialization(master account.Account, peers []account.Account, events types.EventCenter, onLine bool) error {
+func (instance *FBFTPolicy) Initialization(master account.Account, peers []account.Account, events types.EventCenter, onLine bool) {
 	instance.core.nodes.master = master
 	instance.core.nodes.peers = peers
 	instance.core.eventCenter = events
 	instance.core.tolerance = uint8((len(peers) - 1) / 3)
-	log.Info("start timeout master with view num %d.", instance.core.viewChange.GetCurrentViewNum())
-	if nil != instance.core.timeoutTimer {
-		instance.core.timeoutTimer.Stop()
+	instance.core.coreTimer = coreTimeout{
+		timeToChangeViewTime:     instance.timeout.TimeoutToChangeView,
+		timeToWaitCommitMsg:      instance.timeout.TimeoutToWaitCommitMsg,
+		timeToCollectResponseMsg: instance.timeout.TimeoutToCollectResponseMsg,
+	}
+	log.Debug("start timeout master with view num %d.", instance.core.viewChange.GetCurrentViewNum())
+	if nil != instance.core.coreTimer.timeToChangeViewTimer {
+		instance.core.coreTimer.timeToChangeViewTimer.Stop()
 	}
 	if !onLine {
-		instance.core.timeoutTimer = time.NewTimer(30 * time.Second)
+		instance.core.coreTimer.timeToChangeViewTimer = time.NewTimer(time.Duration(instance.timeout.TimeoutToChangeView) * time.Millisecond)
 		go instance.core.waitMasterTimeout()
 	}
-	return nil
 }
 
 func (instance *FBFTPolicy) PolicyName() string {
@@ -63,7 +67,7 @@ func (instance *FBFTPolicy) ToConsensus(p *common.Proposal) error {
 		Timestamp: p.Timestamp,
 		Payload:   p.Block,
 	}
-	timer := time.NewTimer(time.Second * instance.timeout)
+	timeToCollectResponseMsg := time.NewTimer(time.Duration(instance.timeout.TimeoutToCollectResponseMsg) * time.Millisecond)
 	go utils.SendEvent(instance.core, request)
 	select {
 	case consensusResult := <-instance.core.result:
@@ -77,11 +81,10 @@ func (instance *FBFTPolicy) ToConsensus(p *common.Proposal) error {
 			log.Info("consensus for %x successfully with signature %x.", p.Block.Header.MixDigest, consensusResult.Signatures)
 		}
 		instance.core.commit(p.Block, result)
-	case <-timer.C:
+	case <-timeToCollectResponseMsg.C:
 		log.Error("consensus for %x timeout in %d seconds.", p.Block.Header.MixDigest, instance.timeout)
 		err = fmt.Errorf("timeout for consensus")
-		result = false
-		instance.core.commit(p.Block, result)
+		instance.core.commit(p.Block, false)
 	}
 	return err
 }
@@ -91,18 +94,9 @@ func (instance *FBFTPolicy) Halt() {
 }
 
 func (instance *FBFTPolicy) GetConsensusResult() common.ConsensusResult {
-	role := make(map[account.Account]roleCommon.Roler)
-	for _, peer := range instance.core.nodes.peers {
-		if instance.core.nodes.master == peer {
-			role[peer] = roleCommon.Master
-			log.Debug("now master is %d.", peer.Extension.Id)
-			continue
-		}
-		role[peer] = roleCommon.Slave
-	}
 	log.Debug("now local is %d.", instance.core.nodes.local.Extension.Id)
 	return common.ConsensusResult{
-		View:        uint64(0),
+		View:        instance.core.viewChange.GetCurrentViewNum(),
 		Participate: instance.core.nodes.peers,
 		Master:      instance.core.nodes.master,
 	}

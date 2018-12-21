@@ -5,6 +5,7 @@ import (
 	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/galaxy/consensus/common"
+	"github.com/DSiSc/galaxy/consensus/config"
 	"github.com/DSiSc/galaxy/consensus/messages"
 	"github.com/DSiSc/galaxy/consensus/utils"
 	"github.com/DSiSc/validator/tools/account"
@@ -20,18 +21,18 @@ type DBFTPolicy struct {
 	result  chan *messages.ConsensusResult
 }
 
-func NewDBFTPolicy(account account.Account, timeout int64) (*DBFTPolicy, error) {
+func NewDBFTPolicy(account account.Account, timeout config.ConsensusTimeout) (*DBFTPolicy, error) {
 	policy := &DBFTPolicy{
 		name:    common.DbftPolicy,
 		account: account,
-		timeout: time.Duration(timeout),
+		timeout: time.Duration(timeout.TimeoutToChangeView),
 		result:  make(chan *messages.ConsensusResult),
 	}
 	policy.core = NewDBFTCore(account, policy.result)
 	return policy, nil
 }
 
-func (instance *DBFTPolicy) Initialization(master account.Account, peers []account.Account, events types.EventCenter, onLine bool) error {
+func (instance *DBFTPolicy) Initialization(master account.Account, peers []account.Account, events types.EventCenter, onLine bool) {
 	instance.core.master = master
 	instance.core.commit = false
 	instance.core.peers = peers
@@ -47,7 +48,7 @@ func (instance *DBFTPolicy) Initialization(master account.Account, peers []accou
 		instance.core.masterTimeout = timer
 		go instance.core.waitMasterTimeOut(timer)
 	}
-	return nil
+	return
 }
 
 func (instance *DBFTPolicy) waitMasterTimeOut(timer *time.Timer) {

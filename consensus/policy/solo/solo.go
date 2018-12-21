@@ -53,17 +53,17 @@ func (instance *SoloPolicy) Halt() {
 	return
 }
 
-func (instance *SoloPolicy) Initialization(master account.Account, accounts []account.Account, event types.EventCenter, onLine bool) error {
+func (instance *SoloPolicy) Initialization(master account.Account, accounts []account.Account, event types.EventCenter, onLine bool) {
 	if onLine {
-		log.Info("online first time.")
+		log.Debug("online first time.")
 	}
 	if common.SoloConsensusNum != uint8(len(accounts)) {
-		return fmt.Errorf("solo policy only support one participate")
+		panic("solo policy only support one participate")
 	}
 	instance.master = master
 	instance.peers = accounts
 	instance.eventCenter = event
-	return nil
+	return
 }
 
 func (instance *SoloPolicy) toSoloProposal(p *common.Proposal) *SoloProposal {
