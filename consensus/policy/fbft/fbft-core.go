@@ -150,6 +150,7 @@ func (instance *fbftCore) waitResponse(digest types.Hash) {
 					Result:     err,
 				}
 				instance.result <- consensusResult
+				timeToCollectResponseMsg.Stop()
 				log.Info("receive satisfied responses before overtime")
 				return
 			}
@@ -160,9 +161,9 @@ func (instance *fbftCore) waitResponse(digest types.Hash) {
 
 func (instance *fbftCore) receiveProposal(proposal *messages.Proposal) {
 	if nil != instance.coreTimer.timeToChangeViewTimer {
-		instance.coreTimer.timeToChangeViewTimer.Reset(time.Duration(instance.coreTimer.timeToWaitCommitMsg) * time.Second)
+		instance.coreTimer.timeToChangeViewTimer.Reset(time.Duration(instance.coreTimer.timeToWaitCommitMsg) * time.Millisecond)
 	} else {
-		instance.coreTimer.timeToChangeViewTimer = time.NewTimer(time.Duration(instance.coreTimer.timeToWaitCommitMsg) * time.Second)
+		instance.coreTimer.timeToChangeViewTimer = time.NewTimer(time.Duration(instance.coreTimer.timeToWaitCommitMsg) * time.Millisecond)
 	}
 	proposalBlockHeight := proposal.Payload.Header.Height
 	blockChain, err := blockchain.NewLatestStateBlockChain()
@@ -515,6 +516,7 @@ func (instance *fbftCore) waitMasterTimeout() {
 				log.Error("marshal proposal msg failed with %v.", err)
 				return
 			}
+			instance.coreTimer.timeToChangeViewTimer.Stop()
 			messages.BroadcastPeers(msgRaw, viewChangeReqMsg.MessageType, types.Hash{}, instance.nodes.peers)
 			return
 		}
@@ -738,13 +740,14 @@ func (instance *fbftCore) Start() {
 }
 
 func handleClient(conn net.Conn, bft *fbftCore) {
-	defer conn.Close()
 	reader := bufio.NewReaderSize(conn, common.MaxBufferLen)
 	msg, err := messages.ReadMessage(reader)
 	if nil != err {
+		conn.Close()
 		log.Error("read message failed with error %v.", err)
 		return
 	}
+	conn.Close()
 	payload := msg.PayLoad
 	switch msg.MessageType {
 	case messages.RequestMessageType:

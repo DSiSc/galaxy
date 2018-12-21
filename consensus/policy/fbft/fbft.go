@@ -82,7 +82,7 @@ func (instance *FBFTPolicy) ToConsensus(p *common.Proposal) error {
 		}
 		instance.core.commit(p.Block, result)
 	case <-timeToCollectResponseMsg.C:
-		log.Error("consensus for %x timeout in %d seconds.", p.Block.Header.MixDigest, instance.timeout)
+		log.Error("consensus for %x timeout in %d seconds.", p.Block.Header.MixDigest, instance.timeout.TimeoutToCollectResponseMsg)
 		err = fmt.Errorf("timeout for consensus")
 		instance.core.commit(p.Block, false)
 	}
