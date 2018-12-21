@@ -150,11 +150,11 @@ func sendMsgByUrl(url string, msgPayload []byte) error {
 		log.Error("dial tcp with %s occur error: %s", url, err)
 		return err
 	}
+	defer conn.Close()
 	_, err = conn.Write(msgPayload)
 	if nil != err {
 		log.Error("write connection error %v.", err)
 	}
-	conn.Close()
 	return err
 }
 

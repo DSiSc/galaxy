@@ -181,7 +181,7 @@ func (instance *fbftCore) receiveProposal(proposal *messages.Proposal) {
 			go func() {
 				log.Warn("now node %d with height %d fall behind with node %d with height %d.",
 					instance.nodes.local.Extension.Id, currentBlockHeight, proposal.Account.Extension.Id, proposal.Payload.Header.Height)
-				instance.tryToSyncBlock(currentBlockHeight+1, proposalBlockHeight-1, proposal.Account)
+				instance.tryToSyncBlock(currentBlockHeight+1, proposalBlockHeight, proposal.Account)
 			}()
 			log.Warn("receive proposal with height %d larger than local %d, so change master from %d to %d.",
 				proposal.Payload.Header.Height, currentBlockHeight, instance.nodes.local.Extension.Id, proposal.Account.Extension.Id)
@@ -264,11 +264,10 @@ func (instance *fbftCore) receiveSyncBlockRequest(request *messages.SyncBlockReq
 		block, err := chain.GetBlockByHeight(index)
 		if nil != err {
 			log.Error("get block by height failed with err %v.", err)
-			panic("get block by height failed")
+			continue
 		}
 		syncBlocks = append(syncBlocks, block)
 	}
-
 	syncBlockResponse := messages.Message{
 		MessageType: messages.SyncBlockRespMessageType,
 		PayLoad: &messages.SyncBlockRespMessage{
