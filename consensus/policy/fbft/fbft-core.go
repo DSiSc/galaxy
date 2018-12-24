@@ -161,9 +161,7 @@ func (instance *fbftCore) waitResponse(digest types.Hash) {
 
 func (instance *fbftCore) receiveProposal(proposal *messages.Proposal) {
 	if nil != instance.coreTimer.timeToChangeViewTimer {
-		instance.coreTimer.timeToChangeViewTimer.Reset(time.Duration(instance.coreTimer.timeToWaitCommitMsg) * time.Millisecond)
-	} else {
-		instance.coreTimer.timeToChangeViewTimer = time.NewTimer(time.Duration(instance.coreTimer.timeToWaitCommitMsg) * time.Millisecond)
+		instance.coreTimer.timeToChangeViewTimer.Stop()
 	}
 	proposalBlockHeight := proposal.Payload.Header.Height
 	blockChain, err := blockchain.NewLatestStateBlockChain()
@@ -204,6 +202,11 @@ func (instance *fbftCore) receiveProposal(proposal *messages.Proposal) {
 		}
 		return
 	}
+	if nil != instance.coreTimer.timeToChangeViewTimer {
+		instance.coreTimer.timeToChangeViewTimer.Reset(time.Duration(instance.coreTimer.timeToWaitCommitMsg) * time.Millisecond)
+	} else {
+		instance.coreTimer.timeToChangeViewTimer = time.NewTimer(time.Duration(instance.coreTimer.timeToWaitCommitMsg) * time.Millisecond)
+	}
 	if !utils.SignatureVerify(instance.nodes.master, proposal.Signature, proposal.Payload.Header.MixDigest) {
 		log.Error("proposal signature not from master, please confirm.")
 		return
@@ -227,7 +230,7 @@ func (instance *fbftCore) receiveProposal(proposal *messages.Proposal) {
 				Timestamp:   proposal.Timestamp,
 				Digest:      proposal.Payload.Header.MixDigest,
 				Signature:   signData,
-				SequenceNum: proposal.Payload.Header.Height,
+				BlockHeight: proposal.Payload.Header.Height,
 			},
 		},
 	}
@@ -334,9 +337,9 @@ func (instance *fbftCore) maybeCommit(digest types.Hash) ([][]byte, error) {
 
 func (instance *fbftCore) receiveResponse(response *messages.Response) {
 	currentBlockHeight := instance.consensusPlugin.GetLatestBlockHeight()
-	if response.SequenceNum <= currentBlockHeight {
+	if response.BlockHeight <= currentBlockHeight {
 		log.Warn("the response %d from node %d exceed deadline which is %d.",
-			response.SequenceNum, response.Account.Extension.Id, currentBlockHeight)
+			response.BlockHeight, response.Account.Extension.Id, currentBlockHeight)
 		return
 	}
 	content, err := instance.consensusPlugin.GetContentByHash(response.Digest)
@@ -365,12 +368,12 @@ func (instance *fbftCore) receiveResponse(response *messages.Response) {
 		}
 		instance.signal <- common.ReceiveResponseSignal
 	} else {
-		log.Warn("consensus content state has reached %d, so ignore response from %x.",
-			common.ToConsensus, response.Account.Address)
+		log.Warn("consensus content state has reached %d, so ignore response from node %d.",
+			common.ToConsensus, response.Account.Extension.Id)
 	}
 }
 
-func (instance *fbftCore) commit(block *types.Block, result bool) {
+func (instance *fbftCore) tryToCommit(block *types.Block, result bool) {
 	commit := &messages.Commit{
 		Account:    instance.nodes.local,
 		Timestamp:  time.Now().Unix(),
@@ -516,7 +519,6 @@ func (instance *fbftCore) waitMasterTimeout() {
 				log.Error("marshal proposal msg failed with %v.", err)
 				return
 			}
-			instance.coreTimer.timeToChangeViewTimer.Stop()
 			messages.BroadcastPeers(msgRaw, viewChangeReqMsg.MessageType, types.Hash{}, instance.nodes.peers)
 			return
 		}

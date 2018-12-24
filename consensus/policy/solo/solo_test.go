@@ -16,6 +16,7 @@ import (
 	"reflect"
 	"sync"
 	"testing"
+	"time"
 )
 
 var events types.EventCenter
@@ -319,4 +320,21 @@ func TestSoloPolicy_Halt(t *testing.T) {
 func TestSoloPolicy_Initialization(t *testing.T) {
 	sp, _ := NewSoloPolicy(mockAccounts[0], nil)
 	sp.Initialization(mockAccounts[0], mockAccounts[:1], nil, true)
+}
+
+func TestSoloPolicy_GetConsensusResult(t *testing.T) {
+	mm := time.NewTimer(2 * time.Second)
+	go waitTime(mm)
+	time.Sleep(10 * time.Second)
+}
+
+func waitTime(timer *time.Timer) {
+	for {
+		select {
+		case <-timer.C:
+			fmt.Print("time out.\n")
+			timer.Stop()
+			timer = time.NewTimer(2 * time.Second)
+		}
+	}
 }

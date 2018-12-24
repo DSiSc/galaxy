@@ -226,7 +226,7 @@ func TestReadMessage(t *testing.T) {
 				Timestamp:   time.Now().Unix(),
 				Digest:      mockHash,
 				Signature:   mockHash[:],
-				SequenceNum: uint64(1),
+				BlockHeight: uint64(1),
 			},
 		},
 	}

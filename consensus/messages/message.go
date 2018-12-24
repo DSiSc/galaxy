@@ -196,7 +196,7 @@ type Response struct {
 	Timestamp   int64
 	Digest      types.Hash
 	Signature   []byte
-	SequenceNum uint64
+	BlockHeight uint64
 }
 
 // online request

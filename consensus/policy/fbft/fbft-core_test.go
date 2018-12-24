@@ -495,7 +495,7 @@ func TestFbftCore_receiveResponse(t *testing.T) {
 		Timestamp:   time.Now().Unix(),
 		Digest:      mockHash,
 		Signature:   mockSignset[1],
-		SequenceNum: uint64(1),
+		BlockHeight: uint64(1),
 	}
 	block := &types.Block{
 		Header: &types.Header{Height: uint64(1)},
@@ -534,7 +534,7 @@ func TestFbftCore_receiveResponse(t *testing.T) {
 		Timestamp:   time.Now().Unix(),
 		Digest:      mockHash,
 		Signature:   mockSignset[2],
-		SequenceNum: uint64(1),
+		BlockHeight: uint64(1),
 	}
 	content.SetState(common.InConsensus)
 	go fbft.waitResponse(mockHash)
@@ -549,7 +549,7 @@ func TestFbftCore_receiveResponse(t *testing.T) {
 		Timestamp:   time.Now().Unix(),
 		Digest:      mockHash,
 		Signature:   mockSignset[3],
-		SequenceNum: uint64(1),
+		BlockHeight: uint64(1),
 	}
 	fbft.receiveResponse(response)
 	monkey.Unpatch(signature.Verify)
@@ -646,7 +646,7 @@ func TestFBFTPolicy_commit(t *testing.T) {
 	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetBlockByHash", func(*blockchain.BlockChain, types.Hash) (*types.Block, error) {
 		return block, nil
 	})
-	go core.commit(block, true)
+	go core.tryToCommit(block, true)
 	received := <-receive
 	assert.NotNil(t, received)
 	assert.Equal(t, received, block)

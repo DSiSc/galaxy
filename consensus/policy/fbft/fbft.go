@@ -55,7 +55,6 @@ func (instance *FBFTPolicy) PolicyName() string {
 }
 
 func (instance *FBFTPolicy) Start() {
-	log.Info("start fbft policy service.")
 	instance.core.Start()
 }
 
@@ -80,13 +79,14 @@ func (instance *FBFTPolicy) ToConsensus(p *common.Proposal) error {
 			result = true
 			log.Info("consensus for %x successfully with signature %x.", p.Block.Header.MixDigest, consensusResult.Signatures)
 		}
-		instance.core.commit(p.Block, result)
+		timeToCollectResponseMsg.Stop()
+		instance.core.tryToCommit(p.Block, result)
+		return err
 	case <-timeToCollectResponseMsg.C:
-		log.Error("consensus for %x timeout in %d seconds.", p.Block.Header.MixDigest, instance.timeout.TimeoutToCollectResponseMsg)
-		err = fmt.Errorf("timeout for consensus")
-		instance.core.commit(p.Block, false)
+		log.Error("consensus for digest %x timeout in %d seconds.", p.Block.Header.MixDigest, instance.timeout.TimeoutToCollectResponseMsg)
+		instance.core.tryToCommit(p.Block, false)
+		return fmt.Errorf("timeout for consensus")
 	}
-	return err
 }
 
 func (instance *FBFTPolicy) Halt() {
