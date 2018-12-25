@@ -8,6 +8,7 @@ import (
 	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/galaxy/consensus/common"
+	"github.com/DSiSc/galaxy/consensus/config"
 	"github.com/DSiSc/galaxy/consensus/messages"
 	"github.com/DSiSc/galaxy/consensus/utils"
 	"github.com/DSiSc/validator/tools/account"
@@ -44,7 +45,7 @@ type fbftCore struct {
 	viewChange      *common.ViewChange
 }
 
-func NewFBFTCore(local account.Account, blockSwitch chan<- interface{}) *fbftCore {
+func NewFBFTCore(local account.Account, blockSwitch chan<- interface{}, timer config.ConsensusTimeout) *fbftCore {
 	return &fbftCore{
 		nodes:           &nodesInfo{local: local},
 		status:          common.ViewNormal,
@@ -55,6 +56,11 @@ func NewFBFTCore(local account.Account, blockSwitch chan<- interface{}) *fbftCor
 		consensusPlugin: common.NewConsensusPlugin(),
 		viewChange:      common.NewViewChange(),
 		onlineWizard:    common.NewOnlineWizard(),
+		coreTimer: coreTimeout{
+			timeToCollectResponseMsg: timer.TimeoutToCollectResponseMsg,
+			timeToWaitCommitMsg:      timer.TimeoutToWaitCommitMsg,
+			timeToChangeViewTime:     timer.TimeoutToChangeView,
+		},
 	}
 }
 
@@ -168,38 +174,31 @@ func (instance *fbftCore) receiveProposal(proposal *messages.Proposal) {
 	if nil != err {
 		panic(fmt.Errorf("get latest state block chain failed with err %v", err))
 	}
+	// if fall back, so sync block s first
 	currentBlockHeight := blockChain.GetCurrentBlockHeight()
-	isMaster := instance.nodes.local == instance.nodes.master
-	if isMaster {
-		if proposalBlockHeight != common.DefaultBlockHeight && currentBlockHeight < proposalBlockHeight-1 {
-			log.Warn("may be master info is wrong, which block height is %d, while received is %d, so change master to %d.",
-				currentBlockHeight, proposalBlockHeight, proposal.Account.Extension.Id)
-			if nil != instance.coreTimer.timeToChangeViewTimer {
-				instance.coreTimer.timeToChangeViewTimer.Stop()
-			}
-			instance.nodes.master = proposal.Account
-			go func() {
-				log.Warn("now node %d with height %d fall behind with node %d with height %d.",
-					instance.nodes.local.Extension.Id, currentBlockHeight, proposal.Account.Extension.Id, proposal.Payload.Header.Height)
-				instance.tryToSyncBlock(currentBlockHeight+1, proposalBlockHeight, proposal.Account)
-			}()
-			return
+	if proposalBlockHeight != common.DefaultBlockHeight && currentBlockHeight < proposalBlockHeight-1 {
+		log.Warn("may be master info is wrong, which block height is %d, while received is %d, so change master to %d.",
+			currentBlockHeight, proposalBlockHeight, proposal.Account.Extension.Id)
+		if nil != instance.coreTimer.timeToChangeViewTimer {
+			instance.coreTimer.timeToChangeViewTimer.Stop()
 		}
-		log.Error("master will not receive proposal form itself %d.", proposal.Account.Extension.Id)
+		instance.nodes.master = proposal.Account
+		go func() {
+			log.Warn("now node %d with height %d fall behind with node %d with height %d.",
+				instance.nodes.local.Extension.Id, currentBlockHeight, proposal.Account.Extension.Id, proposal.Payload.Header.Height)
+			instance.tryToSyncBlock(currentBlockHeight+1, proposalBlockHeight, proposal.Account)
+		}()
 		return
 	}
+	// TODO: add view num to determine thr right master
 	if instance.nodes.master != proposal.Account {
 		log.Error("proposal must from master %d, while it from %d in fact.", instance.nodes.master.Extension.Id, proposal.Account.Extension.Id)
-		if proposalBlockHeight > currentBlockHeight+1 {
-			go func() {
-				log.Warn("now node %d with height %d fall behind with node %d with height %d.",
-					instance.nodes.local.Extension.Id, currentBlockHeight, proposal.Account.Extension.Id, proposal.Payload.Header.Height)
-				instance.tryToSyncBlock(currentBlockHeight+1, proposalBlockHeight, proposal.Account)
-			}()
-			log.Warn("receive proposal with height %d larger than local %d, so change master from %d to %d.",
-				proposal.Payload.Header.Height, currentBlockHeight, instance.nodes.local.Extension.Id, proposal.Account.Extension.Id)
-			instance.nodes.master = proposal.Account
-		}
+		return
+	}
+	// after sync, if master still not in inconsistent, try to change view
+	isMaster := instance.nodes.local == instance.nodes.master
+	if isMaster {
+		log.Error("master will not receive proposal form itself %d.", proposal.Account.Extension.Id)
 		return
 	}
 	if nil != instance.coreTimer.timeToChangeViewTimer {

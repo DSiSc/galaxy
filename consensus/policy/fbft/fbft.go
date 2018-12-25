@@ -26,7 +26,7 @@ func NewFBFTPolicy(account account.Account, timeout config.ConsensusTimeout, blo
 		name:    common.FbftPolicy,
 		timeout: timeout,
 	}
-	policy.core = NewFBFTCore(account, blockSwitch)
+	policy.core = NewFBFTCore(account, blockSwitch, timeout)
 	return policy, nil
 }
 
@@ -35,17 +35,13 @@ func (instance *FBFTPolicy) Initialization(master account.Account, peers []accou
 	instance.core.nodes.peers = peers
 	instance.core.eventCenter = events
 	instance.core.tolerance = uint8((len(peers) - 1) / 3)
-	instance.core.coreTimer = coreTimeout{
-		timeToChangeViewTime:     instance.timeout.TimeoutToChangeView,
-		timeToWaitCommitMsg:      instance.timeout.TimeoutToWaitCommitMsg,
-		timeToCollectResponseMsg: instance.timeout.TimeoutToCollectResponseMsg,
-	}
 	log.Debug("start timeout master with view num %d.", instance.core.viewChange.GetCurrentViewNum())
-	if nil != instance.core.coreTimer.timeToChangeViewTimer {
-		instance.core.coreTimer.timeToChangeViewTimer.Stop()
-	}
 	if !onLine {
-		instance.core.coreTimer.timeToChangeViewTimer = time.NewTimer(time.Duration(instance.timeout.TimeoutToChangeView) * time.Millisecond)
+		if nil != instance.core.coreTimer.timeToChangeViewTimer {
+			instance.core.coreTimer.timeToChangeViewTimer.Reset(time.Duration(instance.timeout.TimeoutToChangeView) * time.Millisecond)
+		} else {
+			instance.core.coreTimer.timeToChangeViewTimer = time.NewTimer(time.Duration(instance.timeout.TimeoutToChangeView) * time.Millisecond)
+		}
 		go instance.core.waitMasterTimeout()
 	}
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/galaxy/consensus/common"
+	"github.com/DSiSc/galaxy/consensus/config"
 	"github.com/DSiSc/galaxy/consensus/messages"
 	"github.com/DSiSc/galaxy/consensus/utils"
 	"github.com/DSiSc/monkey"
@@ -130,8 +131,14 @@ func (e *Event) UnSubscribeAll() {
 	return
 }
 
+var mockTime = config.ConsensusTimeout{
+	TimeoutToCollectResponseMsg: 5000,
+	TimeoutToWaitCommitMsg:      5000,
+	TimeoutToChangeView:         30000,
+}
+
 func TestNewBFTCore(t *testing.T) {
-	bft := NewFBFTCore(mockAccounts[0], nil)
+	bft := NewFBFTCore(mockAccounts[0], nil, mockTime)
 	assert.NotNil(t, bft)
 	assert.Equal(t, mockAccounts[0], bft.nodes.local)
 }
@@ -150,7 +157,7 @@ func TestBftCore_ProcessEvent(t *testing.T) {
 	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetCurrentBlockHeight", func(*blockchain.BlockChain) uint64 {
 		return uint64(0)
 	})
-	fbft := NewFBFTCore(mockAccounts[0], nil)
+	fbft := NewFBFTCore(mockAccounts[0], nil, mockTime)
 	fbft.coreTimer.timeToChangeViewTimer = time.NewTimer(30 * time.Second)
 	fbft.consensusPlugin = common.NewConsensusPlugin()
 	content := fbft.consensusPlugin.Add(mockHash, block)
@@ -262,7 +269,7 @@ func TestBftCore_ProcessEvent(t *testing.T) {
 }
 
 func TestBftCore_Start(t *testing.T) {
-	fbft := NewFBFTCore(mockAccounts[0], nil)
+	fbft := NewFBFTCore(mockAccounts[0], nil, mockTime)
 	assert.NotNil(t, fbft)
 	var account = account.Account{
 		Extension: account.AccountExtension{
@@ -297,7 +304,7 @@ var fakeSignature = []byte{
 }
 
 func TestBftCore_receiveRequest(t *testing.T) {
-	fbft := NewFBFTCore(mockAccounts[0], nil)
+	fbft := NewFBFTCore(mockAccounts[0], nil, mockTime)
 	fbft.coreTimer.timeToChangeViewTimer = time.NewTimer(30 * time.Second)
 	assert.NotNil(t, fbft)
 	fbft.nodes.peers = mockAccounts
@@ -350,7 +357,7 @@ func TestBftCore_receiveRequest(t *testing.T) {
 }
 
 func TestNewFBFTCore_broadcast(t *testing.T) {
-	fbft := NewFBFTCore(mockAccounts[0], nil)
+	fbft := NewFBFTCore(mockAccounts[0], nil, mockTime)
 	assert.NotNil(t, fbft)
 	fbft.nodes.peers = mockAccounts
 	// resolve error
@@ -381,7 +388,7 @@ func TestNewFBFTCore_broadcast(t *testing.T) {
 }
 
 func TestBftCore_unicast(t *testing.T) {
-	fbft := NewFBFTCore(mockAccounts[0], nil)
+	fbft := NewFBFTCore(mockAccounts[0], nil, mockTime)
 	assert.NotNil(t, fbft)
 	fbft.nodes.peers = mockAccounts
 	monkey.Patch(net.ResolveTCPAddr, func(string, string) (*net.TCPAddr, error) {
@@ -407,7 +414,7 @@ func TestBftCore_unicast(t *testing.T) {
 }
 
 func TestBftCore_receiveProposal(t *testing.T) {
-	fbft := NewFBFTCore(mockAccounts[0], nil)
+	fbft := NewFBFTCore(mockAccounts[0], nil, mockTime)
 	fbft.coreTimer.timeToChangeViewTimer = time.NewTimer(30 * time.Second)
 	assert.NotNil(t, fbft)
 	fbft.nodes.peers = mockAccounts
@@ -479,7 +486,7 @@ func TestBftCore_receiveProposal(t *testing.T) {
 }
 
 func TestFbftCore_receiveResponse(t *testing.T) {
-	fbft := NewFBFTCore(mockAccounts[0], nil)
+	fbft := NewFBFTCore(mockAccounts[0], nil, mockTime)
 	fbft.nodes.peers = mockAccounts
 	fbft.nodes.master = mockAccounts[0]
 	fbft.coreTimer.timeToCollectResponseMsg = 1000
@@ -557,7 +564,7 @@ func TestFbftCore_receiveResponse(t *testing.T) {
 
 func TestFbftCore_SendCommit(t *testing.T) {
 	blockSwitch := make(chan interface{})
-	fbft := NewFBFTCore(mockAccounts[0], blockSwitch)
+	fbft := NewFBFTCore(mockAccounts[0], blockSwitch, mockTime)
 	assert.NotNil(t, fbft)
 	fbft.nodes.peers = mockAccounts
 	block := &types.Block{
@@ -624,7 +631,7 @@ func TestFBFTPolicy_commit(t *testing.T) {
 		},
 	}
 	var receive = make(chan interface{})
-	core := NewFBFTCore(mockAccount, receive)
+	core := NewFBFTCore(mockAccount, receive, mockTime)
 	block := &types.Block{
 		Header: &types.Header{
 			ChainID:       1,
@@ -654,7 +661,7 @@ func TestFBFTPolicy_commit(t *testing.T) {
 
 func TestFbftCore_ProcessEvent(t *testing.T) {
 	blockSwitch := make(chan interface{})
-	fbft := NewFBFTCore(mockAccounts[0], blockSwitch)
+	fbft := NewFBFTCore(mockAccounts[0], blockSwitch, mockTime)
 	fbft.coreTimer.timeToChangeViewTimer = time.NewTimer(30 * time.Second)
 	fbft.nodes.peers = mockAccounts
 	fbft.tolerance = 1
@@ -722,7 +729,7 @@ func TestFbftCore_ProcessEvent2(t *testing.T) {
 	monkey.Patch(messages.BroadcastPeersFilter, func([]byte, messages.MessageType, types.Hash, []account.Account, account.Account) {
 		return
 	})
-	core := NewFBFTCore(mockAccounts[0], nil)
+	core := NewFBFTCore(mockAccounts[0], nil, mockTime)
 	core.nodes = &nodesInfo{
 		local:  mockAccounts[0],
 		master: mockAccounts[1],
@@ -759,7 +766,7 @@ func TestFbftCore_ProcessEvent3(t *testing.T) {
 	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetCurrentBlockHeight", func(*blockchain.BlockChain) uint64 {
 		return onlineResponse.BlockHeight + 1
 	})
-	core := NewFBFTCore(mockAccounts[0], nil)
+	core := NewFBFTCore(mockAccounts[0], nil, mockTime)
 	err := core.ProcessEvent(onlineResponse)
 	assert.Nil(t, err)
 
@@ -775,7 +782,7 @@ func TestFbftCore_ProcessEvent3(t *testing.T) {
 		log.Error("receive online event.")
 		return
 	})
-	core = NewFBFTCore(mockAccounts[0], nil)
+	core = NewFBFTCore(mockAccounts[0], nil, mockTime)
 	core.tolerance = 1
 	core.nodes = &nodesInfo{
 		local:  mockAccounts[1],
@@ -822,7 +829,7 @@ func TestFbftCore_ProcessEvent4(t *testing.T) {
 	monkey.Patch(messages.Unicast, func(account.Account, []byte, messages.MessageType, types.Hash) error {
 		return nil
 	})
-	core := NewFBFTCore(mockAccounts[0], nil)
+	core := NewFBFTCore(mockAccounts[0], nil, mockTime)
 	err := core.ProcessEvent(syncBlockReq)
 	assert.Nil(t, err)
 
@@ -869,7 +876,7 @@ func TestFbftCore_ProcessEvent5(t *testing.T) {
 	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetCurrentBlockHeight", func(*blockchain.BlockChain) uint64 {
 		return uint64(0)
 	})
-	core := NewFBFTCore(mockAccounts[0], nil)
+	core := NewFBFTCore(mockAccounts[0], nil, mockTime)
 	core.nodes = &nodesInfo{
 		local:  mockAccounts[1],
 		master: mockAccounts[1],

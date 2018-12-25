@@ -323,9 +323,13 @@ func TestSoloPolicy_Initialization(t *testing.T) {
 }
 
 func TestSoloPolicy_GetConsensusResult(t *testing.T) {
-	mm := time.NewTimer(2 * time.Second)
+	mm := time.NewTimer(3 * time.Second)
 	go waitTime(mm)
-	time.Sleep(10 * time.Second)
+	time.Sleep(1 * time.Second)
+	fmt.Print("1 .\n")
+	mm.Reset(5 * time.Second)
+	time.Sleep(3 * time.Second)
+	fmt.Print("2 .\n")
 }
 
 func waitTime(timer *time.Timer) {
@@ -333,8 +337,6 @@ func waitTime(timer *time.Timer) {
 		select {
 		case <-timer.C:
 			fmt.Print("time out.\n")
-			timer.Stop()
-			timer = time.NewTimer(2 * time.Second)
 		}
 	}
 }
