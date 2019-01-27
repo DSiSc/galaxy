@@ -2,7 +2,6 @@ package dpos
 
 import (
 	"github.com/DSiSc/craft/log"
-	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/galaxy/participates/common"
 	"github.com/DSiSc/validator/tools/account"
 )
@@ -14,10 +13,11 @@ type DPOSPolicy struct {
 	participates []account.Account
 }
 
-func NewDPOSPolicy(number uint64) (*DPOSPolicy, error) {
+func NewDPOSPolicy(number uint64, participates []account.Account) (*DPOSPolicy, error) {
 	return &DPOSPolicy{
-		name:    common.DposPolicy,
-		members: number,
+		name:         common.DposPolicy,
+		members:      number,
+		participates: participates,
 	}, nil
 }
 
@@ -28,40 +28,7 @@ func (instance *DPOSPolicy) PolicyName() string {
 // Get the top ranking of count from voting result.
 func (instance *DPOSPolicy) getDelegatesByCount(count uint64) ([]account.Account, error) {
 	// TODO: Get accounts by voting result
-	account0 := account.Account{
-		Address: types.Address{0x33, 0x3c, 0x33, 0x10, 0x82, 0x4b, 0x7c, 0x68, 0x51, 0x33, 0xf2, 0xbe, 0xdb, 0x2c, 0xa4, 0xb8, 0xb4, 0xdf, 0x63, 0x3d},
-		Extension: account.AccountExtension{
-			Id:  0,
-			Url: "192.168.176.145:8080",
-		},
-	}
-
-	account1 := account.Account{
-		Address: types.Address{0x34, 0x3c, 0x33, 0x10, 0x82, 0x4b, 0x7c, 0x68, 0x51, 0x33, 0xf2, 0xbe, 0xdb, 0x2c, 0xa4, 0xb8, 0xb4, 0xdf, 0x63, 0x3d},
-		Extension: account.AccountExtension{
-			Id:  1,
-			Url: "192.168.176.146:8080",
-		},
-	}
-
-	account2 := account.Account{
-		Address: types.Address{0x35, 0x3c, 0x33, 0x10, 0x82, 0x4b, 0x7c, 0x68, 0x51, 0x33, 0xf2, 0xbe, 0xdb, 0x2c, 0xa4, 0xb8, 0xb4, 0xdf, 0x63, 0x3d},
-		Extension: account.AccountExtension{
-			Id:  2,
-			Url: "192.168.176.147:8080",
-		},
-	}
-
-	account3 := account.Account{
-		Address: types.Address{0x36, 0x3c, 0x33, 0x10, 0x82, 0x4b, 0x7c, 0x68, 0x51, 0x33, 0xf2, 0xbe, 0xdb, 0x2c, 0xa4, 0xb8, 0xb4, 0xdf, 0x63, 0x3d},
-		Extension: account.AccountExtension{
-			Id:  3,
-			Url: "192.168.176.148:8080",
-		},
-	}
-
-	accounts := []account.Account{account0, account1, account2, account3}
-	return accounts, nil
+	return instance.participates, nil
 }
 
 func (instance *DPOSPolicy) getDelegates() ([]account.Account, error) {

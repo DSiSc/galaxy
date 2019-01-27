@@ -15,7 +15,7 @@ import (
 type MessageType uint32
 
 const (
-	NIL                      = MessageType(iota) // 0, nil ,message
+	_                        = MessageType(iota) // 0, nil ,message
 	RequestMessageType                           // 1, request message for bft
 	ProposalMessageType                          // 2, proposal message for bft
 	ResponseMessageType                          // 3, response message for bft

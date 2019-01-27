@@ -11,7 +11,7 @@ import (
 type contentState uint8
 
 const (
-	NullState = contentState(iota)
+	_ = contentState(iota)
 	Initial
 	InConsensus
 	ToConsensus
