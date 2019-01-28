@@ -135,6 +135,11 @@ func (instance *SoloPolicy) ToConsensus(p *common.Proposal) error {
 
 func (instance *SoloPolicy) commitBlock(block *types.Block) {
 	log.Info("send block to block switch.")
+	if !instance.enableEmptyBlock && 0 == len(block.Transactions) {
+		log.Warn("block without transaction.")
+		instance.eventCenter.Notify(types.EventBlockWithoutTxs, nil)
+		return
+	}
 	instance.blockSwitch <- block
 }
 
