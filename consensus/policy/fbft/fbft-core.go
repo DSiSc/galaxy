@@ -439,6 +439,11 @@ func (instance *fbftCore) receiveCommit(commit *messages.Commit) {
 
 func (instance *fbftCore) commitBlock(block *types.Block) {
 	instance.consensusPlugin.Remove(block.Header.MixDigest)
+	if !instance.enableEmptyBlock && 0 == len(block.Transactions) {
+		log.Warn("block without transaction.")
+		instance.eventCenter.Notify(types.EventBlockWithoutTxs, nil)
+		return
+	}
 	instance.blockSwitch <- block
 	log.Info("try to commit block %d with hash %x to block switch.", block.Header.Height, block.HeaderHash)
 }
