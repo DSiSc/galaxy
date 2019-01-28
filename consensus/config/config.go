@@ -1,8 +1,9 @@
 package config
 
 type ConsensusConfig struct {
-	PolicyName string
-	Timeout    ConsensusTimeout
+	PolicyName       string
+	Timeout          ConsensusTimeout
+	EnableEmptyBlock bool
 }
 
 type ConsensusTimeout struct {
