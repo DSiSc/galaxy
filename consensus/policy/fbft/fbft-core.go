@@ -31,31 +31,33 @@ type coreTimeout struct {
 }
 
 type fbftCore struct {
-	nodes           *nodesInfo
-	tolerance       uint8
-	status          common.ViewStatus
-	coreTimer       coreTimeout
-	result          chan messages.ConsensusResult
-	signal          chan common.MessageSignal
-	online          chan messages.OnlineResponse
-	onlineWizard    *common.OnlineWizard
-	eventCenter     types.EventCenter
-	blockSwitch     chan<- interface{}
-	consensusPlugin *common.ConsensusPlugin
-	viewChange      *common.ViewChange
+	nodes            *nodesInfo
+	tolerance        uint8
+	status           common.ViewStatus
+	coreTimer        coreTimeout
+	result           chan messages.ConsensusResult
+	signal           chan common.MessageSignal
+	online           chan messages.OnlineResponse
+	onlineWizard     *common.OnlineWizard
+	eventCenter      types.EventCenter
+	blockSwitch      chan<- interface{}
+	consensusPlugin  *common.ConsensusPlugin
+	viewChange       *common.ViewChange
+	enableEmptyBlock bool
 }
 
-func NewFBFTCore(local account.Account, blockSwitch chan<- interface{}, timer config.ConsensusTimeout) *fbftCore {
+func NewFBFTCore(local account.Account, blockSwitch chan<- interface{}, timer config.ConsensusTimeout, emptyBlock bool) *fbftCore {
 	return &fbftCore{
-		nodes:           &nodesInfo{local: local},
-		status:          common.ViewNormal,
-		result:          make(chan messages.ConsensusResult),
-		signal:          make(chan common.MessageSignal),
-		online:          make(chan messages.OnlineResponse),
-		blockSwitch:     blockSwitch,
-		consensusPlugin: common.NewConsensusPlugin(),
-		viewChange:      common.NewViewChange(),
-		onlineWizard:    common.NewOnlineWizard(),
+		nodes:            &nodesInfo{local: local},
+		status:           common.ViewNormal,
+		result:           make(chan messages.ConsensusResult),
+		signal:           make(chan common.MessageSignal),
+		online:           make(chan messages.OnlineResponse),
+		blockSwitch:      blockSwitch,
+		consensusPlugin:  common.NewConsensusPlugin(),
+		viewChange:       common.NewViewChange(),
+		onlineWizard:     common.NewOnlineWizard(),
+		enableEmptyBlock: emptyBlock,
 		coreTimer: coreTimeout{
 			timeToCollectResponseMsg: timer.TimeoutToCollectResponseMsg,
 			timeToWaitCommitMsg:      timer.TimeoutToWaitCommitMsg,

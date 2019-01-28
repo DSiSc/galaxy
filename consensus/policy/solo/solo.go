@@ -12,14 +12,15 @@ import (
 )
 
 type SoloPolicy struct {
-	name        string
-	local       account.Account
-	tolerance   uint8
-	version     common.Version
-	peers       []account.Account
-	master      account.Account
-	eventCenter types.EventCenter
-	blockSwitch chan<- interface{}
+	name             string
+	local            account.Account
+	tolerance        uint8
+	version          common.Version
+	peers            []account.Account
+	master           account.Account
+	eventCenter      types.EventCenter
+	blockSwitch      chan<- interface{}
+	enableEmptyBlock bool
 }
 
 // SoloProposal that with solo policy
@@ -29,12 +30,13 @@ type SoloProposal struct {
 	status   common.ConsensusStatus
 }
 
-func NewSoloPolicy(account account.Account, blkSwitch chan<- interface{}) (*SoloPolicy, error) {
+func NewSoloPolicy(account account.Account, blkSwitch chan<- interface{}, enable bool) (*SoloPolicy, error) {
 	policy := &SoloPolicy{
-		name:        common.SoloPolicy,
-		local:       account,
-		tolerance:   common.SoloConsensusNum,
-		blockSwitch: blkSwitch,
+		name:             common.SoloPolicy,
+		local:            account,
+		tolerance:        common.SoloConsensusNum,
+		blockSwitch:      blkSwitch,
+		enableEmptyBlock: enable,
 	}
 	return policy, nil
 }
