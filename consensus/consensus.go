@@ -29,13 +29,13 @@ func NewConsensus(conf config.ConsensusConfig, account account.Account, blockSwi
 	switch conf.PolicyName {
 	case common.SoloPolicy:
 		log.Info("Get consensus policy is solo.")
-		consensus, err = solo.NewSoloPolicy(account, blockSwitch, conf.EnableEmptyBlock)
+		consensus, err = solo.NewSoloPolicy(account, blockSwitch, conf.EnableEmptyBlock, conf.SignVerifySwitch)
 	case common.BftPolicy:
 		log.Info("Get consensus policy is bft.")
 		consensus, err = bft.NewBFTPolicy(account, conf.Timeout)
 	case common.FbftPolicy:
 		log.Info("Get consensus policy is fbft.")
-		consensus, err = fbft.NewFBFTPolicy(account, conf.Timeout, blockSwitch, conf.EnableEmptyBlock)
+		consensus, err = fbft.NewFBFTPolicy(account, conf.Timeout, blockSwitch, conf.EnableEmptyBlock, conf.SignVerifySwitch)
 	case common.DbftPolicy:
 		log.Info("Get consensus policy is dbft.")
 		consensus, err = dbft.NewDBFTPolicy(account, conf.Timeout)

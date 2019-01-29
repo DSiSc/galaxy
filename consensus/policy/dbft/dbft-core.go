@@ -334,7 +334,7 @@ func (instance *dbftCore) verifyPayload(payload *types.Block) (types.Receipts, e
 		log.Error("Get NewBlockChainByBlockHash failed.")
 		return nil, err
 	}
-	worker := worker.NewWorker(blockStore, payload)
+	worker := worker.NewWorker(blockStore, payload, true)
 	err = worker.VerifyBlock()
 	if err != nil {
 		log.Error("The block %d verified failed with err %v.", payload.Header.Height, err)
@@ -570,7 +570,7 @@ func (instance *dbftCore) receiveSyncBlockResp(syncBlockResp *messages.SyncBlock
 			log.Error("get NewBlockChainByHash by hash %x failed with error %s.", block.Header.PrevBlockHash, err)
 			return
 		}
-		worker := worker.NewWorker(chain, block)
+		worker := worker.NewWorker(chain, block, true)
 		err = worker.VerifyBlock()
 		if nil != err {
 			log.Error("verify block failed with error %v.", err)

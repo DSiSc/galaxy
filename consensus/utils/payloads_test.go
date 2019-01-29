@@ -66,7 +66,7 @@ func TestVerifyPayload(t *testing.T) {
 			Height: 1,
 		},
 	}
-	receipt, err := VerifyPayload(block)
+	receipt, err := VerifyPayload(block, false)
 	assert.NotNil(t, err)
 	assert.Nil(t, receipt)
 
@@ -78,7 +78,7 @@ func TestVerifyPayload(t *testing.T) {
 	monkey.PatchInstanceMethod(reflect.TypeOf(w), "VerifyBlock", func(*worker.Worker) error {
 		return fmt.Errorf("verify block failed")
 	})
-	receipt, err = VerifyPayload(block)
+	receipt, err = VerifyPayload(block, false)
 	assert.Nil(t, receipt)
 	assert.Equal(t, fmt.Errorf("verify block failed"), err)
 
@@ -91,7 +91,7 @@ func TestVerifyPayload(t *testing.T) {
 	monkey.PatchInstanceMethod(reflect.TypeOf(w), "GetReceipts", func(*worker.Worker) types.Receipts {
 		return rr
 	})
-	receipt, err = VerifyPayload(block)
+	receipt, err = VerifyPayload(block, false)
 	assert.Nil(t, err)
 	assert.Equal(t, rr, receipt)
 	monkey.UnpatchAll()

@@ -9,13 +9,13 @@ import (
 	"github.com/DSiSc/validator/worker"
 )
 
-func VerifyPayload(payload *types.Block) (types.Receipts, error) {
+func VerifyPayload(payload *types.Block, enableSignVerify bool) (types.Receipts, error) {
 	blockStore, err := blockchain.NewBlockChainByBlockHash(payload.Header.PrevBlockHash)
 	if nil != err {
 		log.Error("Get NewBlockChainByBlockHash failed.")
 		return nil, err
 	}
-	worker := worker.NewWorker(blockStore, payload)
+	worker := worker.NewWorker(blockStore, payload, enableSignVerify)
 	err = worker.VerifyBlock()
 	if err != nil {
 		log.Error("The block %d verified failed with err %v.", payload.Header.Height, err)

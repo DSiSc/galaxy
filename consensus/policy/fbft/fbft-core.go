@@ -12,7 +12,6 @@ import (
 	"github.com/DSiSc/galaxy/consensus/messages"
 	"github.com/DSiSc/galaxy/consensus/utils"
 	"github.com/DSiSc/validator/tools/account"
-	"github.com/DSiSc/validator/worker"
 	"net"
 	"time"
 )
@@ -31,33 +30,37 @@ type coreTimeout struct {
 }
 
 type fbftCore struct {
-	nodes            *nodesInfo
-	tolerance        uint8
-	status           common.ViewStatus
-	coreTimer        coreTimeout
-	result           chan messages.ConsensusResult
-	signal           chan common.MessageSignal
-	online           chan messages.OnlineResponse
-	onlineWizard     *common.OnlineWizard
-	eventCenter      types.EventCenter
-	blockSwitch      chan<- interface{}
-	consensusPlugin  *common.ConsensusPlugin
-	viewChange       *common.ViewChange
-	enableEmptyBlock bool
+	nodes                      *nodesInfo
+	tolerance                  uint8
+	status                     common.ViewStatus
+	coreTimer                  coreTimeout
+	result                     chan messages.ConsensusResult
+	signal                     chan common.MessageSignal
+	online                     chan messages.OnlineResponse
+	onlineWizard               *common.OnlineWizard
+	eventCenter                types.EventCenter
+	blockSwitch                chan<- interface{}
+	consensusPlugin            *common.ConsensusPlugin
+	viewChange                 *common.ViewChange
+	enableEmptyBlock           bool
+	enableSyncVerifySignature  bool
+	enableLocalVerifySignature bool
 }
 
-func NewFBFTCore(local account.Account, blockSwitch chan<- interface{}, timer config.ConsensusTimeout, emptyBlock bool) *fbftCore {
+func NewFBFTCore(local account.Account, blockSwitch chan<- interface{}, timer config.ConsensusTimeout, emptyBlock bool, signatureVerify config.SignatureVerifySwitch) *fbftCore {
 	return &fbftCore{
-		nodes:            &nodesInfo{local: local},
-		status:           common.ViewNormal,
-		result:           make(chan messages.ConsensusResult),
-		signal:           make(chan common.MessageSignal),
-		online:           make(chan messages.OnlineResponse),
+		enableEmptyBlock: emptyBlock,
 		blockSwitch:      blockSwitch,
-		consensusPlugin:  common.NewConsensusPlugin(),
+		status:           common.ViewNormal,
 		viewChange:       common.NewViewChange(),
 		onlineWizard:     common.NewOnlineWizard(),
-		enableEmptyBlock: emptyBlock,
+		nodes:            &nodesInfo{local: local},
+		consensusPlugin:  common.NewConsensusPlugin(),
+		signal:           make(chan common.MessageSignal),
+		online:           make(chan messages.OnlineResponse),
+		result:           make(chan messages.ConsensusResult),
+		enableSyncVerifySignature:  signatureVerify.SyncVerifySignature,
+		enableLocalVerifySignature: signatureVerify.LocalVerifySignature,
 		coreTimer: coreTimeout{
 			timeToCollectResponseMsg: timer.TimeoutToCollectResponseMsg,
 			timeToWaitCommitMsg:      timer.TimeoutToWaitCommitMsg,
@@ -83,7 +86,7 @@ func (instance *fbftCore) receiveRequest(request *messages.Request) {
 	}
 	if request.Account.Address != instance.nodes.local.Address {
 		log.Info("request from %x, not from %x.", request.Account.Address, instance.nodes.master.Address)
-		_, err := utils.VerifyPayload(request.Payload)
+		_, err := utils.VerifyPayload(request.Payload, instance.enableLocalVerifySignature)
 		if nil != err {
 			log.Error("proposal verified failed with error %v.", err)
 			return
@@ -194,7 +197,8 @@ func (instance *fbftCore) receiveProposal(proposal *messages.Proposal) {
 	}
 	// TODO: add view num to determine thr right master
 	if instance.nodes.master != proposal.Account {
-		log.Error("proposal must from master %d, while it from %d in fact.", instance.nodes.master.Extension.Id, proposal.Account.Extension.Id)
+		log.Error("proposal must from master %d, while it from %d in fact.",
+			instance.nodes.master.Extension.Id, proposal.Account.Extension.Id)
 		return
 	}
 	// after sync, if master still not in inconsistent, try to change view
@@ -213,7 +217,7 @@ func (instance *fbftCore) receiveProposal(proposal *messages.Proposal) {
 		return
 	}
 	instance.consensusPlugin.Add(proposal.Payload.Header.MixDigest, proposal.Payload)
-	_, err = utils.VerifyPayload(proposal.Payload)
+	_, err = utils.VerifyPayload(proposal.Payload, instance.enableLocalVerifySignature)
 	if nil != err {
 		log.Error("proposal verified failed with error %v.", err)
 		return
@@ -306,13 +310,12 @@ func (instance *fbftCore) receiveSyncBlockResponse(response *messages.SyncBlockR
 		}
 		currentBlockHeight := chain.GetCurrentBlockHeight()
 		if currentBlockHeight < block.Header.Height {
-			worker := worker.NewWorker(chain, block)
-			err = worker.VerifyBlock()
+			receipt, err := utils.VerifyPayload(block, instance.enableSyncVerifySignature)
 			if nil != err {
 				log.Error("verify failed with err %v.", err)
 				continue
 			}
-			err = chain.WriteBlockWithReceipts(block, worker.GetReceipts())
+			err = chain.WriteBlockWithReceipts(block, receipt)
 			if nil != err {
 				log.Error("write block with receipts failed with error %v.", err)
 				continue

@@ -20,13 +20,13 @@ type FBFTPolicy struct {
 	timeout config.ConsensusTimeout
 }
 
-func NewFBFTPolicy(account account.Account, timeout config.ConsensusTimeout, blockSwitch chan<- interface{}, enable bool) (*FBFTPolicy, error) {
+func NewFBFTPolicy(account account.Account, timeout config.ConsensusTimeout, blockSwitch chan<- interface{}, emptyBlock bool, signVerify config.SignatureVerifySwitch) (*FBFTPolicy, error) {
 	policy := &FBFTPolicy{
 		local:   account,
 		name:    common.FbftPolicy,
 		timeout: timeout,
 	}
-	policy.core = NewFBFTCore(account, blockSwitch, timeout, enable)
+	policy.core = NewFBFTCore(account, blockSwitch, timeout, emptyBlock, signVerify)
 	return policy, nil
 }
 

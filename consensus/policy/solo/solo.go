@@ -5,6 +5,7 @@ import (
 	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/galaxy/consensus/common"
+	"github.com/DSiSc/galaxy/consensus/config"
 	"github.com/DSiSc/validator"
 	"github.com/DSiSc/validator/tools/account"
 	"github.com/DSiSc/validator/tools/signature"
@@ -12,15 +13,16 @@ import (
 )
 
 type SoloPolicy struct {
-	name             string
-	local            account.Account
-	tolerance        uint8
-	version          common.Version
-	peers            []account.Account
-	master           account.Account
-	eventCenter      types.EventCenter
-	blockSwitch      chan<- interface{}
-	enableEmptyBlock bool
+	name                       string
+	local                      account.Account
+	tolerance                  uint8
+	version                    common.Version
+	peers                      []account.Account
+	master                     account.Account
+	eventCenter                types.EventCenter
+	blockSwitch                chan<- interface{}
+	enableEmptyBlock           bool
+	enableLocalSignatureVerify bool
 }
 
 // SoloProposal that with solo policy
@@ -30,13 +32,14 @@ type SoloProposal struct {
 	status   common.ConsensusStatus
 }
 
-func NewSoloPolicy(account account.Account, blkSwitch chan<- interface{}, enable bool) (*SoloPolicy, error) {
+func NewSoloPolicy(account account.Account, blkSwitch chan<- interface{}, enable bool, signVerify config.SignatureVerifySwitch) (*SoloPolicy, error) {
 	policy := &SoloPolicy{
-		name:             common.SoloPolicy,
-		local:            account,
-		tolerance:        common.SoloConsensusNum,
-		blockSwitch:      blkSwitch,
-		enableEmptyBlock: enable,
+		name:                       common.SoloPolicy,
+		local:                      account,
+		tolerance:                  common.SoloConsensusNum,
+		blockSwitch:                blkSwitch,
+		enableEmptyBlock:           enable,
+		enableLocalSignatureVerify: signVerify.LocalVerifySignature,
 	}
 	return policy, nil
 }
@@ -173,7 +176,7 @@ func (instance *SoloPolicy) toConsensus(p *SoloProposal) bool {
 
 	local := instance.peers[0]
 	validators := validator.NewValidator(&local)
-	_, ok := validators.ValidateBlock(p.proposal.Block)
+	_, ok := validators.ValidateBlock(p.proposal.Block, instance.enableLocalSignatureVerify)
 	if nil != ok {
 		log.Error("Validator verify failed.")
 		return false

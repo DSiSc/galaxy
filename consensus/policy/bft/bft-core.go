@@ -272,7 +272,7 @@ func (instance *bftCore) verifyPayload(payload *types.Block) (types.Receipts, er
 		log.Error("Get NewBlockChainByBlockHash failed.")
 		return nil, err
 	}
-	worker := worker.NewWorker(blockStore, payload)
+	worker := worker.NewWorker(blockStore, payload, true)
 	err = worker.VerifyBlock()
 	if err != nil {
 		log.Error("The block %d verified failed with err %v.", payload.Header.Height, err)
