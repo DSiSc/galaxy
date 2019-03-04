@@ -217,7 +217,7 @@ func (instance *bftCore) receiveProposal(proposal *messages.Proposal) {
 		return
 	}
 	if instance.master != proposal.Account {
-		log.Error("proposal must from master %d, while it from %d in fact.", instance.master, proposal.Account.Extension.Id)
+		log.Error("proposal must from master %d, while it from %d in fact.", instance.master.Extension.Id, proposal.Account.Extension.Id)
 		return
 	}
 	if !signDataVerify(instance.master, proposal.Signature, proposal.Payload.Header.MixDigest) {
@@ -459,7 +459,7 @@ func (instance *bftCore) receiveCommit(commit *messages.Commit) {
 		err = chain.WriteBlockWithReceipts(payload.block, payload.receipts)
 		if nil != err {
 			payload.block.Header.SigData = make([][]byte, 0)
-			log.Error("call WriteBlockWithReceipts failed with", payload.block.Header.PrevBlockHash, err)
+			log.Error("call WriteBlockWithReceipts by hash %x failed with error %s", payload.block.Header.PrevBlockHash, err)
 		}
 		log.Info("end write block %d with hash %x with success.", payload.block.Header.Height, payload.block.HeaderHash)
 		return
@@ -479,7 +479,7 @@ func (instance *bftCore) commitBlock(block *types.Block) {
 	err = chain.WriteBlockWithReceipts(block, instance.validator[block.Header.MixDigest].receipts)
 	if nil != err {
 		block.Header.SigData = make([][]byte, 0)
-		log.Error("call WriteBlockWithReceipts failed with", block.Header.PrevBlockHash, err)
+		log.Error("call WriteBlockWithReceipts by hash %x failed with error %s", block.Header.PrevBlockHash, err)
 	}
 	log.Info("end write block %d with hash %x with success.", block.Header.Height, block.HeaderHash)
 }

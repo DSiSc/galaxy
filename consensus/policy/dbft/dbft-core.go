@@ -241,7 +241,7 @@ func (instance *dbftCore) receiveProposal(proposal *messages.Proposal) {
 		return
 	}
 	if instance.master != proposal.Account {
-		log.Error("proposal must from master %d, while it from %d in fact.", instance.master, proposal.Account.Extension.Id)
+		log.Error("proposal must from master %d, while it from %d in fact.", instance.master.Extension.Id, proposal.Account.Extension.Id)
 		return
 	}
 	if !signDataVerify(instance.master, proposal.Signature, proposal.Payload.Header.MixDigest) {
@@ -521,7 +521,7 @@ func (instance *dbftCore) receiveCommit(commit *messages.Commit) {
 		err = chain.WriteBlockWithReceipts(payload.block, payload.receipts)
 		if nil != err {
 			payload.block.Header.SigData = make([][]byte, 0)
-			log.Error("call WriteBlockWithReceipts failed with", payload.block.Header.PrevBlockHash, err)
+			log.Error("call WriteBlockWithReceipts by hash %x failed with error %s.", payload.block.Header.PrevBlockHash, err)
 		}
 		log.Info("end write block %d with hash %x with success.", payload.block.Header.Height, payload.block.HeaderHash)
 		return
@@ -665,7 +665,7 @@ func (instance *dbftCore) receiveChangeViewReq(viewChangeReq *messages.ViewChang
 			instance.views.viewSets[viewChangeReq.ViewNum].status = common.ViewEnd
 			instance.views.viewSets[viewChangeReq.ViewNum].mu.Unlock()
 			instance.views.viewNum = viewChangeReq.ViewNum
-			log.Info("view change success and new master num is %d.", instance.master)
+			log.Info("view change success and new master num is %d.", instance.master.Extension.Id)
 		} else {
 			log.Info("view change request %d not enough to change it.", len(instance.views.viewSets[viewChangeReq.ViewNum].requestNodes))
 		}
@@ -698,7 +698,7 @@ func (instance *dbftCore) commitBlock(block *types.Block) {
 	err = chain.WriteBlockWithReceipts(block, instance.validator[block.Header.MixDigest].receipts)
 	if nil != err {
 		block.Header.SigData = make([][]byte, 0)
-		log.Error("call WriteBlockWithReceipts failed with", block.Header.PrevBlockHash, err)
+		log.Error("call WriteBlockWithReceipts by hash %x failed with error %s", block.Header.PrevBlockHash, err)
 	}
 	log.Info("end write block %d with hash %x with success.", block.Header.Height, block.HeaderHash)
 }

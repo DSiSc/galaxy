@@ -1,12 +1,13 @@
 package common
 
 import (
-	"bytes"
-	"crypto/sha256"
-	"encoding/json"
 	"errors"
+	"github.com/DSiSc/craft/config"
+	"github.com/DSiSc/craft/rlp"
 	"github.com/DSiSc/craft/types"
+	"github.com/DSiSc/crypto-suite/crypto/sha3"
 	"github.com/DSiSc/validator/tools/account"
+	"hash"
 )
 
 type Version uint64
@@ -81,19 +82,29 @@ const (
 	ReceiveResponseSignal
 )
 
-func Sum(bz []byte) []byte {
-	hash := sha256.Sum256(bz)
-	return hash[:types.HashLength]
+func HashAlg() hash.Hash {
+	var alg string
+	if value, ok := config.GlobalConfig.Load(config.HashAlgName); ok {
+		alg = value.(string)
+	} else {
+		alg = "SHA256"
+	}
+	return sha3.NewHashByAlgName(alg)
 }
 
-func HeaderHash(block *types.Block) (hash types.Hash) {
-	var defaultHash types.Hash
-	if !bytes.Equal(block.HeaderHash[:], defaultHash[:]) {
+func rlpHash(x interface{}) (h types.Hash) {
+	hw := HashAlg()
+	rlp.Encode(hw, x)
+	hw.Sum(h[:0])
+	return h
+}
+
+func HeaderHash(block *types.Block) types.Hash {
+	//var defaultHash types.Hash
+	if !(block.HeaderHash == types.Hash{}) {
+		var hash types.Hash
 		copy(hash[:], block.HeaderHash[:])
-		return
+		return hash
 	}
-	jsonByte, _ := json.Marshal(block.Header)
-	sumByte := Sum(jsonByte)
-	copy(hash[:], sumByte)
-	return
+	return rlpHash(block.Header)
 }
