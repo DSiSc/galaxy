@@ -1,8 +1,10 @@
 package participates
 
 import (
+	"github.com/DSiSc/contractsManage/contracts"
 	"github.com/DSiSc/galaxy/participates/common"
 	"github.com/DSiSc/galaxy/participates/config"
+	"github.com/DSiSc/monkey"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -27,6 +29,9 @@ func Test_NewParticipates(t *testing.T) {
 	asserts.Nil(participate)
 
 	conf = mock_conf(common.DposPolicy)
+	monkey.Patch(contracts.NewVotingContract, func() contracts.Voting {
+		return &contracts.VotingContract{}
+	})
 	participate, err = NewParticipates(conf)
 	asserts.Nil(err)
 	asserts.NotNil(participate)

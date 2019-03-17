@@ -1,23 +1,26 @@
 package dpos
 
 import (
+	"fmt"
+	"github.com/DSiSc/contractsManage/contracts"
 	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/galaxy/participates/common"
 	"github.com/DSiSc/validator/tools/account"
 )
 
 type DPOSPolicy struct {
-	name string
-	// number of delegates
+	name     string
+	contract contracts.Voting
+	// number of delegates, update when called GetParticipates
 	members      uint64
 	participates []account.Account
 }
 
 func NewDPOSPolicy(number uint64, participates []account.Account) (*DPOSPolicy, error) {
+	voting := contracts.NewVotingContract()
 	return &DPOSPolicy{
-		name:         common.DposPolicy,
-		members:      number,
-		participates: participates,
+		name:     common.DposPolicy,
+		contract: voting,
 	}, nil
 }
 
@@ -28,10 +31,28 @@ func (instance *DPOSPolicy) PolicyName() string {
 // Get the top ranking of count from voting result.
 func (instance *DPOSPolicy) getDelegatesByCount(count uint64) ([]account.Account, error) {
 	// TODO: Get accounts by voting result
+	var accounts = make([]account.Account, 0)
+	nodeList, err := instance.contract.GetNodeList(count)
+	if nil != err {
+		log.Error("get node list failed with %v", err)
+		return accounts, fmt.Errorf("get node list failed with %v", err)
+	}
+	for _, node := range nodeList {
+		account := account.Account{
+			Address: node.Address,
+			Extension: account.AccountExtension{
+				Id:  node.Id,
+				Url: node.Url,
+			},
+		}
+		accounts = append(accounts, account)
+	}
+	instance.participates = accounts
 	return instance.participates, nil
 }
 
 func (instance *DPOSPolicy) getDelegates() ([]account.Account, error) {
+	instance.members = instance.contract.NodeNumber()
 	delegates, err := instance.getDelegatesByCount(instance.members)
 	if nil != err {
 		log.Error("get delegates failed with err %s.", err)

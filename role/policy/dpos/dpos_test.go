@@ -3,6 +3,7 @@ package dpos
 import (
 	"fmt"
 	"github.com/DSiSc/blockchain"
+	"github.com/DSiSc/contractsManage/contracts"
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/galaxy/participates"
 	"github.com/DSiSc/galaxy/participates/config"
@@ -98,6 +99,9 @@ func TestDPOSPolicy_RoleAssignments(t *testing.T) {
 }
 
 func TestDPOSPolicy_AppointRole(t *testing.T) {
+	monkey.Patch(contracts.NewVotingContract, func() contracts.Voting {
+		return &contracts.VotingContract{}
+	})
 	participate, err := participates.NewParticipates(participateConf)
 	assert.NotNil(t, participate)
 	assert.Nil(t, err)
@@ -139,6 +143,9 @@ func TestDPOSPolicy_AppointRole(t *testing.T) {
 }
 
 func TestDPOSPolicy_GetRoles(t *testing.T) {
+	monkey.Patch(contracts.NewVotingContract, func() contracts.Voting {
+		return &contracts.VotingContract{}
+	})
 	participate, err := participates.NewParticipates(participateConf)
 	assert.NotNil(t, participate)
 	assert.Nil(t, err)
@@ -186,7 +193,9 @@ func TestDPOSPolicy_GetRoles(t *testing.T) {
 
 func TestSoloPolicy_ChangeRoleAssignment(t *testing.T) {
 	asserts := assert.New(t)
-
+	monkey.Patch(contracts.NewVotingContract, func() contracts.Voting {
+		return &contracts.VotingContract{}
+	})
 	participate, err := participates.NewParticipates(participateConf)
 	asserts.NotNil(participate)
 	asserts.Nil(err)
