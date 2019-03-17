@@ -8,7 +8,6 @@ import (
 	"github.com/DSiSc/validator/tools/account"
 	"github.com/DSiSc/validator/tools/signature"
 	"github.com/DSiSc/validator/worker"
-	"github.com/DSiSc/validator/worker/common"
 	"github.com/stretchr/testify/assert"
 	"reflect"
 	"testing"
@@ -85,15 +84,8 @@ func TestVerifyPayload(t *testing.T) {
 	monkey.PatchInstanceMethod(reflect.TypeOf(w), "VerifyBlock", func(*worker.Worker) error {
 		return nil
 	})
-	var rr types.Receipts
-	r := common.NewReceipt(nil, false, uint64(10))
-	rr = append(rr, r)
-	monkey.PatchInstanceMethod(reflect.TypeOf(w), "GetReceipts", func(*worker.Worker) types.Receipts {
-		return rr
-	})
-	receipt, err = VerifyPayload(block, false)
+	_, err = VerifyPayload(block, false)
 	assert.Nil(t, err)
-	assert.Equal(t, rr, receipt)
 	monkey.UnpatchAll()
 }
 

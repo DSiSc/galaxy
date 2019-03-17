@@ -495,8 +495,6 @@ func TestDbftCore_receiveProposal(t *testing.T) {
 		return nil, fmt.Errorf("marshal proposal msg failed")
 	})
 	dbft.receiveProposal(proposal)
-	receipts := dbft.validator[dbft.digest].receipts
-	assert.Equal(t, receipts, bb)
 
 	monkey.Patch(json.Marshal, func(interface{}) ([]byte, error) {
 		return nil, nil

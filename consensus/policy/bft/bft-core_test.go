@@ -407,8 +407,6 @@ func TestBftCore_receiveProposal(t *testing.T) {
 		return nil, fmt.Errorf("marshal proposal msg failed")
 	})
 	bft.receiveProposal(proposal)
-	receipts := bft.validator[bft.digest].receipts
-	assert.Equal(t, receipts, bb)
 
 	monkey.Patch(json.Marshal, func(interface{}) ([]byte, error) {
 		return nil, nil
