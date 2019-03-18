@@ -8,6 +8,9 @@ import (
 
 type SoloPolicy struct {
 	name string
+	// number of delegates, update when called GetParticipates
+	members      uint64
+	participates []account.Account
 }
 
 func NewSoloPolicy() *SoloPolicy {
@@ -19,6 +22,7 @@ func (instance *SoloPolicy) PolicyName() string {
 }
 
 func (instance *SoloPolicy) GetParticipates() ([]account.Account, error) {
+	instance.members = uint64(1)
 	participates := make([]account.Account, 0, 1)
 	participate := account.Account{
 		Address: types.Address{
@@ -30,6 +34,6 @@ func (instance *SoloPolicy) GetParticipates() ([]account.Account, error) {
 			Url: "127.0.0.1:8080",
 		},
 	}
-	participates = append(participates, participate)
-	return participates, nil
+	instance.participates = append(participates, participate)
+	return instance.participates, nil
 }
