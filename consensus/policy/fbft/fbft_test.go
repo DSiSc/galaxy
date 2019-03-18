@@ -69,7 +69,6 @@ var sigChannel = make(chan *messages.ConsensusResult)
 func mock_conf(policy string) config.ParticipateConfig {
 	return config.ParticipateConfig{
 		PolicyName: policy,
-		Delegates:  4,
 	}
 }
 

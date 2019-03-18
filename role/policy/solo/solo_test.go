@@ -40,7 +40,6 @@ func Test_NewSoloPolicy(t *testing.T) {
 func mock_conf(policy string) config.ParticipateConfig {
 	return config.ParticipateConfig{
 		PolicyName: policy,
-		Delegates:  4,
 	}
 }
 

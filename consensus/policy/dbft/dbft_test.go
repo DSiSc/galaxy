@@ -75,7 +75,6 @@ var mockSignset = [][]byte{
 func mock_conf(policy string) config.ParticipateConfig {
 	return config.ParticipateConfig{
 		PolicyName: policy,
-		Delegates:  4,
 	}
 }
 

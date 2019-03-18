@@ -10,8 +10,8 @@ type SoloPolicy struct {
 	name string
 }
 
-func NewSoloPolicy() (*SoloPolicy, error) {
-	return &SoloPolicy{name: common.SoloPolicy}, nil
+func NewSoloPolicy() *SoloPolicy {
+	return &SoloPolicy{name: common.SoloPolicy}
 }
 
 func (instance *SoloPolicy) PolicyName() string {

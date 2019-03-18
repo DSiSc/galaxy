@@ -16,12 +16,12 @@ type DPOSPolicy struct {
 	participates []account.Account
 }
 
-func NewDPOSPolicy(number uint64, participates []account.Account) (*DPOSPolicy, error) {
+func NewDPOSPolicy() *DPOSPolicy {
 	voting := contracts.NewVotingContract()
 	return &DPOSPolicy{
 		name:     common.DposPolicy,
 		contract: voting,
-	}, nil
+	}
 }
 
 func (instance *DPOSPolicy) PolicyName() string {

@@ -72,8 +72,7 @@ func TestDPOSPolicy_PolicyName(t *testing.T) {
 	monkey.Patch(contracts.NewVotingContract, func() contracts.Voting {
 		return &contracts.VotingContract{}
 	})
-	dpos, err := NewDPOSPolicy(delegates, accounts)
-	asserts.Nil(err)
+	dpos := NewDPOSPolicy()
 	asserts.NotNil(dpos)
 	asserts.Equal(common.DposPolicy, dpos.PolicyName())
 	asserts.Equal(uint64(0), dpos.members)
@@ -85,8 +84,7 @@ func TestNewDPOSPolicy(t *testing.T) {
 	monkey.Patch(contracts.NewVotingContract, func() contracts.Voting {
 		return &contracts.VotingContract{}
 	})
-	dpos, err := NewDPOSPolicy(delegates, accounts)
-	asserts.Nil(err)
+	dpos := NewDPOSPolicy()
 	asserts.NotNil(dpos)
 	asserts.Equal(dpos.name, common.DposPolicy)
 }
@@ -103,8 +101,7 @@ func TestDPOSPolicy_GetParticipates(t *testing.T) {
 	monkey.PatchInstanceMethod(reflect.TypeOf(contract), "GetNodeList", func(*contracts.VotingContract, uint64) ([]contracts.NodeInfo, error) {
 		return mockNodes, nil
 	})
-	dpos, err := NewDPOSPolicy(delegates, accounts)
-	asserts.Nil(err)
+	dpos := NewDPOSPolicy()
 	asserts.NotNil(dpos)
 	participates, err := dpos.GetParticipates()
 	asserts.Nil(err)

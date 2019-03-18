@@ -63,7 +63,6 @@ func TestDPOSPolicy_PolicyName(t *testing.T) {
 
 var participateConf = config.ParticipateConfig{
 	PolicyName: common.DposPolicy,
-	Delegates:  4,
 }
 
 func TestDPOSPolicy_RoleAssignments(t *testing.T) {
