@@ -52,6 +52,7 @@ func (instance *FBFTPolicy) PolicyName() string {
 
 func (instance *FBFTPolicy) Prepare(account account.Account) {
 	instance.local = account
+	instance.core.nodes.local = account
 }
 
 func (instance *FBFTPolicy) Start() {
