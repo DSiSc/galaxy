@@ -15,6 +15,7 @@ import (
 
 type Consensus interface {
 	PolicyName() string
+	Prepare(account.Account)
 	Initialization(account.Account, []account.Account, types.EventCenter, bool)
 	ToConsensus(p *common.Proposal) error
 	GetConsensusResult() common.ConsensusResult

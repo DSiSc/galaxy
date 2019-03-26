@@ -50,6 +50,10 @@ func (instance *FBFTPolicy) PolicyName() string {
 	return instance.name
 }
 
+func (instance *FBFTPolicy) Prepare(account account.Account) {
+	instance.local = account
+}
+
 func (instance *FBFTPolicy) Start() {
 	instance.core.Start()
 }

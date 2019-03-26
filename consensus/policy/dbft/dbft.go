@@ -86,6 +86,11 @@ func (instance *DBFTPolicy) Start() {
 	instance.core.Start(instance.account)
 }
 
+func (instance *DBFTPolicy) Prepare(account account.Account) {
+	log.Info("prepare dbft policy service.")
+	instance.account = account
+}
+
 func (instance *DBFTPolicy) commit(block *types.Block, result bool) {
 	commit := &messages.Commit{
 		Account:    instance.account,

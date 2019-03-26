@@ -52,6 +52,10 @@ func (instance *BFTPolicy) PolicyName() string {
 	return instance.name
 }
 
+func (instance *BFTPolicy) Prepare(account account.Account) {
+	instance.account = account
+}
+
 func (instance *BFTPolicy) Start() {
 	log.Info("start bft policy service.")
 	instance.bftCore.Start(instance.account)

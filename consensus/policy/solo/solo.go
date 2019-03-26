@@ -48,6 +48,10 @@ func (instance *SoloPolicy) PolicyName() string {
 	return instance.name
 }
 
+func (instance *SoloPolicy) Prepare(account account.Account) {
+	instance.local = account
+}
+
 func (instance *SoloPolicy) Start() {
 	log.Info("Start solo policy service.")
 	return
