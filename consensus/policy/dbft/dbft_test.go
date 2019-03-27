@@ -59,9 +59,8 @@ var mockHash = types.Hash{
 var sigChannel = make(chan *messages.ConsensusResult)
 
 func TestNewDBFTCore(t *testing.T) {
-	dbft := NewDBFTCore(mockAccounts[0], sigChannel)
+	dbft := NewDBFTCore(sigChannel)
 	assert.NotNil(t, dbft)
-	assert.Equal(t, mockAccounts[0], dbft.local)
 }
 
 var mockSignset = [][]byte{
@@ -83,7 +82,7 @@ var timeout = consensusConfig.ConsensusTimeout{
 }
 
 func TestNewBFTPolicy(t *testing.T) {
-	dbft, err := NewDBFTPolicy(mockAccounts[0], timeout)
+	dbft, err := NewDBFTPolicy(timeout)
 	assert.NotNil(t, dbft)
 	assert.Nil(t, err)
 	assert.Equal(t, common.DbftPolicy, dbft.name)
@@ -92,7 +91,7 @@ func TestNewBFTPolicy(t *testing.T) {
 }
 
 func TestBFTPolicy_PolicyName(t *testing.T) {
-	dbft, _ := NewDBFTPolicy(mockAccounts[0], timeout)
+	dbft, _ := NewDBFTPolicy(timeout)
 	assert.Equal(t, common.DbftPolicy, dbft.name)
 	assert.Equal(t, dbft.name, dbft.PolicyName())
 	assert.Equal(t, mockAccounts[0].Extension.Id, dbft.core.local.Extension.Id)
@@ -112,10 +111,10 @@ func mockRoleAssignment(master account.Account, accounts []account.Account) map[
 }
 
 func TestBFTPolicy_Initialization(t *testing.T) {
-	dbft, err := NewDBFTPolicy(mockAccounts[0], timeout)
+	dbft, err := NewDBFTPolicy(timeout)
 	assert.NotNil(t, dbft)
 	assert.Nil(t, err)
-	dbft.Initialization(mockAccounts[3], mockAccounts, nil, true)
+	dbft.Initialization(mockAccounts[3], mockAccounts[3], mockAccounts, nil, true)
 	assert.Equal(t, dbft.core.peers, mockAccounts)
 	assert.Equal(t, dbft.core.tolerance, uint8((len(mockAccounts)-1)/3))
 	assert.Equal(t, dbft.core.master, mockAccounts[3])
@@ -127,7 +126,7 @@ func TestBFTPolicy_Initialization(t *testing.T) {
 }
 
 func TestBFTPolicy_Start(t *testing.T) {
-	dbft, _ := NewDBFTPolicy(mockAccounts[0], timeout)
+	dbft, _ := NewDBFTPolicy(timeout)
 	var b *dbftCore
 	monkey.PatchInstanceMethod(reflect.TypeOf(b), "Start", func(*dbftCore, account.Account) {
 		log.Info("pass it.")
@@ -143,7 +142,7 @@ var mockConsensusResult = &messages.ConsensusResult{
 }
 
 func TestBFTPolicy_ToConsensus(t *testing.T) {
-	dbft, err := NewDBFTPolicy(mockAccounts[0], timeout)
+	dbft, err := NewDBFTPolicy(timeout)
 	assert.NotNil(t, dbft)
 	assert.Nil(t, err)
 	dbft.core.peers = mockAccounts
@@ -192,7 +191,7 @@ func TestBFTPolicy_commit(t *testing.T) {
 			Url: "127.0.0.1:8080",
 		},
 	}
-	dbft, err := NewDBFTPolicy(mockAccount, timeout)
+	dbft, err := NewDBFTPolicy(timeout)
 	go dbft.Start()
 	assert.NotNil(t, dbft)
 	assert.Nil(t, err)
@@ -214,10 +213,10 @@ func TestBFTPolicy_commit(t *testing.T) {
 }
 
 func TestDBFTPolicy_GetConsensusResult(t *testing.T) {
-	dbft, err := NewDBFTPolicy(mockAccounts[0], timeout)
+	dbft, err := NewDBFTPolicy(timeout)
 	assert.Nil(t, err)
 
-	dbft.Initialization(mockAccounts[0], mockAccounts, nil, false)
+	dbft.Initialization(mockAccounts[0], mockAccounts[0], mockAccounts, nil, false)
 	dbft.core.views.viewNum = 1
 	result := dbft.GetConsensusResult()
 	assert.Equal(t, mockAccounts[0], result.Master)

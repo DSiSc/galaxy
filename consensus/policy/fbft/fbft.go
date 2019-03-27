@@ -20,19 +20,22 @@ type FBFTPolicy struct {
 	timeout config.ConsensusTimeout
 }
 
-func NewFBFTPolicy(account account.Account, timeout config.ConsensusTimeout, blockSwitch chan<- interface{}, emptyBlock bool, signVerify config.SignatureVerifySwitch) (*FBFTPolicy, error) {
+func NewFBFTPolicy(timeout config.ConsensusTimeout, blockSwitch chan<- interface{}, emptyBlock bool, signVerify config.SignatureVerifySwitch) (*FBFTPolicy, error) {
 	policy := &FBFTPolicy{
-		local:   account,
 		name:    common.FbftPolicy,
 		timeout: timeout,
 	}
-	policy.core = NewFBFTCore(account, blockSwitch, timeout, emptyBlock, signVerify)
+	policy.core = NewFBFTCore(blockSwitch, timeout, emptyBlock, signVerify)
 	return policy, nil
 }
 
-func (instance *FBFTPolicy) Initialization(master account.Account, peers []account.Account, events types.EventCenter, onLine bool) {
-	instance.core.nodes.master = master
-	instance.core.nodes.peers = peers
+func (instance *FBFTPolicy) Initialization(local account.Account, master account.Account, peers []account.Account, events types.EventCenter, onLine bool) {
+	instance.local = local
+	instance.core.nodes = &nodesInfo{
+		local:  local,
+		master: master,
+		peers:  peers,
+	}
 	instance.core.eventCenter = events
 	instance.core.tolerance = uint8((len(peers) - 1) / 3)
 	log.Debug("start timeout master with view num %d.", instance.core.viewChange.GetCurrentViewNum())

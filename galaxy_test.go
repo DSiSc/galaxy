@@ -10,7 +10,6 @@ import (
 	"github.com/DSiSc/galaxy/role"
 	roleConfig "github.com/DSiSc/galaxy/role/config"
 	"github.com/DSiSc/monkey"
-	"github.com/DSiSc/validator/tools/account"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -40,14 +39,14 @@ func TestNewGalaxyPlugin(t *testing.T) {
 	monkey.Patch(role.NewRole, func(roleConfig.RoleConfig) (role.Role, error) {
 		return nil, nil
 	})
-	monkey.Patch(consensus.NewConsensus, func(consensusConfig.ConsensusConfig, account.Account, chan<- interface{}) (consensus.Consensus, error) {
+	monkey.Patch(consensus.NewConsensus, func(consensusConfig.ConsensusConfig, chan<- interface{}) (consensus.Consensus, error) {
 		return nil, fmt.Errorf("consensus init failed")
 	})
 	plugin, err = NewGalaxyPlugin(conf)
 	assert.Nil(t, plugin)
 	assert.Equal(t, err, fmt.Errorf("consensus init failed"))
 
-	monkey.Patch(consensus.NewConsensus, func(consensusConfig.ConsensusConfig, account.Account, chan<- interface{}) (consensus.Consensus, error) {
+	monkey.Patch(consensus.NewConsensus, func(consensusConfig.ConsensusConfig, chan<- interface{}) (consensus.Consensus, error) {
 		return nil, nil
 	})
 	plugin, err = NewGalaxyPlugin(conf)

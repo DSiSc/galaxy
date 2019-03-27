@@ -66,9 +66,8 @@ type payloadSets struct {
 	receipts types.Receipts
 }
 
-func NewDBFTCore(local account.Account, result chan *messages.ConsensusResult) *dbftCore {
+func NewDBFTCore(result chan *messages.ConsensusResult) *dbftCore {
 	return &dbftCore{
-		local: local,
 		signature: &signData{
 			signatures: make([][]byte, 0),
 			signMap:    make(map[account.Account][]byte),

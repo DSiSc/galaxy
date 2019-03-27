@@ -20,7 +20,7 @@ func NewGalaxyPlugin(conf common.GalaxyPluginConf) (*common.GalaxyPlugin, error)
 		log.Error("Init role failed.")
 		return nil, fmt.Errorf("role init failed")
 	}
-	consensus, err := consensus.NewConsensus(conf.ConsensusConf, conf.Account, conf.BlockSwitch)
+	consensus, err := consensus.NewConsensus(conf.ConsensusConf, conf.BlockSwitch)
 	if nil != err {
 		log.Error("Init consensus failed.")
 		return nil, fmt.Errorf("consensus init failed")

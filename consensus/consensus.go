@@ -15,8 +15,7 @@ import (
 
 type Consensus interface {
 	PolicyName() string
-	Prepare(account.Account)
-	Initialization(account.Account, []account.Account, types.EventCenter, bool)
+	Initialization(account.Account, account.Account, []account.Account, types.EventCenter, bool)
 	ToConsensus(p *common.Proposal) error
 	GetConsensusResult() common.ConsensusResult
 	Online()
@@ -24,22 +23,22 @@ type Consensus interface {
 	Halt()
 }
 
-func NewConsensus(conf config.ConsensusConfig, account account.Account, blockSwitch chan<- interface{}) (Consensus, error) {
+func NewConsensus(conf config.ConsensusConfig, blockSwitch chan<- interface{}) (Consensus, error) {
 	var err error
 	var consensus Consensus
 	switch conf.PolicyName {
 	case common.SoloPolicy:
 		log.Info("Get consensus policy is solo.")
-		consensus, err = solo.NewSoloPolicy(account, blockSwitch, conf.EnableEmptyBlock, conf.SignVerifySwitch)
+		consensus, err = solo.NewSoloPolicy(blockSwitch, conf.EnableEmptyBlock, conf.SignVerifySwitch)
 	case common.BftPolicy:
 		log.Info("Get consensus policy is bft.")
-		consensus, err = bft.NewBFTPolicy(account, conf.Timeout)
+		consensus, err = bft.NewBFTPolicy(conf.Timeout)
 	case common.FbftPolicy:
 		log.Info("Get consensus policy is fbft.")
-		consensus, err = fbft.NewFBFTPolicy(account, conf.Timeout, blockSwitch, conf.EnableEmptyBlock, conf.SignVerifySwitch)
+		consensus, err = fbft.NewFBFTPolicy(conf.Timeout, blockSwitch, conf.EnableEmptyBlock, conf.SignVerifySwitch)
 	case common.DbftPolicy:
 		log.Info("Get consensus policy is dbft.")
-		consensus, err = dbft.NewDBFTPolicy(account, conf.Timeout)
+		consensus, err = dbft.NewDBFTPolicy(conf.Timeout)
 	default:
 		err = fmt.Errorf("unsupport consensus type %v", conf.PolicyName)
 	}

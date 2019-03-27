@@ -62,9 +62,8 @@ var mockHash = types.Hash{
 var sigChannel = make(chan *messages.ConsensusResult)
 
 func TestNewBFTCore(t *testing.T) {
-	bft := NewBFTCore(mockAccounts[0], sigChannel)
+	bft := NewBFTCore(sigChannel)
 	assert.NotNil(t, bft)
-	assert.Equal(t, mockAccounts[0], bft.local)
 }
 
 var mockSignset = [][]byte{
@@ -78,7 +77,8 @@ var mockSignset = [][]byte{
 func TestBftCore_ProcessEvent(t *testing.T) {
 	var sigChannel = make(chan *messages.ConsensusResult)
 	id := 0
-	bft := NewBFTCore(mockAccounts[id], sigChannel)
+	bft := NewBFTCore(sigChannel)
+	bft.local = mockAccounts[id]
 	assert.NotNil(t, bft)
 
 	err := bft.ProcessEvent(nil)
@@ -189,7 +189,8 @@ func TestBftCore_ProcessEvent(t *testing.T) {
 }
 
 func TestBftCore_Start(t *testing.T) {
-	bft := NewBFTCore(mockAccounts[0], sigChannel)
+	bft := NewBFTCore(sigChannel)
+	bft.local = mockAccounts[0]
 	assert.NotNil(t, bft)
 	var account = account.Account{
 		Extension: account.AccountExtension{
@@ -225,7 +226,8 @@ var fakeSignature = []byte{
 
 func TestBftCore_receiveRequest(t *testing.T) {
 	id := 0
-	bft := NewBFTCore(mockAccounts[id], sigChannel)
+	bft := NewBFTCore(sigChannel)
+	bft.local = mockAccounts[id]
 	assert.NotNil(t, bft)
 	bft.peers = mockAccounts
 	// only master process request
@@ -289,7 +291,8 @@ func TestBftCore_receiveRequest(t *testing.T) {
 }
 
 func TestNewBFTCore_broadcast(t *testing.T) {
-	bft := NewBFTCore(mockAccounts[0], sigChannel)
+	bft := NewBFTCore(sigChannel)
+	bft.local = mockAccounts[0]
 	assert.NotNil(t, bft)
 	bft.peers = mockAccounts
 	// resolve error
@@ -320,7 +323,8 @@ func TestNewBFTCore_broadcast(t *testing.T) {
 }
 
 func TestBftCore_unicast(t *testing.T) {
-	bft := NewBFTCore(mockAccounts[0], sigChannel)
+	bft := NewBFTCore(sigChannel)
+	bft.local = mockAccounts[0]
 	assert.NotNil(t, bft)
 	bft.peers = mockAccounts
 	monkey.Patch(net.ResolveTCPAddr, func(string, string) (*net.TCPAddr, error) {
@@ -346,7 +350,8 @@ func TestBftCore_unicast(t *testing.T) {
 }
 
 func TestBftCore_receiveProposal(t *testing.T) {
-	bft := NewBFTCore(mockAccounts[0], sigChannel)
+	bft := NewBFTCore(sigChannel)
+	bft.local = mockAccounts[0]
 	assert.NotNil(t, bft)
 	bft.peers = mockAccounts
 	bft.master = mockAccounts[0]
@@ -425,7 +430,8 @@ func TestBftCore_receiveProposal(t *testing.T) {
 
 func TestBftCore_receiveResponse(t *testing.T) {
 	var sigChannel = make(chan *messages.ConsensusResult)
-	bft := NewBFTCore(mockAccounts[0], sigChannel)
+	bft := NewBFTCore(sigChannel)
+	bft.local = mockAccounts[0]
 	assert.NotNil(t, bft)
 	bft.peers = mockAccounts
 	bft.master = mockAccounts[0]
@@ -486,7 +492,8 @@ func TestBftCore_receiveResponse(t *testing.T) {
 }
 
 func TestBftCore_ProcessEvent2(t *testing.T) {
-	bft := NewBFTCore(mockAccounts[0], sigChannel)
+	bft := NewBFTCore(sigChannel)
+	bft.local = mockAccounts[0]
 	assert.NotNil(t, bft)
 	block0 := &types.Block{
 		Header: &types.Header{
@@ -546,7 +553,8 @@ func TestBftCore_ProcessEvent2(t *testing.T) {
 }
 
 func TestBftCore_SendCommit(t *testing.T) {
-	bft := NewBFTCore(mockAccounts[0], sigChannel)
+	bft := NewBFTCore(sigChannel)
+	bft.local = mockAccounts[0]
 	assert.NotNil(t, bft)
 	bft.peers = mockAccounts
 	block := &types.Block{

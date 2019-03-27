@@ -21,21 +21,22 @@ type BFTPolicy struct {
 	result  chan *messages.ConsensusResult
 }
 
-func NewBFTPolicy(account account.Account, timeout config.ConsensusTimeout) (*BFTPolicy, error) {
+func NewBFTPolicy(timeout config.ConsensusTimeout) (*BFTPolicy, error) {
 	policy := &BFTPolicy{
 		name:    common.BftPolicy,
-		account: account,
 		timeout: time.Duration(timeout.TimeoutToChangeView),
 		result:  make(chan *messages.ConsensusResult),
 	}
-	policy.bftCore = NewBFTCore(account, policy.result)
+	policy.bftCore = NewBFTCore(policy.result)
 	return policy, nil
 }
 
-func (instance *BFTPolicy) Initialization(master account.Account, peers []account.Account, events types.EventCenter, onLine bool) {
+func (instance *BFTPolicy) Initialization(local account.Account, master account.Account, peers []account.Account, events types.EventCenter, onLine bool) {
 	if onLine {
 		log.Debug("online first time.")
 	}
+	instance.account = local
+	instance.bftCore.local = local
 	instance.bftCore.master = master
 	instance.bftCore.commit = false
 	instance.bftCore.peers = peers

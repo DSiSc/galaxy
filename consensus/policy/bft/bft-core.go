@@ -50,9 +50,8 @@ type payloadSets struct {
 	receipts types.Receipts
 }
 
-func NewBFTCore(local account.Account, result chan *messages.ConsensusResult) *bftCore {
+func NewBFTCore(result chan *messages.ConsensusResult) *bftCore {
 	return &bftCore{
-		local: local,
 		signature: &signData{
 			signatures: make([][]byte, 0),
 			signMap:    make(map[account.Account][]byte),

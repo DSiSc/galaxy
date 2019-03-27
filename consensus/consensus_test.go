@@ -29,7 +29,7 @@ var mockAccount = account.Account{
 func Test_NewConsensus(t *testing.T) {
 	asserts := assert.New(t)
 	conf := mockConf("solo")
-	consensus, err := NewConsensus(conf, mockAccount, nil)
+	consensus, err := NewConsensus(conf, nil)
 	asserts.Nil(err)
 	asserts.NotNil(consensus)
 	asserts.Equal("solo", consensus.PolicyName())
@@ -44,19 +44,19 @@ func Test_NewConsensus(t *testing.T) {
 	asserts.True(exist)
 
 	conf = mockConf(common.BftPolicy)
-	consensus, err = NewConsensus(conf, mockAccount, nil)
+	consensus, err = NewConsensus(conf, nil)
 	asserts.Equal(common.BftPolicy, consensus.PolicyName())
 
 	conf = mockConf(common.FbftPolicy)
-	consensus, err = NewConsensus(conf, mockAccount, nil)
+	consensus, err = NewConsensus(conf, nil)
 	asserts.Equal(common.FbftPolicy, consensus.PolicyName())
 
 	conf = mockConf(common.DbftPolicy)
-	consensus, err = NewConsensus(conf, mockAccount, nil)
+	consensus, err = NewConsensus(conf, nil)
 	asserts.Equal(common.DbftPolicy, consensus.PolicyName())
 
 	policyName := "Nil"
 	conf = mockConf(policyName)
-	consensus, err = NewConsensus(conf, mockAccount, nil)
+	consensus, err = NewConsensus(conf, nil)
 	asserts.Equal(err, fmt.Errorf("unsupport consensus type %v", policyName))
 }

@@ -29,19 +29,17 @@ var timeout = consensusConfig.ConsensusTimeout{
 }
 
 func TestNewBFTPolicy(t *testing.T) {
-	bft, err := NewBFTPolicy(mockAccounts[0], timeout)
+	bft, err := NewBFTPolicy(timeout)
 	assert.NotNil(t, bft)
 	assert.Nil(t, err)
 	assert.Equal(t, common.BftPolicy, bft.name)
 	assert.NotNil(t, bft.bftCore)
-	assert.Equal(t, mockAccounts[0].Extension.Id, bft.bftCore.local.Extension.Id)
 }
 
 func TestBFTPolicy_PolicyName(t *testing.T) {
-	bft, _ := NewBFTPolicy(mockAccounts[0], timeout)
+	bft, _ := NewBFTPolicy(timeout)
 	assert.Equal(t, common.BftPolicy, bft.name)
 	assert.Equal(t, bft.name, bft.PolicyName())
-	assert.Equal(t, mockAccounts[0].Extension.Id, bft.bftCore.local.Extension.Id)
 }
 
 func mockRoleAssignment(master account.Account, accounts []account.Account) map[account.Account]commonr.Roler {
@@ -58,11 +56,11 @@ func mockRoleAssignment(master account.Account, accounts []account.Account) map[
 }
 
 func TestBFTPolicy_Initialization(t *testing.T) {
-	bft, err := NewBFTPolicy(mockAccounts[0], timeout)
+	bft, err := NewBFTPolicy(timeout)
 	assert.NotNil(t, bft)
 	assert.Nil(t, err)
 
-	bft.Initialization(mockAccounts[3], mockAccounts, nil, true)
+	bft.Initialization(mockAccounts[0], mockAccounts[3], mockAccounts, nil, true)
 	assert.Equal(t, bft.bftCore.peers, mockAccounts)
 	assert.Equal(t, bft.bftCore.tolerance, uint8((len(mockAccounts)-1)/3))
 	assert.Equal(t, bft.bftCore.master, mockAccounts[3])
@@ -74,7 +72,8 @@ func TestBFTPolicy_Initialization(t *testing.T) {
 }
 
 func TestBFTPolicy_Start(t *testing.T) {
-	bft, _ := NewBFTPolicy(mockAccounts[0], timeout)
+	bft, _ := NewBFTPolicy(timeout)
+	bft.Initialization(mockAccounts[0], mockAccounts[0], make([]account.Account, 0), nil, true)
 	var b *bftCore
 	monkey.PatchInstanceMethod(reflect.TypeOf(b), "Start", func(*bftCore, account.Account) {
 		log.Info("pass it.")
@@ -90,9 +89,11 @@ var mockConsensusResult = &messages.ConsensusResult{
 }
 
 func TestBFTPolicy_ToConsensus(t *testing.T) {
-	bft, err := NewBFTPolicy(mockAccounts[0], timeout)
+	bft, err := NewBFTPolicy(timeout)
 	assert.NotNil(t, bft)
 	assert.Nil(t, err)
+	bft.account = mockAccounts[0]
+	bft.bftCore.local = mockAccounts[0]
 	bft.bftCore.peers = mockAccounts
 	monkey.Patch(tools.SendEvent, func(tools.Receiver, tools.Event) {
 		bft.result <- mockConsensusResult
@@ -139,7 +140,9 @@ func TestBFTPolicy_commit(t *testing.T) {
 			Url: "127.0.0.1:8080",
 		},
 	}
-	bft, err := NewBFTPolicy(mockAccount, timeout)
+	bft, err := NewBFTPolicy(timeout)
+	bft.account = mockAccount
+	bft.bftCore.local = mockAccount
 	go bft.Start()
 	assert.NotNil(t, bft)
 	assert.Nil(t, err)
@@ -161,9 +164,9 @@ func TestBFTPolicy_commit(t *testing.T) {
 }
 
 func TestFBFTPolicy_GetConsensusResult(t *testing.T) {
-	bft, err := NewBFTPolicy(mockAccounts[0], timeout)
+	bft, err := NewBFTPolicy(timeout)
 	assert.Nil(t, err)
-	bft.Initialization(mockAccounts[0], mockAccounts, nil, false)
+	bft.Initialization(mockAccounts[0], mockAccounts[0], mockAccounts, nil, false)
 	result := bft.GetConsensusResult()
 	assert.Equal(t, uint64(0), result.View)
 	assert.Equal(t, mockAccounts[0], result.Master)

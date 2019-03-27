@@ -32,10 +32,9 @@ type SoloProposal struct {
 	status   common.ConsensusStatus
 }
 
-func NewSoloPolicy(account account.Account, blkSwitch chan<- interface{}, enable bool, signVerify config.SignatureVerifySwitch) (*SoloPolicy, error) {
+func NewSoloPolicy(blkSwitch chan<- interface{}, enable bool, signVerify config.SignatureVerifySwitch) (*SoloPolicy, error) {
 	policy := &SoloPolicy{
 		name:                       common.SoloPolicy,
-		local:                      account,
 		tolerance:                  common.SoloConsensusNum,
 		blockSwitch:                blkSwitch,
 		enableEmptyBlock:           enable,
@@ -62,13 +61,14 @@ func (instance *SoloPolicy) Halt() {
 	return
 }
 
-func (instance *SoloPolicy) Initialization(master account.Account, accounts []account.Account, event types.EventCenter, onLine bool) {
+func (instance *SoloPolicy) Initialization(local account.Account, master account.Account, accounts []account.Account, event types.EventCenter, onLine bool) {
 	if onLine {
 		log.Debug("online first time.")
 	}
 	if common.SoloConsensusNum != uint8(len(accounts)) {
 		panic("solo policy only support one participate")
 	}
+	instance.local = local
 	instance.master = master
 	instance.peers = accounts
 	instance.eventCenter = event

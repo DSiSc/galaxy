@@ -47,14 +47,13 @@ type fbftCore struct {
 	enableLocalVerifySignature bool
 }
 
-func NewFBFTCore(local account.Account, blockSwitch chan<- interface{}, timer config.ConsensusTimeout, emptyBlock bool, signatureVerify config.SignatureVerifySwitch) *fbftCore {
+func NewFBFTCore(blockSwitch chan<- interface{}, timer config.ConsensusTimeout, emptyBlock bool, signatureVerify config.SignatureVerifySwitch) *fbftCore {
 	return &fbftCore{
 		enableEmptyBlock:           emptyBlock,
 		blockSwitch:                blockSwitch,
 		status:                     common.ViewNormal,
 		viewChange:                 common.NewViewChange(),
 		onlineWizard:               common.NewOnlineWizard(),
-		nodes:                      &nodesInfo{local: local},
 		consensusPlugin:            common.NewConsensusPlugin(),
 		signal:                     make(chan common.MessageSignal),
 		online:                     make(chan messages.OnlineResponse),

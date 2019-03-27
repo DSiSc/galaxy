@@ -7,7 +7,6 @@ import (
 	"github.com/DSiSc/galaxy/participates/config"
 	"github.com/DSiSc/galaxy/role"
 	roleConfig "github.com/DSiSc/galaxy/role/config"
-	"github.com/DSiSc/validator/tools/account"
 )
 
 type GalaxyPlugin struct {
@@ -17,7 +16,6 @@ type GalaxyPlugin struct {
 }
 
 type GalaxyPluginConf struct {
-	Account         account.Account
 	BlockSwitch     chan<- interface{}
 	ParticipateConf config.ParticipateConfig
 	RoleConf        roleConfig.RoleConfig

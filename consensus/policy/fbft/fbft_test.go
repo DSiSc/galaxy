@@ -77,19 +77,17 @@ var timeout = consensusConfig.ConsensusTimeout{
 }
 
 func TestNewfbftPolicy(t *testing.T) {
-	fbft, err := NewFBFTPolicy(mockAccounts[0], timeout, nil, true, MockSignatureVerifySwitch)
+	fbft, err := NewFBFTPolicy(timeout, nil, true, MockSignatureVerifySwitch)
 	assert.NotNil(t, fbft)
 	assert.Nil(t, err)
 	assert.Equal(t, common.FbftPolicy, fbft.name)
 	assert.NotNil(t, fbft.core)
-	assert.Equal(t, mockAccounts[0].Extension.Id, fbft.core.nodes.local.Extension.Id)
 }
 
 func TestFBFTPolicy_PolicyName(t *testing.T) {
-	fbft, _ := NewFBFTPolicy(mockAccounts[0], timeout, nil, true, MockSignatureVerifySwitch)
+	fbft, _ := NewFBFTPolicy(timeout, nil, true, MockSignatureVerifySwitch)
 	assert.Equal(t, common.FbftPolicy, fbft.name)
 	assert.Equal(t, fbft.name, fbft.PolicyName())
-	assert.Equal(t, mockAccounts[0].Extension.Id, fbft.core.nodes.local.Extension.Id)
 }
 
 func mockRoleAssignment(master account.Account, accounts []account.Account) map[account.Account]roleCommon.Roler {
@@ -106,18 +104,18 @@ func mockRoleAssignment(master account.Account, accounts []account.Account) map[
 }
 
 func TestFBFTPolicy_Initialization(t *testing.T) {
-	fbft, err := NewFBFTPolicy(mockAccounts[0], timeout, nil, true, MockSignatureVerifySwitch)
+	fbft, err := NewFBFTPolicy(timeout, nil, true, MockSignatureVerifySwitch)
 	assert.NotNil(t, fbft)
 	assert.Nil(t, err)
 
-	fbft.Initialization(mockAccounts[3], mockAccounts, nil, false)
+	fbft.Initialization(mockAccounts[3], mockAccounts[3], mockAccounts, nil, false)
 	assert.Equal(t, fbft.core.nodes.peers, mockAccounts)
 	assert.Equal(t, fbft.core.tolerance, uint8((len(mockAccounts)-1)/3))
 	assert.Equal(t, fbft.core.nodes.master, mockAccounts[3])
 }
 
 func TestFBFTPolicy_Start(t *testing.T) {
-	fbft, _ := NewFBFTPolicy(mockAccounts[0], timeout, nil, true, MockSignatureVerifySwitch)
+	fbft, _ := NewFBFTPolicy(timeout, nil, true, MockSignatureVerifySwitch)
 	var b *fbftCore
 	monkey.PatchInstanceMethod(reflect.TypeOf(b), "Start", func(*fbftCore) {
 		log.Info("pass it.")
@@ -137,10 +135,14 @@ func TestFBFTPolicy_ToConsensus(t *testing.T) {
 		TimeoutToChangeView:         int64(1000),
 		TimeoutToCollectResponseMsg: int64(1000),
 	}
-	fbft, err := NewFBFTPolicy(mockAccounts[0], timeout1, nil, true, MockSignatureVerifySwitch)
+	fbft, err := NewFBFTPolicy(timeout1, nil, true, MockSignatureVerifySwitch)
 	assert.NotNil(t, fbft)
 	assert.Nil(t, err)
-	fbft.core.nodes.peers = mockAccounts
+	fbft.local = mockAccounts[0]
+	fbft.core.nodes = &nodesInfo{
+		local: mockAccounts[0],
+		peers: mockAccounts,
+	}
 	var mockBlockSwitch = make(chan interface{})
 	fbft.core.blockSwitch = mockBlockSwitch
 	event := NewEvent()
@@ -194,10 +196,13 @@ var MockHash = types.Hash{
 }
 
 func TestFBFTPolicy_GetConsensusResult(t *testing.T) {
-	fbft, err := NewFBFTPolicy(mockAccounts[0], timeout, nil, true, MockSignatureVerifySwitch)
+	fbft, err := NewFBFTPolicy(timeout, nil, true, MockSignatureVerifySwitch)
 	assert.Nil(t, err)
-	fbft.core.nodes.master = mockAccounts[1]
-	fbft.core.nodes.peers = mockAccounts
+	fbft.core.nodes = &nodesInfo{
+		local:  mockAccounts[0],
+		master: mockAccounts[1],
+		peers:  mockAccounts,
+	}
 	result := fbft.GetConsensusResult()
 	assert.Equal(t, uint64(0), result.View)
 	assert.Equal(t, result.Master, result.Master)
@@ -217,7 +222,11 @@ func TestFBFTPolicy_ToConsensus1(t *testing.T) {
 		TimeoutToCollectResponseMsg: int64(1000),
 	}
 	blockSwitch := make(chan interface{})
-	fbft, err := NewFBFTPolicy(mockAccounts[0], timeout1, blockSwitch, true, MockSignatureVerifySwitch)
+	fbft, err := NewFBFTPolicy(timeout1, blockSwitch, true, MockSignatureVerifySwitch)
+	fbft.local = mockAccounts[0]
+	fbft.core.nodes = &nodesInfo{
+		local: mockAccounts[0],
+	}
 	assert.Nil(t, err)
 	event := NewEvent()
 	event.Subscribe(types.EventConsensusFailed, func(v interface{}) {
@@ -249,7 +258,7 @@ func TestFBFTPolicy_Halt(t *testing.T) {
 	var timeout1 = consensusConfig.ConsensusTimeout{
 		TimeoutToChangeView: int64(1),
 	}
-	fbft, err := NewFBFTPolicy(mockAccounts[0], timeout1, nil, true, MockSignatureVerifySwitch)
+	fbft, err := NewFBFTPolicy(timeout1, nil, true, MockSignatureVerifySwitch)
 	assert.Nil(t, err)
 	fbft.Halt()
 }
@@ -263,7 +272,11 @@ func TestFBFTPolicy_Online(t *testing.T) {
 		log.Error("receive online event.")
 		return
 	})
-	fbft, err := NewFBFTPolicy(mockAccounts[0], timeout1, nil, true, MockSignatureVerifySwitch)
+	fbft, err := NewFBFTPolicy(timeout1, nil, true, MockSignatureVerifySwitch)
+	fbft.local = mockAccounts[0]
+	fbft.core.nodes = &nodesInfo{
+		local: mockAccounts[0],
+	}
 	assert.Nil(t, err)
 	var b *blockchain.BlockChain
 	monkey.Patch(blockchain.NewLatestStateBlockChain, func() (*blockchain.BlockChain, error) {

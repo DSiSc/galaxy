@@ -134,15 +134,15 @@ func (e *Event) UnSubscribeAll() {
 }
 
 func TestNewdbftCore(t *testing.T) {
-	dbft := NewDBFTCore(mockAccounts[0], sigChannel)
+	dbft := NewDBFTCore(sigChannel)
 	assert.NotNil(t, dbft)
-	assert.Equal(t, mockAccounts[0], dbft.local)
 }
 
 func TestDbftCore_ProcessEvent(t *testing.T) {
 	id := 0
 	var sigChannel = make(chan *messages.ConsensusResult)
-	dbft := NewDBFTCore(mockAccounts[id], sigChannel)
+	dbft := NewDBFTCore(sigChannel)
+	dbft.local = mockAccounts[0]
 	dbft.masterTimeout = time.NewTimer(10 * time.Second)
 	assert.NotNil(t, dbft)
 	err := dbft.ProcessEvent(nil)
@@ -253,7 +253,8 @@ func TestDbftCore_ProcessEvent(t *testing.T) {
 }
 
 func TestDbftCore_Start(t *testing.T) {
-	dbft := NewDBFTCore(mockAccounts[0], sigChannel)
+	dbft := NewDBFTCore(sigChannel)
+	dbft.local = mockAccounts[0]
 	dbft.masterTimeout = time.NewTimer(10 * time.Second)
 	assert.NotNil(t, dbft)
 	var account = account.Account{
@@ -290,7 +291,8 @@ var fakeSignature = []byte{
 
 func TestDftCore_receiveRequest(t *testing.T) {
 	id := 0
-	dbft := NewDBFTCore(mockAccounts[id], sigChannel)
+	dbft := NewDBFTCore(sigChannel)
+	dbft.local = mockAccounts[0]
 	dbft.masterTimeout = time.NewTimer(10 * time.Second)
 	assert.NotNil(t, dbft)
 	dbft.peers = mockAccounts
@@ -351,7 +353,8 @@ func TestDftCore_receiveRequest(t *testing.T) {
 }
 
 func TestNewDBFTCore_broadcast(t *testing.T) {
-	dbft := NewDBFTCore(mockAccounts[0], sigChannel)
+	dbft := NewDBFTCore(sigChannel)
+	dbft.local = mockAccounts[0]
 	dbft.masterTimeout = time.NewTimer(10 * time.Second)
 	assert.NotNil(t, dbft)
 	dbft.peers = mockAccounts
@@ -381,7 +384,8 @@ func TestNewDBFTCore_broadcast(t *testing.T) {
 }
 
 func TestDbftCore_unicast(t *testing.T) {
-	dbft := NewDBFTCore(mockAccounts[0], sigChannel)
+	dbft := NewDBFTCore(sigChannel)
+	dbft.local = mockAccounts[0]
 	dbft.masterTimeout = time.NewTimer(10 * time.Second)
 	assert.NotNil(t, dbft)
 	dbft.peers = mockAccounts
@@ -406,7 +410,8 @@ func TestDbftCore_unicast(t *testing.T) {
 }
 
 func TestDbftCore_receiveProposal(t *testing.T) {
-	dbft := NewDBFTCore(mockAccounts[0], sigChannel)
+	dbft := NewDBFTCore(sigChannel)
+	dbft.local = mockAccounts[0]
 	dbft.masterTimeout = time.NewTimer(10 * time.Second)
 	assert.NotNil(t, dbft)
 	dbft.peers = mockAccounts
@@ -508,7 +513,8 @@ func TestDbftCore_receiveProposal(t *testing.T) {
 
 func TestDbftCore_receiveResponse(t *testing.T) {
 	var sigChannel = make(chan *messages.ConsensusResult)
-	dbft := NewDBFTCore(mockAccounts[0], sigChannel)
+	dbft := NewDBFTCore(sigChannel)
+	dbft.local = mockAccounts[0]
 	dbft.masterTimeout = time.NewTimer(10 * time.Second)
 	assert.NotNil(t, dbft)
 	dbft.peers = mockAccounts
@@ -571,7 +577,8 @@ func TestDbftCore_receiveResponse(t *testing.T) {
 }
 
 func TestDbftCore_ProcessEvent2(t *testing.T) {
-	dbft := NewDBFTCore(mockAccounts[0], sigChannel)
+	dbft := NewDBFTCore(sigChannel)
+	dbft.local = mockAccounts[0]
 	dbft.masterTimeout = time.NewTimer(10 * time.Second)
 	assert.NotNil(t, dbft)
 	block0 := &types.Block{
@@ -632,7 +639,8 @@ func TestDbftCore_ProcessEvent2(t *testing.T) {
 }
 
 func TestDbftCore_SendCommit(t *testing.T) {
-	dbft := NewDBFTCore(mockAccounts[0], sigChannel)
+	dbft := NewDBFTCore(sigChannel)
+	dbft.local = mockAccounts[0]
 	dbft.masterTimeout = time.NewTimer(10 * time.Second)
 	assert.NotNil(t, dbft)
 	dbft.peers = mockAccounts
@@ -734,7 +742,8 @@ func TestDbftCore_SendCommit(t *testing.T) {
 func TestDbftCore_ProcessEvent3(t *testing.T) {
 	masterAccount := mockAccounts[0]
 	slaveAccount := mockAccounts[1]
-	dbft := NewDBFTCore(mockAccounts[0], sigChannel)
+	dbft := NewDBFTCore(sigChannel)
+	dbft.local = mockAccounts[0]
 	assert.NotNil(t, dbft)
 	dbft.masterTimeout = time.NewTimer(10 * time.Second)
 	dbft.peers = mockAccounts
@@ -805,7 +814,8 @@ func mockBlocks(blockNum int) []*types.Block {
 
 // test receiveSyncBlockResp
 func TestDbftCore_ProcessEvent4(t *testing.T) {
-	core := NewDBFTCore(mockAccounts[0], sigChannel)
+	core := NewDBFTCore(sigChannel)
+	core.local = mockAccounts[0]
 	core.masterTimeout = time.NewTimer(10 * time.Second)
 	syncBlockResp := &messages.SyncBlockResp{
 		Blocks: mockBlocks(2),
@@ -827,7 +837,8 @@ func TestDbftCore_ProcessEvent4(t *testing.T) {
 
 // test receiveSyncBlockResp
 func TestDbftCore_ProcessEvent5(t *testing.T) {
-	core := NewDBFTCore(mockAccounts[0], sigChannel)
+	core := NewDBFTCore(sigChannel)
+	core.local = mockAccounts[0]
 	core.masterTimeout = time.NewTimer(10 * time.Second)
 	syncBlockReq := &messages.SyncBlockReq{
 		Account:    mockAccounts[1],
@@ -854,7 +865,8 @@ func TestDbftCore_ProcessEvent5(t *testing.T) {
 }
 
 func TestDbftCore_ProcessEvent6(t *testing.T) {
-	core := NewDBFTCore(mockAccounts[0], sigChannel)
+	core := NewDBFTCore(sigChannel)
+	core.local = mockAccounts[0]
 	core.masterTimeout = time.NewTimer(10 * time.Second)
 	core.peers = mockAccounts
 	core.tolerance = 1
@@ -900,7 +912,8 @@ func TestDbftCore_ProcessEvent6(t *testing.T) {
 }
 
 func TestDbftCore_ProcessEvent7(t *testing.T) {
-	core := NewDBFTCore(mockAccounts[0], sigChannel)
+	core := NewDBFTCore(sigChannel)
+	core.local = mockAccounts[0]
 	core.masterTimeout = time.NewTimer(10 * time.Second)
 	core.peers = mockAccounts
 	core.tolerance = 1

@@ -21,18 +21,19 @@ type DBFTPolicy struct {
 	result  chan *messages.ConsensusResult
 }
 
-func NewDBFTPolicy(account account.Account, timeout config.ConsensusTimeout) (*DBFTPolicy, error) {
+func NewDBFTPolicy(timeout config.ConsensusTimeout) (*DBFTPolicy, error) {
 	policy := &DBFTPolicy{
 		name:    common.DbftPolicy,
-		account: account,
 		timeout: time.Duration(timeout.TimeoutToChangeView),
 		result:  make(chan *messages.ConsensusResult),
 	}
-	policy.core = NewDBFTCore(account, policy.result)
+	policy.core = NewDBFTCore(policy.result)
 	return policy, nil
 }
 
-func (instance *DBFTPolicy) Initialization(master account.Account, peers []account.Account, events types.EventCenter, onLine bool) {
+func (instance *DBFTPolicy) Initialization(local account.Account, master account.Account, peers []account.Account, events types.EventCenter, onLine bool) {
+	instance.account = local
+	instance.core.local = instance.account
 	instance.core.master = master
 	instance.core.commit = false
 	instance.core.peers = peers
