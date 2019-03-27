@@ -310,7 +310,7 @@ func (instance *fbftCore) receiveSyncBlockResponse(response *messages.SyncBlockR
 		}
 		currentBlockHeight := chain.GetCurrentBlockHeight()
 		if currentBlockHeight < block.Header.Height {
-			receipt, err := utils.VerifyPayload(block, instance.enableSyncVerifySignature)
+			receipt, err := utils.VerifyPayloadUseExistedBlockChain(chain, block, instance.enableSyncVerifySignature)
 			if nil != err {
 				log.Error("verify failed with err %v.", err)
 				continue

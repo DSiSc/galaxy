@@ -15,8 +15,12 @@ func VerifyPayload(payload *types.Block, enableSignVerify bool) (types.Receipts,
 		log.Error("Get NewBlockChainByBlockHash failed.")
 		return nil, err
 	}
-	worker := worker.NewWorker(blockStore, payload, enableSignVerify)
-	err = worker.VerifyBlock()
+	return VerifyPayloadUseExistedBlockChain(blockStore, payload, enableSignVerify)
+}
+
+func VerifyPayloadUseExistedBlockChain(bc *blockchain.BlockChain, payload *types.Block, enableSignVerify bool) (types.Receipts, error) {
+	worker := worker.NewWorker(bc, payload, enableSignVerify)
+	err := worker.VerifyBlock()
 	if err != nil {
 		log.Error("The block %d verified failed with err %v.", payload.Header.Height, err)
 		return nil, err
