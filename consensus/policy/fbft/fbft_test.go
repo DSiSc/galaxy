@@ -182,10 +182,15 @@ func TestFBFTPolicy_ToConsensus(t *testing.T) {
 	monkey.Patch(utils.SendEvent, func(utils.Receiver, utils.Event) {
 		return
 	})
-	err = fbft.ToConsensus(proposal)
-	assert.Equal(t, fmt.Errorf("timeout for consensus"), err)
-	assert.Equal(t, len(mockSignset), len(proposal.Block.Header.SigData))
-	assert.Equal(t, mockSignset, proposal.Block.Header.SigData)
+	proposalWithError := &common.Proposal{
+		Block: &types.Block{
+			Header: &types.Header{
+				Height: 0,
+			},
+		},
+	}
+	err1 := fbft.ToConsensus(proposalWithError)
+	assert.Equal(t, fmt.Errorf("timeout for consensus"), err1)
 }
 
 var MockHash = types.Hash{
