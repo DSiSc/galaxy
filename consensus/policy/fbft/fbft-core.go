@@ -29,6 +29,12 @@ type coreTimeout struct {
 	timeToChangeViewTimer    *time.Timer
 }
 
+type blockSyncRequest struct {
+	start  uint64
+	end    uint64
+	target account.Account
+}
+
 type fbftCore struct {
 	nodes                      *nodesInfo
 	tolerance                  uint8
@@ -45,6 +51,7 @@ type fbftCore struct {
 	enableEmptyBlock           bool
 	enableSyncVerifySignature  bool
 	enableLocalVerifySignature bool
+	blockSyncChan              chan blockSyncRequest
 }
 
 func NewFBFTCore(blockSwitch chan<- interface{}, timer config.ConsensusTimeout, emptyBlock bool, signatureVerify config.SignatureVerifySwitch) *fbftCore {
@@ -65,6 +72,7 @@ func NewFBFTCore(blockSwitch chan<- interface{}, timer config.ConsensusTimeout, 
 			timeToWaitCommitMsg:      timer.TimeoutToWaitCommitMsg,
 			timeToChangeViewTime:     timer.TimeoutToChangeView,
 		},
+		blockSyncChan: make(chan blockSyncRequest),
 	}
 }
 
@@ -190,7 +198,11 @@ func (instance *fbftCore) receiveProposal(proposal *messages.Proposal) {
 		go func() {
 			log.Warn("now node %d with height %d fall behind with node %d with height %d.",
 				instance.nodes.local.Extension.Id, currentBlockHeight, proposal.Account.Extension.Id, proposal.Payload.Header.Height)
-			instance.tryToSyncBlock(currentBlockHeight+1, proposalBlockHeight, proposal.Account)
+			instance.blockSyncChan <- blockSyncRequest{
+				currentBlockHeight + 1,
+				proposalBlockHeight,
+				proposal.Account,
+			}
 		}()
 		return
 	}
@@ -740,6 +752,7 @@ func (instance *fbftCore) Start() {
 		tcpListener.Close()
 	}()
 	log.Info("service start and waiting to be connected ...")
+	go instance.blockSyncHandler()
 	for {
 		conn, err := tcpListener.Accept()
 		if err != nil {
@@ -807,4 +820,45 @@ func handleClient(conn net.Conn, bft *fbftCore) {
 		}
 	}
 	return
+}
+
+// sync block from other nodes
+func (instance *fbftCore) blockSyncHandler() {
+	// obtain blockchain instance to used to get current block
+	bchain, err := blockchain.NewLatestStateBlockChain()
+	if err != nil {
+		panic(fmt.Sprintf("failed to create blockchain as: %v", err))
+	}
+
+	// subscribe block commit event
+	eventChan := make(chan interface{})
+	instance.eventCenter.Subscribe(types.EventBlockCommitted, func(v interface{}) {
+		eventChan <- v
+	})
+	instance.eventCenter.Subscribe(types.EventBlockCommitFailed, func(v interface{}) {
+		eventChan <- v
+	})
+
+	// start loop to wait for sync request
+	syncTimeOut := time.NewTicker(5 * time.Second)
+	for {
+
+		syncReq := <-instance.blockSyncChan
+		log.Debug("received block sync request with start: %d, end: %d, target: %s.", syncReq.start, syncReq.end, syncReq.target.Extension.Url)
+	OUT:
+		for {
+			currentBlock := bchain.GetCurrentBlock()
+			if currentBlock == nil || currentBlock.Header.Height >= syncReq.end {
+				break
+			}
+
+			currentHeight := currentBlock.Header.Height
+			instance.tryToSyncBlock(currentHeight+1, currentHeight+1, syncReq.target)
+			select {
+			case <-eventChan:
+			case <-syncTimeOut.C:
+				break OUT // encounter an error when sync block from this node. end up syncing
+			}
+		}
+	}
 }
