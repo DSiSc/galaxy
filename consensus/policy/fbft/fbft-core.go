@@ -149,7 +149,9 @@ func (instance *fbftCore) waitResponse(digest types.Hash) {
 			signatures, err := instance.maybeCommit(digest)
 			if nil == err {
 				content.SetState(common.ToConsensus)
-				instance.consensusPlugin.SetLatestBlockHeight(content.GetContentPayload().(*types.Block).Header.Height)
+				if instance.enableEmptyBlock || 0 != len(content.GetContentPayload().(*types.Block).Transactions) {
+					instance.consensusPlugin.SetLatestBlockHeight(content.GetContentPayload().(*types.Block).Header.Height)
+				}
 			}
 			consensusResult := messages.ConsensusResult{
 				Signatures: signatures,
@@ -162,7 +164,9 @@ func (instance *fbftCore) waitResponse(digest types.Hash) {
 			signatures, err := instance.maybeCommit(digest)
 			if nil == err {
 				content.SetState(common.ToConsensus)
-				instance.consensusPlugin.SetLatestBlockHeight(content.GetContentPayload().(*types.Block).Header.Height)
+				if instance.enableEmptyBlock || 0 != len(content.GetContentPayload().(*types.Block).Transactions) {
+					instance.consensusPlugin.SetLatestBlockHeight(content.GetContentPayload().(*types.Block).Header.Height)
+				}
 				consensusResult := messages.ConsensusResult{
 					Signatures: signatures,
 					Result:     err,
