@@ -484,20 +484,20 @@ func (instance *fbftCore) receiveChangeViewReq(viewChangeReq *messages.ViewChang
 		for _, node := range viewChangeReq.Nodes {
 			viewRequestState = viewRequests.ReceiveViewRequestByAccount(node)
 		}
-		viewRequestState = viewRequests.ReceiveViewRequestByAccount(instance.nodes.local)
+		// viewRequestState = viewRequests.ReceiveViewRequestByAccount(instance.nodes.local)
 	}
-	nodes = viewRequests.GetReceivedAccounts()
 	if viewRequestState == common.ViewEnd {
 		if nil != instance.coreTimer.timeToChangeViewTimer {
 			instance.coreTimer.timeToChangeViewTimer.Stop()
 		}
+		nodes = viewRequests.GetReceivedAccounts()
 		instance.viewChange.SetCurrentViewNum(viewChangeReq.ViewNum)
 		instance.nodes.master = utils.GetAccountWithMinId(nodes)
 		instance.eventCenter.Notify(types.EventMasterChange, nil)
 		log.Info("now reach to consensus for viewNum %d and new master is %d.",
 			viewChangeReq.ViewNum, instance.nodes.master.Extension.Id)
+		instance.sendChangeViewReq(nodes, viewChangeReq.ViewNum)
 	}
-	instance.sendChangeViewReq(nodes, viewChangeReq.ViewNum)
 }
 
 func (instance *fbftCore) sendChangeViewReq(nodes []account.Account, newView uint64) {

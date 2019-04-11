@@ -712,12 +712,25 @@ func TestFbftCore_ProcessEvent(t *testing.T) {
 	assert.Equal(t, common.DefaultViewNum, currentViewNum)
 	request := fbft.viewChange.GetRequestByViewNum(mockViewNum)
 	receivedNodes := request.GetReceivedAccounts()
-	assert.Equal(t, 2, len(receivedNodes))
+	assert.Equal(t, 1, len(receivedNodes))
 	assert.Equal(t, common.Viewing, request.GetViewRequestState())
 
 	viewChangeReq = &messages.ViewChangeReq{
 		Account:   mockAccounts[2],
 		Nodes:     []account.Account{mockAccounts[2]},
+		Timestamp: time.Now().Unix(),
+		ViewNum:   mockViewNum,
+	}
+	fbft.ProcessEvent(viewChangeReq)
+	receivedNodes = request.GetReceivedAccounts()
+	assert.Equal(t, 2, len(receivedNodes))
+	assert.Equal(t, common.Viewing, request.GetViewRequestState())
+	currentViewNum = fbft.viewChange.GetCurrentViewNum()
+	assert.Equal(t, mockViewNum-1, currentViewNum)
+
+	viewChangeReq = &messages.ViewChangeReq{
+		Account:   mockAccounts[3],
+		Nodes:     []account.Account{mockAccounts[3]},
 		Timestamp: time.Now().Unix(),
 		ViewNum:   mockViewNum,
 	}
