@@ -13,6 +13,7 @@ import (
 	"github.com/DSiSc/galaxy/consensus/utils"
 	"github.com/DSiSc/validator/tools/account"
 	"net"
+	"strconv"
 	"time"
 )
 
@@ -56,15 +57,15 @@ type fbftCore struct {
 
 func NewFBFTCore(blockSwitch chan<- interface{}, timer config.ConsensusTimeout, emptyBlock bool, signatureVerify config.SignatureVerifySwitch) *fbftCore {
 	return &fbftCore{
-		enableEmptyBlock:           emptyBlock,
-		blockSwitch:                blockSwitch,
-		status:                     common.ViewNormal,
-		viewChange:                 common.NewViewChange(),
-		onlineWizard:               common.NewOnlineWizard(),
-		consensusPlugin:            common.NewConsensusPlugin(),
-		signal:                     make(chan common.MessageSignal),
-		online:                     make(chan messages.OnlineResponse),
-		result:                     make(chan messages.ConsensusResult),
+		enableEmptyBlock: emptyBlock,
+		blockSwitch:      blockSwitch,
+		status:           common.ViewNormal,
+		viewChange:       common.NewViewChange(),
+		onlineWizard:     common.NewOnlineWizard(),
+		consensusPlugin:  common.NewConsensusPlugin(),
+		signal:           make(chan common.MessageSignal),
+		online:           make(chan messages.OnlineResponse),
+		result:           make(chan messages.ConsensusResult),
 		enableSyncVerifySignature:  signatureVerify.SyncVerifySignature,
 		enableLocalVerifySignature: signatureVerify.LocalVerifySignature,
 		coreTimer: coreTimeout{
@@ -747,7 +748,7 @@ func (instance *fbftCore) ProcessEvent(e utils.Event) utils.Event {
 func (instance *fbftCore) Start() {
 	url := instance.nodes.local.Extension.Url
 	localAddress, _ := net.ResolveTCPAddr("tcp4", url)
-	var tcpListener, err = net.ListenTCP("tcp", localAddress)
+	var tcpListener, err = net.Listen("tcp", "0.0.0.0"+":"+strconv.Itoa(localAddress.Port))
 	if err != nil {
 		log.Error("listen error：%v.", err)
 		return

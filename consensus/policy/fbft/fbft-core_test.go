@@ -276,7 +276,17 @@ func TestBftCore_ProcessEvent(t *testing.T) {
 }
 
 func TestBftCore_Start(t *testing.T) {
+	var b *blockchain.BlockChain
+	monkey.Patch(blockchain.NewLatestStateBlockChain, func() (*blockchain.BlockChain, error) {
+		return b, nil
+	})
+	event := NewEvent()
+	event.Subscribe(types.EventOnline, func(v interface{}) {
+		log.Error("receive online event.")
+		return
+	})
 	fbft := NewFBFTCore(nil, mockTime, true, MockSignatureVerifySwitch)
+	fbft.eventCenter = event
 	fbft.nodes = &nodesInfo{local: mockAccounts[0]}
 	assert.NotNil(t, fbft)
 	var account = account.Account{
@@ -304,6 +314,7 @@ func TestBftCore_Start(t *testing.T) {
 	go fbft.Start()
 	messages.Unicast(account, msgRaw, messages.CommitMessageType, mockHash)
 	time.Sleep(1 * time.Second)
+	monkey.Unpatch(blockchain.NewLatestStateBlockChain)
 }
 
 var fakeSignature = []byte{
