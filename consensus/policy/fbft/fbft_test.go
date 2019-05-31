@@ -2,7 +2,6 @@ package fbft
 
 import (
 	"fmt"
-	"github.com/DSiSc/blockchain"
 	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/galaxy/consensus/common"
@@ -12,6 +11,7 @@ import (
 	"github.com/DSiSc/galaxy/participates/config"
 	roleCommon "github.com/DSiSc/galaxy/role/common"
 	"github.com/DSiSc/monkey"
+	"github.com/DSiSc/repository"
 	"github.com/DSiSc/validator/tools/account"
 	"github.com/stretchr/testify/assert"
 	"reflect"
@@ -165,11 +165,11 @@ func TestFBFTPolicy_ToConsensus(t *testing.T) {
 		},
 	}
 	assert.Equal(t, 0, len(proposal.Block.Header.SigData))
-	var b *blockchain.BlockChain
-	monkey.Patch(blockchain.NewBlockChainByBlockHash, func(types.Hash) (*blockchain.BlockChain, error) {
+	var b *repository.Repository
+	monkey.Patch(repository.NewRepositoryByBlockHash, func(types.Hash) (*repository.Repository, error) {
 		return b, nil
 	})
-	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetBlockByHash", func(*blockchain.BlockChain, types.Hash) (*types.Block, error) {
+	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetBlockByHash", func(*repository.Repository, types.Hash) (*types.Block, error) {
 		return proposal.Block, nil
 	})
 	go func() {
@@ -283,11 +283,11 @@ func TestFBFTPolicy_Online(t *testing.T) {
 		local: mockAccounts[0],
 	}
 	assert.Nil(t, err)
-	var b *blockchain.BlockChain
-	monkey.Patch(blockchain.NewLatestStateBlockChain, func() (*blockchain.BlockChain, error) {
+	var b *repository.Repository
+	monkey.Patch(repository.NewLatestStateRepository, func() (*repository.Repository, error) {
 		return b, nil
 	})
-	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetCurrentBlockHeight", func(*blockchain.BlockChain) uint64 {
+	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetCurrentBlockHeight", func(*repository.Repository) uint64 {
 		return uint64(0)
 	})
 	monkey.Patch(messages.BroadcastPeersFilter, func([]byte, messages.MessageType, types.Hash, []account.Account, account.Account) {

@@ -2,9 +2,9 @@ package dpos
 
 import (
 	"fmt"
-	"github.com/DSiSc/blockchain"
 	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/galaxy/role/common"
+	"github.com/DSiSc/repository"
 	"github.com/DSiSc/validator/tools/account"
 )
 
@@ -22,10 +22,10 @@ func NewDPOSPolicy() (*DPOSPolicy, error) {
 }
 
 func (instance *DPOSPolicy) RoleAssignments(participates []account.Account) (map[account.Account]common.Roler, account.Account, error) {
-	block, ok := blockchain.NewLatestStateBlockChain()
+	block, ok := repository.NewLatestStateRepository()
 	if nil != ok {
-		log.Error("Get NewLatestStateBlockChain failed.")
-		return nil, account.Account{}, fmt.Errorf("get NewLatestStateBlockChain failed")
+		log.Error("Get NewLatestStateRepository failed.")
+		return nil, account.Account{}, fmt.Errorf("get NewLatestStateRepository failed")
 	}
 	instance.participates = participates
 	delegates := len(instance.participates)

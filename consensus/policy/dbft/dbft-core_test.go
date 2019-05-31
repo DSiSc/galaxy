@@ -5,13 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/DSiSc/blockchain"
 	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/galaxy/consensus/common"
 	"github.com/DSiSc/galaxy/consensus/messages"
 	"github.com/DSiSc/galaxy/consensus/utils"
 	"github.com/DSiSc/monkey"
+	"github.com/DSiSc/repository"
 	"github.com/DSiSc/validator/tools/account"
 	"github.com/DSiSc/validator/tools/signature"
 	"github.com/DSiSc/validator/tools/signature/keypair"
@@ -148,8 +148,8 @@ func TestDbftCore_ProcessEvent(t *testing.T) {
 	err := dbft.ProcessEvent(nil)
 	assert.Equal(t, fmt.Errorf("un support type <nil>"), err)
 
-	var b *blockchain.BlockChain
-	monkey.Patch(blockchain.NewBlockChainByBlockHash, func(types.Hash) (*blockchain.BlockChain, error) {
+	var b *repository.Repository
+	monkey.Patch(repository.NewRepositoryByBlockHash, func(types.Hash) (*repository.Repository, error) {
 		return b, nil
 	})
 	var w *worker.Worker
@@ -248,7 +248,7 @@ func TestDbftCore_ProcessEvent(t *testing.T) {
 	monkey.Unpatch(net.DialTCP)
 	monkey.Unpatch(signature.Verify)
 	monkey.UnpatchInstanceMethod(reflect.TypeOf(&c), "Write")
-	monkey.Unpatch(blockchain.NewBlockChainByBlockHash)
+	monkey.Unpatch(repository.NewRepositoryByBlockHash)
 	monkey.UnpatchInstanceMethod(reflect.TypeOf(w), "VerifyBlock")
 }
 
@@ -314,8 +314,8 @@ func TestDftCore_receiveRequest(t *testing.T) {
 
 	request.Payload.Header.SigData = append(request.Payload.Header.SigData, fakeSignature)
 
-	var b *blockchain.BlockChain
-	monkey.Patch(blockchain.NewBlockChainByBlockHash, func(types.Hash) (*blockchain.BlockChain, error) {
+	var b *repository.Repository
+	monkey.Patch(repository.NewRepositoryByBlockHash, func(types.Hash) (*repository.Repository, error) {
 		return b, nil
 	})
 	var w *worker.Worker
@@ -441,17 +441,17 @@ func TestDbftCore_receiveProposal(t *testing.T) {
 	monkey.Patch(signature.Verify, func(keypair.PublicKey, []byte) (types.Address, error) {
 		return mockAccounts[0].Address, nil
 	})
-	var b *blockchain.BlockChain
-	monkey.Patch(blockchain.NewLatestStateBlockChain, func() (*blockchain.BlockChain, error) {
+	var b *repository.Repository
+	monkey.Patch(repository.NewLatestStateRepository, func() (*repository.Repository, error) {
 		return b, fmt.Errorf("error")
 	})
 	dbft.receiveProposal(proposal)
 
 	// current height less than proposal
-	monkey.Patch(blockchain.NewLatestStateBlockChain, func() (*blockchain.BlockChain, error) {
+	monkey.Patch(repository.NewLatestStateRepository, func() (*repository.Repository, error) {
 		return b, nil
 	})
-	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetCurrentBlockHeight", func(*blockchain.BlockChain) uint64 {
+	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetCurrentBlockHeight", func(*repository.Repository) uint64 {
 		return proposalHeight - 2
 	})
 	monkey.Patch(messages.Unicast, func(account.Account, []byte, messages.MessageType, types.Hash) error {
@@ -459,15 +459,15 @@ func TestDbftCore_receiveProposal(t *testing.T) {
 	})
 	dbft.receiveProposal(proposal)
 
-	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetCurrentBlockHeight", func(*blockchain.BlockChain) uint64 {
+	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetCurrentBlockHeight", func(*repository.Repository) uint64 {
 		return proposalHeight
 	})
 	dbft.receiveProposal(proposal)
 
-	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetCurrentBlockHeight", func(*blockchain.BlockChain) uint64 {
+	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetCurrentBlockHeight", func(*repository.Repository) uint64 {
 		return proposalHeight - 1
 	})
-	monkey.Patch(blockchain.NewBlockChainByBlockHash, func(types.Hash) (*blockchain.BlockChain, error) {
+	monkey.Patch(repository.NewRepositoryByBlockHash, func(types.Hash) (*repository.Repository, error) {
 		return b, nil
 	})
 	var w *worker.Worker
@@ -620,17 +620,17 @@ func TestDbftCore_ProcessEvent2(t *testing.T) {
 	dbft.ProcessEvent(mockCommit)
 	assert.Equal(t, 0, len(dbft.validator[mockHash].block.Header.SigData))
 
-	var b *blockchain.BlockChain
-	monkey.Patch(blockchain.NewBlockChainByBlockHash, func(types.Hash) (*blockchain.BlockChain, error) {
+	var b *repository.Repository
+	monkey.Patch(repository.NewRepositoryByBlockHash, func(types.Hash) (*repository.Repository, error) {
 		return b, nil
 	})
-	monkey.PatchInstanceMethod(reflect.TypeOf(b), "WriteBlockWithReceipts", func(*blockchain.BlockChain, *types.Block, []*types.Receipt) error {
+	monkey.PatchInstanceMethod(reflect.TypeOf(b), "WriteBlockWithReceipts", func(*repository.Repository, *types.Block, []*types.Receipt) error {
 		return fmt.Errorf("write failed")
 	})
 	dbft.ProcessEvent(mockCommit)
 	assert.Equal(t, 0, len(dbft.validator[mockHash].block.Header.SigData))
 
-	monkey.PatchInstanceMethod(reflect.TypeOf(b), "WriteBlockWithReceipts", func(*blockchain.BlockChain, *types.Block, []*types.Receipt) error {
+	monkey.PatchInstanceMethod(reflect.TypeOf(b), "WriteBlockWithReceipts", func(*repository.Repository, *types.Block, []*types.Receipt) error {
 		return nil
 	})
 	dbft.ProcessEvent(mockCommit)
@@ -763,12 +763,12 @@ func TestDbftCore_ProcessEvent3(t *testing.T) {
 	msgRaw, err := messages.EncodeMessage(syncBlockMessage)
 	assert.Nil(t, err)
 	assert.NotNil(t, msgRaw)
-	var b *blockchain.BlockChain
-	monkey.Patch(blockchain.NewLatestStateBlockChain, func() (*blockchain.BlockChain, error) {
+	var b *repository.Repository
+	monkey.Patch(repository.NewLatestStateRepository, func() (*repository.Repository, error) {
 		return b, nil
 	})
 	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetBlockByHeight",
-		func(block *blockchain.BlockChain, height uint64) (*types.Block, error) {
+		func(block *repository.Repository, height uint64) (*types.Block, error) {
 			if currentHeight+1 == height {
 				return &types.Block{
 					Header: &types.Header{
@@ -820,15 +820,15 @@ func TestDbftCore_ProcessEvent4(t *testing.T) {
 	syncBlockResp := &messages.SyncBlockResp{
 		Blocks: mockBlocks(2),
 	}
-	var b *blockchain.BlockChain
-	monkey.Patch(blockchain.NewBlockChainByBlockHash, func(types.Hash) (*blockchain.BlockChain, error) {
+	var b *repository.Repository
+	monkey.Patch(repository.NewRepositoryByBlockHash, func(types.Hash) (*repository.Repository, error) {
 		return b, nil
 	})
 	var w *worker.Worker
 	monkey.PatchInstanceMethod(reflect.TypeOf(w), "VerifyBlock", func(*worker.Worker) error {
 		return nil
 	})
-	monkey.PatchInstanceMethod(reflect.TypeOf(b), "EventWriteBlockWithReceipts", func(*blockchain.BlockChain, *types.Block, []*types.Receipt, bool) error {
+	monkey.PatchInstanceMethod(reflect.TypeOf(b), "EventWriteBlockWithReceipts", func(*repository.Repository, *types.Block, []*types.Receipt, bool) error {
 		return nil
 	})
 	utils.SendEvent(core, syncBlockResp)
@@ -846,11 +846,11 @@ func TestDbftCore_ProcessEvent5(t *testing.T) {
 		BlockStart: uint64(1),
 		BlockEnd:   uint64(2),
 	}
-	var b *blockchain.BlockChain
-	monkey.Patch(blockchain.NewLatestStateBlockChain, func() (*blockchain.BlockChain, error) {
+	var b *repository.Repository
+	monkey.Patch(repository.NewLatestStateRepository, func() (*repository.Repository, error) {
 		return b, nil
 	})
-	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetBlockByHeight", func(_ *blockchain.BlockChain, height uint64) (*types.Block, error) {
+	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetBlockByHeight", func(_ *repository.Repository, height uint64) (*types.Block, error) {
 		return &types.Block{
 			Header: &types.Header{
 				Height: height,
@@ -883,11 +883,11 @@ func TestDbftCore_ProcessEvent6(t *testing.T) {
 		Timestamp: time.Now().Unix(),
 		ViewNum:   currentHeight + 1,
 	}
-	var b *blockchain.BlockChain
-	monkey.Patch(blockchain.NewLatestStateBlockChain, func() (*blockchain.BlockChain, error) {
+	var b *repository.Repository
+	monkey.Patch(repository.NewLatestStateRepository, func() (*repository.Repository, error) {
 		return b, nil
 	})
-	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetCurrentBlockHeight", func(*blockchain.BlockChain) uint64 {
+	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetCurrentBlockHeight", func(*repository.Repository) uint64 {
 		return currentHeight
 	})
 	utils.SendEvent(core, viewChangeReq)

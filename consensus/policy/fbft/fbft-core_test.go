@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/DSiSc/blockchain"
 	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/galaxy/consensus/common"
@@ -13,6 +12,7 @@ import (
 	"github.com/DSiSc/galaxy/consensus/messages"
 	"github.com/DSiSc/galaxy/consensus/utils"
 	"github.com/DSiSc/monkey"
+	"github.com/DSiSc/repository"
 	"github.com/DSiSc/validator/tools/account"
 	"github.com/DSiSc/validator/tools/signature"
 	"github.com/DSiSc/validator/tools/signature/keypair"
@@ -156,11 +156,11 @@ func TestBftCore_ProcessEvent(t *testing.T) {
 			MixDigest: mockHash,
 		},
 	}
-	var b *blockchain.BlockChain
-	monkey.Patch(blockchain.NewLatestStateBlockChain, func() (*blockchain.BlockChain, error) {
+	var b *repository.Repository
+	monkey.Patch(repository.NewLatestStateRepository, func() (*repository.Repository, error) {
 		return b, nil
 	})
-	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetCurrentBlockHeight", func(*blockchain.BlockChain) uint64 {
+	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetCurrentBlockHeight", func(*repository.Repository) uint64 {
 		return uint64(0)
 	})
 	fbft := NewFBFTCore(nil, mockTime, true, MockSignatureVerifySwitch)
@@ -184,7 +184,7 @@ func TestBftCore_ProcessEvent(t *testing.T) {
 	fbft.ProcessEvent(mock_request)
 
 	fbft.nodes.master = mockAccounts[0]
-	monkey.Patch(blockchain.NewBlockChainByBlockHash, func(types.Hash) (*blockchain.BlockChain, error) {
+	monkey.Patch(repository.NewRepositoryByBlockHash, func(types.Hash) (*repository.Repository, error) {
 		return b, nil
 	})
 	var w *worker.Worker
@@ -270,14 +270,14 @@ func TestBftCore_ProcessEvent(t *testing.T) {
 	monkey.Unpatch(net.ResolveTCPAddr)
 	monkey.Unpatch(net.DialTCP)
 	monkey.Unpatch(signature.Verify)
-	monkey.Unpatch(blockchain.NewBlockChainByBlockHash)
+	monkey.Unpatch(repository.NewRepositoryByBlockHash)
 	monkey.UnpatchInstanceMethod(reflect.TypeOf(&c), "Write")
 	monkey.UnpatchInstanceMethod(reflect.TypeOf(w), "VerifyBlock")
 }
 
 func TestBftCore_Start(t *testing.T) {
-	var b *blockchain.BlockChain
-	monkey.Patch(blockchain.NewLatestStateBlockChain, func() (*blockchain.BlockChain, error) {
+	var b *repository.Repository
+	monkey.Patch(repository.NewLatestStateRepository, func() (*repository.Repository, error) {
 		return b, nil
 	})
 	event := NewEvent()
@@ -314,7 +314,7 @@ func TestBftCore_Start(t *testing.T) {
 	go fbft.Start()
 	messages.Unicast(account, msgRaw, messages.CommitMessageType, mockHash)
 	time.Sleep(1 * time.Second)
-	monkey.Unpatch(blockchain.NewLatestStateBlockChain)
+	monkey.Unpatch(repository.NewLatestStateRepository)
 }
 
 var fakeSignature = []byte{
@@ -346,8 +346,8 @@ func TestBftCore_receiveRequest(t *testing.T) {
 
 	request.Payload.Header.SigData = append(request.Payload.Header.SigData, fakeSignature)
 
-	var b *blockchain.BlockChain
-	monkey.Patch(blockchain.NewBlockChainByBlockHash, func(types.Hash) (*blockchain.BlockChain, error) {
+	var b *repository.Repository
+	monkey.Patch(repository.NewRepositoryByBlockHash, func(types.Hash) (*repository.Repository, error) {
 		return b, nil
 	})
 	var w *worker.Worker
@@ -452,16 +452,16 @@ func TestBftCore_receiveProposal(t *testing.T) {
 			},
 		},
 	}
-	var b *blockchain.BlockChain
-	monkey.Patch(blockchain.NewLatestStateBlockChain, func() (*blockchain.BlockChain, error) {
+	var b *repository.Repository
+	monkey.Patch(repository.NewLatestStateRepository, func() (*repository.Repository, error) {
 		return b, nil
 	})
-	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetCurrentBlockHeight", func(*blockchain.BlockChain) uint64 {
+	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetCurrentBlockHeight", func(*repository.Repository) uint64 {
 		return uint64(0)
 	})
 	fbft.receiveProposal(proposal)
 
-	// verify failed: Get NewBlockChainByBlockHash failed
+	// verify failed: Get NewRepositoryByBlockHash failed
 	fbft.nodes.local.Extension.Id = mockAccounts[0].Extension.Id + 1
 	monkey.Patch(signature.Verify, func(keypair.PublicKey, []byte) (types.Address, error) {
 		return mockAccounts[1].Address, nil
@@ -471,7 +471,7 @@ func TestBftCore_receiveProposal(t *testing.T) {
 	monkey.Patch(signature.Verify, func(keypair.PublicKey, []byte) (types.Address, error) {
 		return mockAccounts[0].Address, nil
 	})
-	monkey.Patch(blockchain.NewBlockChainByBlockHash, func(types.Hash) (*blockchain.BlockChain, error) {
+	monkey.Patch(repository.NewRepositoryByBlockHash, func(types.Hash) (*repository.Repository, error) {
 		return b, nil
 	})
 	var w *worker.Worker
@@ -502,7 +502,7 @@ func TestBftCore_receiveProposal(t *testing.T) {
 	})
 	fbft.receiveProposal(proposal)
 	monkey.Unpatch(net.ResolveTCPAddr)
-	monkey.Unpatch(blockchain.NewBlockChainByBlockHash)
+	monkey.Unpatch(repository.NewRepositoryByBlockHash)
 	monkey.Unpatch(signature.Sign)
 	monkey.Unpatch(signature.Verify)
 	monkey.UnpatchInstanceMethod(reflect.TypeOf(w), "VerifyBlock")
@@ -672,11 +672,11 @@ func TestFBFTPolicy_commit(t *testing.T) {
 		Transactions: make([]*types.Transaction, 0),
 	}
 	core.nodes.peers = append(core.nodes.peers, mockAccount)
-	var b *blockchain.BlockChain
-	monkey.Patch(blockchain.NewBlockChainByBlockHash, func(types.Hash) (*blockchain.BlockChain, error) {
+	var b *repository.Repository
+	monkey.Patch(repository.NewRepositoryByBlockHash, func(types.Hash) (*repository.Repository, error) {
 		return b, nil
 	})
-	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetBlockByHash", func(*blockchain.BlockChain, types.Hash) (*types.Block, error) {
+	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetBlockByHash", func(*repository.Repository, types.Hash) (*types.Block, error) {
 		return block, nil
 	})
 	go core.tryToCommit(block, true)
@@ -759,11 +759,11 @@ func TestFbftCore_ProcessEvent2(t *testing.T) {
 		Timestamp:   time.Now().Unix(),
 		BlockHeight: common.DefaultBlockHeight,
 	}
-	var b *blockchain.BlockChain
-	monkey.Patch(blockchain.NewLatestStateBlockChain, func() (*blockchain.BlockChain, error) {
+	var b *repository.Repository
+	monkey.Patch(repository.NewLatestStateRepository, func() (*repository.Repository, error) {
 		return b, nil
 	})
-	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetCurrentBlockHeight", func(*blockchain.BlockChain) uint64 {
+	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetCurrentBlockHeight", func(*repository.Repository) uint64 {
 		return uint64(0)
 	})
 	monkey.Patch(messages.BroadcastPeersFilter, func([]byte, messages.MessageType, types.Hash, []account.Account, account.Account) {
@@ -779,7 +779,7 @@ func TestFbftCore_ProcessEvent2(t *testing.T) {
 	err := core.ProcessEvent(onlineReq)
 	assert.Nil(t, err)
 	// if local not default block height, just response to requester
-	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetCurrentBlockHeight", func(*blockchain.BlockChain) uint64 {
+	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetCurrentBlockHeight", func(*repository.Repository) uint64 {
 		return uint64(1)
 	})
 	monkey.Patch(messages.Unicast, func(account.Account, []byte, messages.MessageType, types.Hash) error {
@@ -799,11 +799,11 @@ func TestFbftCore_ProcessEvent3(t *testing.T) {
 		Master:      mockAccounts[1],
 		Nodes:       []account.Account{mockAccounts[0], mockAccounts[1]},
 	}
-	var b *blockchain.BlockChain
-	monkey.Patch(blockchain.NewLatestStateBlockChain, func() (*blockchain.BlockChain, error) {
+	var b *repository.Repository
+	monkey.Patch(repository.NewLatestStateRepository, func() (*repository.Repository, error) {
 		return b, nil
 	})
-	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetCurrentBlockHeight", func(*blockchain.BlockChain) uint64 {
+	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetCurrentBlockHeight", func(*repository.Repository) uint64 {
 		return onlineResponse.BlockHeight + 1
 	})
 	core := NewFBFTCore(nil, mockTime, true, MockSignatureVerifySwitch)
@@ -811,7 +811,7 @@ func TestFbftCore_ProcessEvent3(t *testing.T) {
 	err := core.ProcessEvent(onlineResponse)
 	assert.Nil(t, err)
 
-	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetCurrentBlockHeight", func(*blockchain.BlockChain) uint64 {
+	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetCurrentBlockHeight", func(*repository.Repository) uint64 {
 		return onlineResponse.BlockHeight
 	})
 	onlineResponse.Nodes = append(onlineResponse.Nodes, mockAccounts[2])
@@ -857,11 +857,11 @@ func TestFbftCore_ProcessEvent4(t *testing.T) {
 		BlockStart: uint64(2),
 		BlockEnd:   uint64(5),
 	}
-	var b *blockchain.BlockChain
-	monkey.Patch(blockchain.NewLatestStateBlockChain, func() (*blockchain.BlockChain, error) {
+	var b *repository.Repository
+	monkey.Patch(repository.NewLatestStateRepository, func() (*repository.Repository, error) {
 		return b, nil
 	})
-	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetBlockByHeight", func(ch *blockchain.BlockChain, height uint64) (*types.Block, error) {
+	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetBlockByHeight", func(ch *repository.Repository, height uint64) (*types.Block, error) {
 		return &types.Block{
 			Header: &types.Header{
 				Height: height,
@@ -879,7 +879,7 @@ func TestFbftCore_ProcessEvent4(t *testing.T) {
 	syncBlockResp := &messages.SyncBlockResp{
 		Blocks: mockBlocks(3),
 	}
-	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetCurrentBlockHeight", func(*blockchain.BlockChain) uint64 {
+	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetCurrentBlockHeight", func(*repository.Repository) uint64 {
 		return uint64(1)
 	})
 	var w *worker.Worker
@@ -892,7 +892,7 @@ func TestFbftCore_ProcessEvent4(t *testing.T) {
 	monkey.PatchInstanceMethod(reflect.TypeOf(w), "VerifyBlock", func(*worker.Worker) error {
 		return nil
 	})
-	monkey.PatchInstanceMethod(reflect.TypeOf(b), "WriteBlockWithReceipts", func(*blockchain.BlockChain, *types.Block, []*types.Receipt) error {
+	monkey.PatchInstanceMethod(reflect.TypeOf(b), "WriteBlockWithReceipts", func(*repository.Repository, *types.Block, []*types.Receipt) error {
 		return fmt.Errorf("write block failed")
 	})
 	err = core.ProcessEvent(syncBlockResp)
@@ -912,11 +912,11 @@ func TestFbftCore_ProcessEvent5(t *testing.T) {
 			},
 		},
 	}
-	var b *blockchain.BlockChain
-	monkey.Patch(blockchain.NewLatestStateBlockChain, func() (*blockchain.BlockChain, error) {
+	var b *repository.Repository
+	monkey.Patch(repository.NewLatestStateRepository, func() (*repository.Repository, error) {
 		return b, nil
 	})
-	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetCurrentBlockHeight", func(*blockchain.BlockChain) uint64 {
+	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetCurrentBlockHeight", func(*repository.Repository) uint64 {
 		return uint64(0)
 	})
 	core := NewFBFTCore(nil, mockTime, true, MockSignatureVerifySwitch)
@@ -936,7 +936,7 @@ func TestFbftCore_ProcessEvent5(t *testing.T) {
 	err = core.ProcessEvent(proposal)
 	assert.Nil(t, err)
 
-	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetCurrentBlockHeight", func(*blockchain.BlockChain) uint64 {
+	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetCurrentBlockHeight", func(*repository.Repository) uint64 {
 		return uint64(1)
 	})
 	monkey.Patch(utils.SignatureVerify, func(account.Account, []byte, types.Hash) bool {

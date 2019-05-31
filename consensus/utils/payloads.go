@@ -1,24 +1,24 @@
 package utils
 
 import (
-	"github.com/DSiSc/blockchain"
 	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/craft/types"
+	"github.com/DSiSc/repository"
 	"github.com/DSiSc/validator/tools/account"
 	"github.com/DSiSc/validator/tools/signature"
 	"github.com/DSiSc/validator/worker"
 )
 
 func VerifyPayload(payload *types.Block, enableSignVerify bool) (types.Receipts, error) {
-	blockStore, err := blockchain.NewBlockChainByBlockHash(payload.Header.PrevBlockHash)
+	blockStore, err := repository.NewRepositoryByBlockHash(payload.Header.PrevBlockHash)
 	if nil != err {
-		log.Error("Get NewBlockChainByBlockHash failed.")
+		log.Error("Get NewRepositoryByBlockHash failed.")
 		return nil, err
 	}
-	return VerifyPayloadUseExistedBlockChain(blockStore, payload, enableSignVerify)
+	return VerifyPayloadUseExistedRepository(blockStore, payload, enableSignVerify)
 }
 
-func VerifyPayloadUseExistedBlockChain(bc *blockchain.BlockChain, payload *types.Block, enableSignVerify bool) (types.Receipts, error) {
+func VerifyPayloadUseExistedRepository(bc *repository.Repository, payload *types.Block, enableSignVerify bool) (types.Receipts, error) {
 	worker := worker.NewWorker(bc, payload, enableSignVerify)
 	err := worker.VerifyBlock()
 	if err != nil {

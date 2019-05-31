@@ -51,7 +51,7 @@ const (
 )
 
 var (
-	ErrorsNewBlockChainByBlockHash = errors.New("get block chain by hash failed")
+	ErrorsNewRepositoryByBlockHash = errors.New("get block chain by hash failed")
 )
 
 type ViewStatus string

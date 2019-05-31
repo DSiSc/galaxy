@@ -2,13 +2,13 @@ package dpos
 
 import (
 	"fmt"
-	"github.com/DSiSc/blockchain"
 	"github.com/DSiSc/contractsManage/contracts"
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/galaxy/participates"
 	"github.com/DSiSc/galaxy/participates/config"
 	"github.com/DSiSc/galaxy/role/common"
 	"github.com/DSiSc/monkey"
+	"github.com/DSiSc/repository"
 	"github.com/DSiSc/validator/tools/account"
 	"github.com/stretchr/testify/assert"
 	"reflect"
@@ -72,15 +72,15 @@ func TestDPOSPolicy_RoleAssignments(t *testing.T) {
 
 	assignment, master, err := dposPolicy.RoleAssignments(mockAccounts)
 	assert.Nil(t, assignment)
-	assert.Equal(t, fmt.Errorf("get NewLatestStateBlockChain failed"), err)
+	assert.Equal(t, fmt.Errorf("get NewLatestStateRepository failed"), err)
 
-	monkey.Patch(blockchain.NewLatestStateBlockChain, func() (*blockchain.BlockChain, error) {
-		var temp blockchain.BlockChain
+	monkey.Patch(repository.NewLatestStateRepository, func() (*repository.Repository, error) {
+		var temp repository.Repository
 		return &temp, nil
 	})
-	var b *blockchain.BlockChain
+	var b *repository.Repository
 	var height = uint64(0)
-	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetCurrentBlock", func(*blockchain.BlockChain) *types.Block {
+	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetCurrentBlock", func(*repository.Repository) *types.Block {
 		return &types.Block{
 			Header: &types.Header{
 				Height: height,
@@ -109,12 +109,12 @@ func TestDPOSPolicy_AppointRole(t *testing.T) {
 	assert.NotNil(t, dposPolicy)
 	assert.Nil(t, err1)
 
-	monkey.Patch(blockchain.NewLatestStateBlockChain, func() (*blockchain.BlockChain, error) {
-		var temp blockchain.BlockChain
+	monkey.Patch(repository.NewLatestStateRepository, func() (*repository.Repository, error) {
+		var temp repository.Repository
 		return &temp, nil
 	})
-	var b *blockchain.BlockChain
-	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetCurrentBlock", func(*blockchain.BlockChain) *types.Block {
+	var b *repository.Repository
+	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetCurrentBlock", func(*repository.Repository) *types.Block {
 		return &types.Block{
 			Header: &types.Header{
 				Height: 0,
@@ -153,12 +153,12 @@ func TestDPOSPolicy_GetRoles(t *testing.T) {
 	assert.NotNil(t, dposPolicy)
 	assert.Nil(t, err)
 
-	monkey.Patch(blockchain.NewLatestStateBlockChain, func() (*blockchain.BlockChain, error) {
-		var temp blockchain.BlockChain
+	monkey.Patch(repository.NewLatestStateRepository, func() (*repository.Repository, error) {
+		var temp repository.Repository
 		return &temp, nil
 	})
-	var b *blockchain.BlockChain
-	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetCurrentBlock", func(*blockchain.BlockChain) *types.Block {
+	var b *repository.Repository
+	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetCurrentBlock", func(*repository.Repository) *types.Block {
 		return &types.Block{
 			Header: &types.Header{
 				Height: 0,
@@ -203,12 +203,12 @@ func TestSoloPolicy_ChangeRoleAssignment(t *testing.T) {
 	asserts.NotNil(dposPolicy)
 	asserts.Nil(err)
 
-	monkey.Patch(blockchain.NewLatestStateBlockChain, func() (*blockchain.BlockChain, error) {
-		var temp blockchain.BlockChain
+	monkey.Patch(repository.NewLatestStateRepository, func() (*repository.Repository, error) {
+		var temp repository.Repository
 		return &temp, nil
 	})
-	var b *blockchain.BlockChain
-	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetCurrentBlock", func(*blockchain.BlockChain) *types.Block {
+	var b *repository.Repository
+	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetCurrentBlock", func(*repository.Repository) *types.Block {
 		return &types.Block{
 			Header: &types.Header{
 				Height: 0,

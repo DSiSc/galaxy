@@ -2,9 +2,9 @@ package utils
 
 import (
 	"fmt"
-	"github.com/DSiSc/blockchain"
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/monkey"
+	"github.com/DSiSc/repository"
 	"github.com/DSiSc/validator/tools/account"
 	"github.com/DSiSc/validator/tools/signature"
 	"github.com/DSiSc/validator/worker"
@@ -69,8 +69,8 @@ func TestVerifyPayload(t *testing.T) {
 	assert.NotNil(t, err)
 	assert.Nil(t, receipt)
 
-	var b *blockchain.BlockChain
-	monkey.Patch(blockchain.NewBlockChainByBlockHash, func(types.Hash) (*blockchain.BlockChain, error) {
+	var b *repository.Repository
+	monkey.Patch(repository.NewRepositoryByBlockHash, func(types.Hash) (*repository.Repository, error) {
 		return b, nil
 	})
 	var w *worker.Worker

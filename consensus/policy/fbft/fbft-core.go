@@ -4,13 +4,13 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"github.com/DSiSc/blockchain"
 	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/galaxy/consensus/common"
 	"github.com/DSiSc/galaxy/consensus/config"
 	"github.com/DSiSc/galaxy/consensus/messages"
 	"github.com/DSiSc/galaxy/consensus/utils"
+	"github.com/DSiSc/repository"
 	"github.com/DSiSc/validator/tools/account"
 	"net"
 	"strconv"
@@ -187,7 +187,7 @@ func (instance *fbftCore) receiveProposal(proposal *messages.Proposal) {
 		instance.coreTimer.timeToChangeViewTimer.Stop()
 	}
 	proposalBlockHeight := proposal.Payload.Header.Height
-	blockChain, err := blockchain.NewLatestStateBlockChain()
+	blockChain, err := repository.NewLatestStateRepository()
 	if nil != err {
 		panic(fmt.Errorf("get latest state block chain failed with err %v", err))
 	}
@@ -287,7 +287,7 @@ func (instance *fbftCore) tryToSyncBlock(start uint64, end uint64, target accoun
 }
 
 func (instance *fbftCore) receiveSyncBlockRequest(request *messages.SyncBlockReq) {
-	chain, err := blockchain.NewLatestStateBlockChain()
+	chain, err := repository.NewLatestStateRepository()
 	if nil != err {
 		panic("get new latest block state block chain failed.")
 	}
@@ -320,13 +320,13 @@ func (instance *fbftCore) receiveSyncBlockResponse(response *messages.SyncBlockR
 	blocks := response.Blocks
 	log.Debug("receive sync %d block response.", len(blocks))
 	for _, block := range blocks {
-		chain, err := blockchain.NewLatestStateBlockChain()
+		chain, err := repository.NewLatestStateRepository()
 		if nil != err {
 			panic("new latest state block chain failed.")
 		}
 		currentBlockHeight := chain.GetCurrentBlockHeight()
 		if currentBlockHeight < block.Header.Height {
-			receipt, err := utils.VerifyPayloadUseExistedBlockChain(chain, block, instance.enableSyncVerifySignature)
+			receipt, err := utils.VerifyPayloadUseExistedRepository(chain, block, instance.enableSyncVerifySignature)
 			if nil != err {
 				log.Error("verify failed with err %v.", err)
 				continue
@@ -552,7 +552,7 @@ func (instance *fbftCore) waitMasterTimeout() {
 
 func (instance *fbftCore) sendOnlineRequest() {
 	log.Info("send online request.")
-	chain, err := blockchain.NewLatestStateBlockChain()
+	chain, err := repository.NewLatestStateRepository()
 	if nil != err {
 		panic(fmt.Errorf("get latest state block chain failed with err %v", err))
 	}
@@ -591,7 +591,7 @@ func (instance *fbftCore) sendOnlineRequest() {
 }
 
 func (instance *fbftCore) receiveOnlineRequest(request *messages.OnlineRequest) {
-	chain, err := blockchain.NewLatestStateBlockChain()
+	chain, err := repository.NewLatestStateRepository()
 	if nil != err {
 		panic(fmt.Errorf("get latest state block chain failed with err %v", err))
 	}
@@ -652,7 +652,7 @@ func (instance *fbftCore) receiveOnlineRequest(request *messages.OnlineRequest) 
 func (instance *fbftCore) receiveOnlineResponse(response *messages.OnlineResponse) {
 	log.Info("receive online response from node %d with height %d and viewNum %d and master %d.",
 		response.Account.Extension.Id, response.BlockHeight, response.ViewNum, response.Master.Extension.Id)
-	chain, err := blockchain.NewLatestStateBlockChain()
+	chain, err := repository.NewLatestStateRepository()
 	if nil != err {
 		panic(fmt.Errorf("get latest state block chain failed with err %v", err))
 	}
@@ -830,7 +830,7 @@ func handleClient(conn net.Conn, bft *fbftCore) {
 // sync block from other nodes
 func (instance *fbftCore) blockSyncHandler() {
 	// obtain blockchain instance to used to get current block
-	bchain, err := blockchain.NewLatestStateBlockChain()
+	bchain, err := repository.NewLatestStateRepository()
 	if err != nil {
 		panic(fmt.Sprintf("failed to create blockchain as: %v", err))
 	}

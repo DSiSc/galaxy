@@ -4,12 +4,12 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"github.com/DSiSc/blockchain"
 	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/galaxy/consensus/common"
 	"github.com/DSiSc/galaxy/consensus/messages"
 	tools "github.com/DSiSc/galaxy/consensus/utils"
+	"github.com/DSiSc/repository"
 	"github.com/DSiSc/validator/tools/account"
 	"github.com/DSiSc/validator/tools/signature"
 	"github.com/DSiSc/validator/worker"
@@ -266,9 +266,9 @@ func (instance *bftCore) receiveProposal(proposal *messages.Proposal) {
 }
 
 func (instance *bftCore) verifyPayload(payload *types.Block) (types.Receipts, error) {
-	blockStore, err := blockchain.NewBlockChainByBlockHash(payload.Header.PrevBlockHash)
+	blockStore, err := repository.NewRepositoryByBlockHash(payload.Header.PrevBlockHash)
 	if nil != err {
-		log.Error("Get NewBlockChainByBlockHash failed.")
+		log.Error("Get NewRepositoryByBlockHash failed.")
 		return nil, err
 	}
 	worker := worker.NewWorker(blockStore, payload, true)
@@ -447,10 +447,10 @@ func (instance *bftCore) receiveCommit(commit *messages.Commit) {
 			return
 		}
 		// TODO: verify signature loop
-		chain, err := blockchain.NewBlockChainByBlockHash(payload.block.Header.PrevBlockHash)
+		chain, err := repository.NewRepositoryByBlockHash(payload.block.Header.PrevBlockHash)
 		if nil != err {
 			payload.block.Header.SigData = make([][]byte, 0)
-			log.Error("get NewBlockChainByHash by hash %x failed with error %s.", payload.block.Header.PrevBlockHash, err)
+			log.Error("get NewRepositoryByHash by hash %x failed with error %s.", payload.block.Header.PrevBlockHash, err)
 			return
 		}
 		payload.block.HeaderHash = common.HeaderHash(payload.block)
@@ -467,10 +467,10 @@ func (instance *bftCore) receiveCommit(commit *messages.Commit) {
 }
 
 func (instance *bftCore) commitBlock(block *types.Block) {
-	chain, err := blockchain.NewBlockChainByBlockHash(block.Header.PrevBlockHash)
+	chain, err := repository.NewRepositoryByBlockHash(block.Header.PrevBlockHash)
 	if nil != err {
 		block.Header.SigData = make([][]byte, 0)
-		log.Error("get NewBlockChainByHash by hash %x failed with error %s.", block.Header.PrevBlockHash, err)
+		log.Error("get NewRepositoryByHash by hash %x failed with error %s.", block.Header.PrevBlockHash, err)
 		return
 	}
 	block.HeaderHash = common.HeaderHash(block)

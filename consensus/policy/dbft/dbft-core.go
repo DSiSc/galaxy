@@ -4,12 +4,12 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"github.com/DSiSc/blockchain"
 	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/galaxy/consensus/common"
 	"github.com/DSiSc/galaxy/consensus/messages"
 	"github.com/DSiSc/galaxy/consensus/utils"
+	"github.com/DSiSc/repository"
 	"github.com/DSiSc/validator/tools/account"
 	"github.com/DSiSc/validator/tools/signature"
 	"github.com/DSiSc/validator/worker"
@@ -248,7 +248,7 @@ func (instance *dbftCore) receiveProposal(proposal *messages.Proposal) {
 		return
 	}
 
-	currentChain, err := blockchain.NewLatestStateBlockChain()
+	currentChain, err := repository.NewLatestStateRepository()
 	if nil != err {
 		log.Error("new latest state block chain failed with error %v.", err)
 		return
@@ -328,9 +328,9 @@ func (instance *dbftCore) receiveProposal(proposal *messages.Proposal) {
 }
 
 func (instance *dbftCore) verifyPayload(payload *types.Block) (types.Receipts, error) {
-	blockStore, err := blockchain.NewBlockChainByBlockHash(payload.Header.PrevBlockHash)
+	blockStore, err := repository.NewRepositoryByBlockHash(payload.Header.PrevBlockHash)
 	if nil != err {
-		log.Error("Get NewBlockChainByBlockHash failed.")
+		log.Error("Get NewRepositoryByBlockHash failed.")
 		return nil, err
 	}
 	worker := worker.NewWorker(blockStore, payload, true)
@@ -509,10 +509,10 @@ func (instance *dbftCore) receiveCommit(commit *messages.Commit) {
 			return
 		}
 		// TODO: verify signature loop
-		chain, err := blockchain.NewBlockChainByBlockHash(payload.block.Header.PrevBlockHash)
+		chain, err := repository.NewRepositoryByBlockHash(payload.block.Header.PrevBlockHash)
 		if nil != err {
 			payload.block.Header.SigData = make([][]byte, 0)
-			log.Error("get NewBlockChainByHash by hash %x failed with error %s.", payload.block.Header.PrevBlockHash, err)
+			log.Error("get NewRepositoryByHash by hash %x failed with error %s.", payload.block.Header.PrevBlockHash, err)
 			return
 		}
 		payload.block.HeaderHash = common.HeaderHash(payload.block)
@@ -530,7 +530,7 @@ func (instance *dbftCore) receiveCommit(commit *messages.Commit) {
 
 func (instance *dbftCore) receiveSyncBlockReq(syncBlockReq *messages.SyncBlockReq) {
 	log.Info("receive sync block request")
-	blockChain, err := blockchain.NewLatestStateBlockChain()
+	blockChain, err := repository.NewLatestStateRepository()
 	if nil != err {
 		panic("new latest state block chain failed.")
 	}
@@ -564,9 +564,9 @@ func (instance *dbftCore) receiveSyncBlockReq(syncBlockReq *messages.SyncBlockRe
 func (instance *dbftCore) receiveSyncBlockResp(syncBlockResp *messages.SyncBlockResp) {
 	log.Info("receive sync block response, try to sync block %v", syncBlockResp.Blocks)
 	for _, block := range syncBlockResp.Blocks {
-		chain, err := blockchain.NewBlockChainByBlockHash(block.Header.PrevBlockHash)
+		chain, err := repository.NewRepositoryByBlockHash(block.Header.PrevBlockHash)
 		if nil != err {
-			log.Error("get NewBlockChainByHash by hash %x failed with error %s.", block.Header.PrevBlockHash, err)
+			log.Error("get NewRepositoryByHash by hash %x failed with error %s.", block.Header.PrevBlockHash, err)
 			return
 		}
 		worker := worker.NewWorker(chain, block, true)
@@ -686,10 +686,10 @@ func (instance *dbftCore) receiveChangeViewReq(viewChangeReq *messages.ViewChang
 }
 
 func (instance *dbftCore) commitBlock(block *types.Block) {
-	chain, err := blockchain.NewBlockChainByBlockHash(block.Header.PrevBlockHash)
+	chain, err := repository.NewRepositoryByBlockHash(block.Header.PrevBlockHash)
 	if nil != err {
 		block.Header.SigData = make([][]byte, 0)
-		log.Error("get NewBlockChainByHash by hash %x failed with error %s.", block.Header.PrevBlockHash, err)
+		log.Error("get NewRepositoryByHash by hash %x failed with error %s.", block.Header.PrevBlockHash, err)
 		return
 	}
 	block.HeaderHash = common.HeaderHash(block)

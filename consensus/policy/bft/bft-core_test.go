@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/DSiSc/blockchain"
 	"github.com/DSiSc/craft/types"
 	commonc "github.com/DSiSc/galaxy/consensus/common"
 	"github.com/DSiSc/galaxy/consensus/messages"
 	"github.com/DSiSc/monkey"
+	"github.com/DSiSc/repository"
 	"github.com/DSiSc/validator/tools/account"
 	"github.com/DSiSc/validator/tools/signature"
 	"github.com/DSiSc/validator/tools/signature/keypair"
@@ -84,8 +84,8 @@ func TestBftCore_ProcessEvent(t *testing.T) {
 	err := bft.ProcessEvent(nil)
 	assert.Equal(t, fmt.Errorf("un support type <nil>"), err)
 
-	var b *blockchain.BlockChain
-	monkey.Patch(blockchain.NewBlockChainByBlockHash, func(types.Hash) (*blockchain.BlockChain, error) {
+	var b *repository.Repository
+	monkey.Patch(repository.NewRepositoryByBlockHash, func(types.Hash) (*repository.Repository, error) {
 		return b, nil
 	})
 	var w *worker.Worker
@@ -184,7 +184,7 @@ func TestBftCore_ProcessEvent(t *testing.T) {
 	monkey.Unpatch(net.DialTCP)
 	monkey.Unpatch(signature.Verify)
 	monkey.UnpatchInstanceMethod(reflect.TypeOf(&c), "Write")
-	monkey.Unpatch(blockchain.NewBlockChainByBlockHash)
+	monkey.Unpatch(repository.NewRepositoryByBlockHash)
 	monkey.UnpatchInstanceMethod(reflect.TypeOf(w), "VerifyBlock")
 }
 
@@ -248,8 +248,8 @@ func TestBftCore_receiveRequest(t *testing.T) {
 
 	request.Payload.Header.SigData = append(request.Payload.Header.SigData, fakeSignature)
 
-	var b *blockchain.BlockChain
-	monkey.Patch(blockchain.NewBlockChainByBlockHash, func(types.Hash) (*blockchain.BlockChain, error) {
+	var b *repository.Repository
+	monkey.Patch(repository.NewRepositoryByBlockHash, func(types.Hash) (*repository.Repository, error) {
 		return b, nil
 	})
 	var w *worker.Worker
@@ -368,7 +368,7 @@ func TestBftCore_receiveProposal(t *testing.T) {
 	}
 	bft.receiveProposal(proposal)
 
-	// verify failed: Get NewBlockChainByBlockHash failed
+	// verify failed: Get NewRepositoryByBlockHash failed
 	bft.local.Extension.Id = mockAccounts[0].Extension.Id + 1
 	monkey.Patch(signature.Verify, func(keypair.PublicKey, []byte) (types.Address, error) {
 		return mockAccounts[1].Address, nil
@@ -378,8 +378,8 @@ func TestBftCore_receiveProposal(t *testing.T) {
 	monkey.Patch(signature.Verify, func(keypair.PublicKey, []byte) (types.Address, error) {
 		return mockAccounts[0].Address, nil
 	})
-	var b *blockchain.BlockChain
-	monkey.Patch(blockchain.NewBlockChainByBlockHash, func(types.Hash) (*blockchain.BlockChain, error) {
+	var b *repository.Repository
+	monkey.Patch(repository.NewRepositoryByBlockHash, func(types.Hash) (*repository.Repository, error) {
 		return b, nil
 	})
 	var w *worker.Worker
@@ -422,7 +422,7 @@ func TestBftCore_receiveProposal(t *testing.T) {
 	bft.receiveProposal(proposal)
 	monkey.Unpatch(net.ResolveTCPAddr)
 	monkey.Unpatch(json.Marshal)
-	monkey.Unpatch(blockchain.NewBlockChainByBlockHash)
+	monkey.Unpatch(repository.NewRepositoryByBlockHash)
 	monkey.Unpatch(signature.Sign)
 	monkey.Unpatch(signature.Verify)
 	monkey.UnpatchInstanceMethod(reflect.TypeOf(w), "VerifyBlock")
@@ -534,17 +534,17 @@ func TestBftCore_ProcessEvent2(t *testing.T) {
 	bft.ProcessEvent(mockCommit)
 	assert.Equal(t, 0, len(bft.validator[mockHash].block.Header.SigData))
 
-	var b *blockchain.BlockChain
-	monkey.Patch(blockchain.NewBlockChainByBlockHash, func(types.Hash) (*blockchain.BlockChain, error) {
+	var b *repository.Repository
+	monkey.Patch(repository.NewRepositoryByBlockHash, func(types.Hash) (*repository.Repository, error) {
 		return b, nil
 	})
-	monkey.PatchInstanceMethod(reflect.TypeOf(b), "WriteBlockWithReceipts", func(*blockchain.BlockChain, *types.Block, []*types.Receipt) error {
+	monkey.PatchInstanceMethod(reflect.TypeOf(b), "WriteBlockWithReceipts", func(*repository.Repository, *types.Block, []*types.Receipt) error {
 		return fmt.Errorf("write failed")
 	})
 	bft.ProcessEvent(mockCommit)
 	assert.Equal(t, 0, len(bft.validator[mockHash].block.Header.SigData))
 
-	monkey.PatchInstanceMethod(reflect.TypeOf(b), "WriteBlockWithReceipts", func(*blockchain.BlockChain, *types.Block, []*types.Receipt) error {
+	monkey.PatchInstanceMethod(reflect.TypeOf(b), "WriteBlockWithReceipts", func(*repository.Repository, *types.Block, []*types.Receipt) error {
 		return nil
 	})
 	bft.ProcessEvent(mockCommit)
