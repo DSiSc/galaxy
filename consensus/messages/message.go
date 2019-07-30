@@ -9,6 +9,8 @@ import (
 	"github.com/DSiSc/validator/tools/account"
 	"io"
 	"net"
+	"sync"
+	"time"
 )
 
 //MessageType is the message type
@@ -139,7 +141,29 @@ func DecodeMessage(MessageType MessageType, rawMsg []byte) (Message, error) {
 	return Message{MessageType: MessageType, PayLoad: payload}, nil
 }
 
+type cachedConnection struct {
+	conn        *net.TCPConn
+	lastUseTime time.Time
+}
+
+var connectionMap sync.Map
+
+const maxCacheTime = 5 * time.Minute
+
 func sendMsgByUrl(url string, msgPayload []byte) error {
+	if val, ok := connectionMap.Load(url); ok {
+		cachedConn := val.(*cachedConnection)
+		_, err := cachedConn.conn.Write(msgPayload)
+		if nil != err {
+			cachedConn.conn.Close()
+			connectionMap.Delete(url)
+			log.Error("cached connection have been closed %v.", err)
+		} else {
+			cachedConn.lastUseTime = time.Now().Add(maxCacheTime)
+			return nil
+		}
+	}
+
 	tcpAddr, err := net.ResolveTCPAddr("tcp4", url)
 	if err != nil {
 		log.Error("resolve tcp address %s occur fatal error: %v", url, err)
@@ -150,10 +174,26 @@ func sendMsgByUrl(url string, msgPayload []byte) error {
 		log.Error("dial tcp with %s occur error: %s", url, err)
 		return err
 	}
-	defer conn.Close()
 	_, err = conn.Write(msgPayload)
 	if nil != err {
+		conn.Close()
 		log.Error("write connection error %v.", err)
+	} else {
+		connectionMap.Store(url, &cachedConnection{
+			conn:        conn,
+			lastUseTime: time.Now().Add(maxCacheTime),
+		})
+
+		// remove time out connection
+		now := time.Now()
+		connectionMap.Range(func(key, value interface{}) bool {
+			cachedConn := value.(*cachedConnection)
+			if now.After(cachedConn.lastUseTime) {
+				cachedConn.conn.Close()
+				connectionMap.Delete(key)
+			}
+			return true
+		})
 	}
 	return err
 }
