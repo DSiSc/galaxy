@@ -94,7 +94,7 @@ func (instance *FBFTPolicy) ToConsensus(p *common.Proposal) error {
 }
 
 func (instance *FBFTPolicy) Halt() {
-	instance.core.Stop()
+	return
 }
 
 func (instance *FBFTPolicy) GetConsensusResult() common.ConsensusResult {

@@ -53,7 +53,6 @@ type fbftCore struct {
 	enableSyncVerifySignature  bool
 	enableLocalVerifySignature bool
 	blockSyncChan              chan blockSyncRequest
-	quitChan                   chan interface{}
 }
 
 func NewFBFTCore(blockSwitch chan<- interface{}, timer config.ConsensusTimeout, emptyBlock bool, signatureVerify config.SignatureVerifySwitch) *fbftCore {
@@ -75,7 +74,6 @@ func NewFBFTCore(blockSwitch chan<- interface{}, timer config.ConsensusTimeout, 
 			timeToChangeViewTime:     timer.TimeoutToChangeView,
 		},
 		blockSyncChan: make(chan blockSyncRequest),
-		quitChan:      make(chan interface{}),
 	}
 }
 
@@ -769,77 +767,64 @@ func (instance *fbftCore) Start() {
 	}
 }
 
-func (instance *fbftCore) Stop() {
-	close(instance.quitChan)
-}
-
 func handleClient(conn net.Conn, bft *fbftCore) {
 	reader := bufio.NewReaderSize(conn, common.MaxBufferLen)
-
-	for {
-		msg, err := messages.ReadMessage(reader)
-		if nil != err {
-			conn.Close()
-			log.Error("read message failed with error %v.", err)
+	msg, err := messages.ReadMessage(reader)
+	if nil != err {
+		conn.Close()
+		log.Error("read message failed with error %v.", err)
+		return
+	}
+	conn.Close()
+	payload := msg.PayLoad
+	switch msg.MessageType {
+	case messages.RequestMessageType:
+		log.Info("receive request message from producer")
+		// TODO: separate producer and master, so client need send request to master
+		request := payload.(*messages.RequestMessage).Request
+		utils.SendEvent(bft, request)
+	case messages.ProposalMessageType:
+		proposal := payload.(*messages.ProposalMessage).Proposal
+		log.Info("receive proposal message form node %d with payload %x.",
+			proposal.Account.Extension.Id, proposal.Payload.Header.MixDigest)
+		utils.SendEvent(bft, proposal)
+	case messages.ResponseMessageType:
+		response := payload.(*messages.ResponseMessage).Response
+		log.Info("receive response message from node %d with payload %x.",
+			response.Account.Extension.Id, response.Digest)
+		if response.Account.Extension.Id == bft.nodes.master.Extension.Id {
+			log.Warn("master will not receive response message from itself.")
 			return
 		}
-		payload := msg.PayLoad
-		switch msg.MessageType {
-		case messages.RequestMessageType:
-			log.Info("receive request message from producer")
-			// TODO: separate producer and master, so client need send request to master
-			request := payload.(*messages.RequestMessage).Request
-			utils.SendEvent(bft, request)
-		case messages.ProposalMessageType:
-			proposal := payload.(*messages.ProposalMessage).Proposal
-			log.Info("receive proposal message form node %d with payload %x.",
-				proposal.Account.Extension.Id, proposal.Payload.Header.MixDigest)
-			utils.SendEvent(bft, proposal)
-		case messages.ResponseMessageType:
-			response := payload.(*messages.ResponseMessage).Response
-			log.Info("receive response message from node %d with payload %x.",
-				response.Account.Extension.Id, response.Digest)
-			if response.Account.Extension.Id == bft.nodes.master.Extension.Id {
-				conn.Close()
-				log.Warn("master will not receive response message from itself.")
-				return
-			}
-			utils.SendEvent(bft, response)
-		case messages.SyncBlockReqMessageType:
-			syncBlock := payload.(*messages.SyncBlockReqMessage).SyncBlockReq
-			log.Info("receive sync block request message from node %d", syncBlock.Account.Extension.Id)
-			utils.SendEvent(bft, syncBlock)
-		case messages.SyncBlockRespMessageType:
-			syncBlock := payload.(*messages.SyncBlockRespMessage).SyncBlockResp
-			log.Info("receive sync blocks response from master.")
-			utils.SendEvent(bft, syncBlock)
-		case messages.CommitMessageType:
-			commit := payload.(*messages.CommitMessage).Commit
-			utils.SendEvent(bft, commit)
-		case messages.ViewChangeMessageReqType:
-			viewChange := payload.(*messages.ViewChangeReqMessage).ViewChange
-			utils.SendEvent(bft, viewChange)
-		case messages.OnlineRequestType:
-			onlineRequest := payload.(*messages.OnlineRequestMessage).OnlineRequest
-			utils.SendEvent(bft, onlineRequest)
-		case messages.OnlineResponseType:
-			onlineResponse := payload.(*messages.OnlineResponseMessage).OnlineResponse
-			utils.SendEvent(bft, onlineResponse)
-		default:
-			if nil == payload {
-				log.Warn("receive handshake, omit it %v.", payload)
-			} else {
-				log.Error("not support type for %v.", payload)
-			}
-		}
-
-		// check whether instance have been closed
-		select {
-		case <-bft.quitChan:
-			return
-		default:
+		utils.SendEvent(bft, response)
+	case messages.SyncBlockReqMessageType:
+		syncBlock := payload.(*messages.SyncBlockReqMessage).SyncBlockReq
+		log.Info("receive sync block request message from node %d", syncBlock.Account.Extension.Id)
+		utils.SendEvent(bft, syncBlock)
+	case messages.SyncBlockRespMessageType:
+		syncBlock := payload.(*messages.SyncBlockRespMessage).SyncBlockResp
+		log.Info("receive sync blocks response from master.")
+		utils.SendEvent(bft, syncBlock)
+	case messages.CommitMessageType:
+		commit := payload.(*messages.CommitMessage).Commit
+		utils.SendEvent(bft, commit)
+	case messages.ViewChangeMessageReqType:
+		viewChange := payload.(*messages.ViewChangeReqMessage).ViewChange
+		utils.SendEvent(bft, viewChange)
+	case messages.OnlineRequestType:
+		onlineRequest := payload.(*messages.OnlineRequestMessage).OnlineRequest
+		utils.SendEvent(bft, onlineRequest)
+	case messages.OnlineResponseType:
+		onlineResponse := payload.(*messages.OnlineResponseMessage).OnlineResponse
+		utils.SendEvent(bft, onlineResponse)
+	default:
+		if nil == payload {
+			log.Warn("receive handshake, omit it %v.", payload)
+		} else {
+			log.Error("not support type for %v.", payload)
 		}
 	}
+	return
 }
 
 // sync block from other nodes
