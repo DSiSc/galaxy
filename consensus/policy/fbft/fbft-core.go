@@ -30,6 +30,8 @@ type coreTimeout struct {
 	timeToChangeViewTimer    *time.Timer
 }
 
+const blockSyncReqCacheLimit = 40
+
 type blockSyncRequest struct {
 	start  uint64
 	end    uint64
@@ -52,7 +54,7 @@ type fbftCore struct {
 	enableEmptyBlock           bool
 	enableSyncVerifySignature  bool
 	enableLocalVerifySignature bool
-	blockSyncChan              chan blockSyncRequest
+	blockSyncChan              chan *blockSyncRequest
 }
 
 func NewFBFTCore(blockSwitch chan<- interface{}, timer config.ConsensusTimeout, emptyBlock bool, signatureVerify config.SignatureVerifySwitch) *fbftCore {
@@ -73,7 +75,7 @@ func NewFBFTCore(blockSwitch chan<- interface{}, timer config.ConsensusTimeout, 
 			timeToWaitCommitMsg:      timer.TimeoutToWaitCommitMsg,
 			timeToChangeViewTime:     timer.TimeoutToChangeView,
 		},
-		blockSyncChan: make(chan blockSyncRequest),
+		blockSyncChan: make(chan *blockSyncRequest, blockSyncReqCacheLimit),
 	}
 }
 
@@ -200,15 +202,15 @@ func (instance *fbftCore) receiveProposal(proposal *messages.Proposal) {
 			instance.coreTimer.timeToChangeViewTimer.Stop()
 		}
 		instance.nodes.master = proposal.Account
-		go func() {
-			log.Warn("now node %d with height %d fall behind with node %d with height %d.",
-				instance.nodes.local.Extension.Id, currentBlockHeight, proposal.Account.Extension.Id, proposal.Payload.Header.Height)
-			instance.blockSyncChan <- blockSyncRequest{
-				currentBlockHeight + 1,
-				proposalBlockHeight,
-				proposal.Account,
-			}
-		}()
+
+		blockSyncReq := &blockSyncRequest{
+			start:  currentBlockHeight + 1,
+			end:    proposalBlockHeight,
+			target: proposal.Account,
+		}
+		log.Info("block height (%d) of the [node-%d] fall behind with the height (%d) of [node-%d]. will sync block from that node", currentBlockHeight,
+			instance.nodes.local.Extension.Id, proposalBlockHeight-1, proposal.Account.Extension.Id)
+		pushOrReplace(instance.blockSyncChan, blockSyncReq)
 		return
 	}
 	// TODO: add view num to determine thr right master
@@ -263,7 +265,7 @@ func (instance *fbftCore) receiveProposal(proposal *messages.Proposal) {
 	messages.Unicast(instance.nodes.master, msgRaw, response.MessageType, response.PayLoad.(*messages.ResponseMessage).Response.Digest)
 }
 
-func (instance *fbftCore) tryToSyncBlock(start uint64, end uint64, target account.Account) {
+func (instance *fbftCore) sendSyncBlockMsg(start uint64, end uint64, target account.Account) {
 	// TODO: sync blocks per block
 	for index := start; index <= end; index++ {
 		syncBlockRequest := messages.Message{
@@ -760,6 +762,7 @@ func (instance *fbftCore) Start() {
 	go instance.blockSyncHandler()
 	for {
 		conn, err := tcpListener.Accept()
+		log.Debug("accept a new connection from %s", conn.RemoteAddr().String())
 		if err != nil {
 			continue
 		}
@@ -777,6 +780,7 @@ func handleClient(conn net.Conn, bft *fbftCore) {
 	}
 	conn.Close()
 	payload := msg.PayLoad
+	log.Debug("receive [%d] message from from %s", msg.MessageType, conn.RemoteAddr().String())
 	switch msg.MessageType {
 	case messages.RequestMessageType:
 		log.Info("receive request message from producer")
@@ -834,36 +838,57 @@ func (instance *fbftCore) blockSyncHandler() {
 	if err != nil {
 		panic(fmt.Sprintf("failed to create blockchain as: %v", err))
 	}
-
-	// subscribe block commit event
-	eventChan := make(chan interface{})
-	instance.eventCenter.Subscribe(types.EventBlockCommitted, func(v interface{}) {
-		eventChan <- v
-	})
-	instance.eventCenter.Subscribe(types.EventBlockCommitFailed, func(v interface{}) {
-		eventChan <- v
-	})
-
 	// start loop to wait for sync request
-	syncTimeOut := time.NewTicker(5 * time.Second)
 	for {
-
 		syncReq := <-instance.blockSyncChan
-		log.Debug("received block sync request with start: %d, end: %d, target: %s.", syncReq.start, syncReq.end, syncReq.target.Extension.Url)
-	OUT:
-		for {
-			currentBlock := bchain.GetCurrentBlock()
-			if currentBlock == nil || currentBlock.Header.Height >= syncReq.end {
-				break
-			}
+		instance.doSyncBlock(bchain, syncReq)
+	}
+}
 
-			currentHeight := currentBlock.Header.Height
-			instance.tryToSyncBlock(currentHeight+1, currentHeight+1, syncReq.target)
-			select {
-			case <-eventChan:
-			case <-syncTimeOut.C:
-				break OUT // encounter an error when sync block from this node. end up syncing
-			}
+func (instance *fbftCore) doSyncBlock(bchain *repository.Repository, syncReq *blockSyncRequest) {
+	// subscribe block commit event
+	syncSuccessChan := make(chan interface{})
+	subscriber := instance.eventCenter.Subscribe(types.EventBlockCommitted, func(v interface{}) {
+		syncSuccessChan <- v
+	})
+	defer instance.eventCenter.UnSubscribe(types.EventBlockCommitted, subscriber)
+
+	// sync timeout ticker
+	syncTimeOut := time.NewTicker(5 * time.Second)
+
+	for {
+		currentBlock := bchain.GetCurrentBlock()
+		if currentBlock == nil || currentBlock.Header.Height >= syncReq.end {
+			return
+		}
+		currentHeight := currentBlock.Header.Height
+		instance.sendSyncBlockMsg(currentHeight+1, currentHeight+1, syncReq.target)
+		select {
+		case <-syncSuccessChan:
+		case <-syncTimeOut.C:
+			return // encounter an error when sync block from this node. end up syncing
+		}
+	}
+}
+
+// push the blockReq into sync queue. if queue is full, replace the oldest sync request
+func pushOrReplace(blockReqChan chan *blockSyncRequest, blockReq *blockSyncRequest) {
+	for {
+		//push the req into queue
+		select {
+		case blockReqChan <- blockReq:
+			return
+		default:
+			log.Debug("block sync queue is full")
+		}
+
+		//drop the first req in sync queue
+		select {
+		case <-blockReqChan:
+			log.Info("drop the oldest req in sync queue")
+			continue
+		default:
+			return
 		}
 	}
 }

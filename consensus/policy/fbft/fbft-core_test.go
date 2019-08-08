@@ -970,3 +970,25 @@ func TestFbftCore_ProcessEvent5(t *testing.T) {
 	err = core.ProcessEvent(proposal)
 	assert.Nil(t, err)
 }
+
+func TestPushOrReplace(t *testing.T) {
+	blockSyncChan := make(chan *blockSyncRequest, 2)
+	blockSyncReq1 := &blockSyncRequest{
+		start: 1,
+	}
+	pushOrReplace(blockSyncChan, blockSyncReq1)
+	req := <-blockSyncChan
+	assert.Equal(t, blockSyncReq1.start, req.start)
+
+	blockSyncReq2 := &blockSyncRequest{
+		start: 2,
+	}
+	blockSyncReq3 := &blockSyncRequest{
+		start: 3,
+	}
+	pushOrReplace(blockSyncChan, blockSyncReq1)
+	pushOrReplace(blockSyncChan, blockSyncReq2)
+	pushOrReplace(blockSyncChan, blockSyncReq3)
+	req = <-blockSyncChan
+	assert.Equal(t, blockSyncReq2.start, req.start)
+}
