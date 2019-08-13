@@ -28,6 +28,7 @@ type coreTimeout struct {
 	timeToWaitCommitMsg      int64
 	timeToChangeViewTime     int64
 	timeToChangeViewTimer    *time.Timer
+	timeToChangeViewStopChan chan struct{}
 }
 
 const blockSyncReqCacheLimit = 40
@@ -74,6 +75,7 @@ func NewFBFTCore(blockSwitch chan<- interface{}, timer config.ConsensusTimeout, 
 			timeToCollectResponseMsg: timer.TimeoutToCollectResponseMsg,
 			timeToWaitCommitMsg:      timer.TimeoutToWaitCommitMsg,
 			timeToChangeViewTime:     timer.TimeoutToChangeView,
+			timeToChangeViewStopChan: make(chan struct{}),
 		},
 		blockSyncChan: make(chan *blockSyncRequest, blockSyncReqCacheLimit),
 	}
@@ -86,9 +88,7 @@ func (instance *fbftCore) receiveRequest(request *messages.Request) {
 		return
 	}
 	log.Info("stop timeout master with view num %d.", instance.viewChange.GetCurrentViewNum())
-	if nil != instance.coreTimer.timeToChangeViewTimer {
-		instance.coreTimer.timeToChangeViewTimer.Stop()
-	}
+	instance.stopChangeViewTimer()
 	signature := request.Payload.Header.SigData
 	if 0 == len(signature) {
 		log.Error("request must have signature from producer.")
@@ -185,9 +185,7 @@ func (instance *fbftCore) waitResponse(digest types.Hash) {
 }
 
 func (instance *fbftCore) receiveProposal(proposal *messages.Proposal) {
-	if nil != instance.coreTimer.timeToChangeViewTimer {
-		instance.coreTimer.timeToChangeViewTimer.Stop()
-	}
+	instance.stopChangeViewTimer()
 	proposalBlockHeight := proposal.Payload.Header.Height
 	blockChain, err := repository.NewLatestStateRepository()
 	if nil != err {
@@ -198,9 +196,7 @@ func (instance *fbftCore) receiveProposal(proposal *messages.Proposal) {
 	if proposalBlockHeight != common.DefaultBlockHeight && currentBlockHeight < proposalBlockHeight-1 {
 		log.Warn("may be master info is wrong, which block height is %d, while received is %d, so change master to %d.",
 			currentBlockHeight, proposalBlockHeight, proposal.Account.Extension.Id)
-		if nil != instance.coreTimer.timeToChangeViewTimer {
-			instance.coreTimer.timeToChangeViewTimer.Stop()
-		}
+		instance.stopChangeViewTimer()
 		instance.nodes.master = proposal.Account
 
 		blockSyncReq := &blockSyncRequest{
@@ -230,6 +226,7 @@ func (instance *fbftCore) receiveProposal(proposal *messages.Proposal) {
 	} else {
 		instance.coreTimer.timeToChangeViewTimer = time.NewTimer(time.Duration(instance.coreTimer.timeToWaitCommitMsg) * time.Millisecond)
 	}
+	go instance.waitMasterTimeout()
 	if !utils.SignatureVerify(instance.nodes.master, proposal.Signature, proposal.Payload.Header.MixDigest) {
 		log.Error("proposal signature not from master, please confirm.")
 		return
@@ -432,9 +429,7 @@ func (instance *fbftCore) sendCommit(commit *messages.Commit, block *types.Block
 
 func (instance *fbftCore) receiveCommit(commit *messages.Commit) {
 	log.Debug("stop timeout master with view num %d.", instance.viewChange.GetCurrentViewNum())
-	if nil != instance.coreTimer.timeToChangeViewTimer {
-		instance.coreTimer.timeToChangeViewTimer.Stop()
-	}
+	instance.stopChangeViewTimer()
 	if !commit.Result {
 		log.Error("receive commit is consensus error.")
 		instance.nodes.master = commit.Account
@@ -490,9 +485,7 @@ func (instance *fbftCore) receiveChangeViewReq(viewChangeReq *messages.ViewChang
 		// viewRequestState = viewRequests.ReceiveViewRequestByAccount(instance.nodes.local)
 	}
 	if viewRequestState == common.ViewEnd {
-		if nil != instance.coreTimer.timeToChangeViewTimer {
-			instance.coreTimer.timeToChangeViewTimer.Stop()
-		}
+		instance.stopChangeViewTimer()
 		nodes = viewRequests.GetReceivedAccounts()
 		instance.viewChange.SetCurrentViewNum(viewChangeReq.ViewNum)
 		instance.nodes.master = utils.GetAccountWithMinId(nodes)
@@ -524,31 +517,44 @@ func (instance *fbftCore) sendChangeViewReq(nodes []account.Account, newView uin
 }
 
 func (instance *fbftCore) waitMasterTimeout() {
-	for {
-		select {
-		case <-instance.coreTimer.timeToChangeViewTimer.C:
-			currentViewNum := instance.viewChange.GetCurrentViewNum()
-			requestViewNum := currentViewNum + 1
-			log.Warn("master timeout, issue change view from %d to %d.", currentViewNum, requestViewNum)
-			viewChangeReqMsg := messages.Message{
-				MessageType: messages.ViewChangeMessageReqType,
-				PayLoad: &messages.ViewChangeReqMessage{
-					ViewChange: &messages.ViewChangeReq{
-						Account:   instance.nodes.local,
-						Nodes:     []account.Account{instance.nodes.local},
-						Timestamp: time.Now().Unix(),
-						ViewNum:   requestViewNum,
-					},
+	select {
+	case <-instance.coreTimer.timeToChangeViewTimer.C:
+		currentViewNum := instance.viewChange.GetCurrentViewNum()
+		requestViewNum := currentViewNum + 1
+		log.Warn("master timeout, issue change view from %d to %d.", currentViewNum, requestViewNum)
+		viewChangeReqMsg := messages.Message{
+			MessageType: messages.ViewChangeMessageReqType,
+			PayLoad: &messages.ViewChangeReqMessage{
+				ViewChange: &messages.ViewChangeReq{
+					Account:   instance.nodes.local,
+					Nodes:     []account.Account{instance.nodes.local},
+					Timestamp: time.Now().Unix(),
+					ViewNum:   requestViewNum,
 				},
-			}
-			msgRaw, err := messages.EncodeMessage(viewChangeReqMsg)
-			if nil != err {
-				log.Error("marshal proposal msg failed with %v.", err)
-				return
-			}
-			messages.BroadcastPeers(msgRaw, viewChangeReqMsg.MessageType, types.Hash{}, instance.nodes.peers)
+			},
+		}
+		msgRaw, err := messages.EncodeMessage(viewChangeReqMsg)
+		if nil != err {
+			log.Error("marshal proposal msg failed with %v.", err)
 			return
 		}
+		messages.BroadcastPeers(msgRaw, viewChangeReqMsg.MessageType, types.Hash{}, instance.nodes.peers)
+		return
+	case <-instance.coreTimer.timeToChangeViewStopChan:
+		log.Info("stop change view timer")
+		return
+	}
+}
+
+// stop the instance change view timer
+func (instance *fbftCore) stopChangeViewTimer() {
+	if nil == instance.coreTimer.timeToChangeViewTimer {
+		return
+	}
+	// send stop signal to stop channel
+	select {
+	case instance.coreTimer.timeToChangeViewStopChan <- struct{}{}:
+	default:
 	}
 }
 
