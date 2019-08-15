@@ -14,6 +14,7 @@ import (
 	"github.com/DSiSc/validator/tools/account"
 	"net"
 	"strconv"
+	"sync/atomic"
 	"time"
 )
 
@@ -29,6 +30,7 @@ type coreTimeout struct {
 	timeToChangeViewTime     int64
 	timeToChangeViewTimer    *time.Timer
 	timeToChangeViewStopChan chan struct{}
+	timerIsRunning           int32
 }
 
 const (
@@ -520,6 +522,12 @@ func (instance *fbftCore) sendChangeViewReq(nodes []account.Account, newView uin
 }
 
 func (instance *fbftCore) waitMasterTimeout() {
+	if !atomic.CompareAndSwapInt32(&instance.coreTimer.timerIsRunning, 0, 1) {
+		log.Warn("a new change view timer have been started")
+		return
+	}
+
+	defer atomic.StoreInt32(&instance.coreTimer.timerIsRunning, 0)
 	select {
 	case <-instance.coreTimer.timeToChangeViewTimer.C:
 		currentViewNum := instance.viewChange.GetCurrentViewNum()
