@@ -31,7 +31,10 @@ type coreTimeout struct {
 	timeToChangeViewStopChan chan struct{}
 }
 
-const blockSyncReqCacheLimit = 40
+const (
+	blockSyncReqCacheLimit = 40
+	connReadTimeOut        = 5
+)
 
 type blockSyncRequest struct {
 	start  uint64
@@ -777,6 +780,7 @@ func (instance *fbftCore) Start() {
 }
 
 func handleClient(conn net.Conn, bft *fbftCore) {
+	conn.SetReadDeadline(time.Now().Add(time.Second * time.Duration(connReadTimeOut)))
 	reader := bufio.NewReaderSize(conn, common.MaxBufferLen)
 	msg, err := messages.ReadMessage(reader)
 	if nil != err {

@@ -9,6 +9,7 @@ import (
 	"github.com/DSiSc/validator/tools/account"
 	"io"
 	"net"
+	"time"
 )
 
 //MessageType is the message type
@@ -26,6 +27,8 @@ const (
 	OnlineRequestType                            // 8, node online request
 	OnlineResponseType                           // 9, response for node online request
 )
+
+const connWriteTimeOut = 5
 
 type Message struct {
 	MessageType MessageType
@@ -151,6 +154,7 @@ func sendMsgByUrl(url string, msgPayload []byte) error {
 		return err
 	}
 	defer conn.Close()
+	conn.SetWriteDeadline(time.Now().Add(time.Second * time.Duration(connWriteTimeOut)))
 	_, err = conn.Write(msgPayload)
 	if nil != err {
 		log.Error("write connection error %v.", err)
