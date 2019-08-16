@@ -408,6 +408,7 @@ func (instance *fbftCore) tryToCommit(block *types.Block, result bool) {
 }
 
 func (instance *fbftCore) sendCommit(commit *messages.Commit, block *types.Block) {
+	defer instance.consensusPlugin.Remove(block.Header.MixDigest)
 	committed := messages.Message{
 		MessageType: messages.CommitMessageType,
 		PayLoad: &messages.CommitMessage{
@@ -432,6 +433,7 @@ func (instance *fbftCore) sendCommit(commit *messages.Commit, block *types.Block
 
 func (instance *fbftCore) receiveCommit(commit *messages.Commit) {
 	log.Debug("stop timeout master with view num %d.", instance.viewChange.GetCurrentViewNum())
+	defer instance.consensusPlugin.Remove(commit.Digest)
 	instance.stopChangeViewTimer()
 	if !commit.Result {
 		log.Error("receive commit is consensus error.")
@@ -457,7 +459,6 @@ func (instance *fbftCore) receiveCommit(commit *messages.Commit) {
 }
 
 func (instance *fbftCore) commitBlock(block *types.Block) {
-	instance.consensusPlugin.Remove(block.Header.MixDigest)
 	if !instance.enableEmptyBlock && 0 == len(block.Transactions) {
 		log.Warn("block without transaction.")
 		instance.eventCenter.Notify(types.EventBlockWithoutTxs, nil)
