@@ -105,21 +105,45 @@ func NewConsensusPlugin() *ConsensusPlugin {
 	}
 }
 
+const maxPayloadCacheNum = 10
+
 func (instance *ConsensusPlugin) Add(digest types.Hash, payload interface{}) *Content {
 	instance.mutex.Lock()
 	defer instance.mutex.Unlock()
+
+	// delete unused cache
+	block := payload.(*types.Block)
+	for key, val := range instance.content {
+		valBlock := val.payload.(*types.Block)
+		if valBlock.Header.Height == block.Header.Height || valBlock.Header.Height < block.Header.Height-maxPayloadCacheNum {
+			delete(instance.content, key)
+		}
+	}
+
 	if _, ok := instance.content[digest]; !ok {
 		log.Info("add content %x to map to prepare consensus process.", digest)
 		instance.content[digest] = newContent(digest, payload)
 		return instance.content[digest]
 	}
+
 	log.Warn("content %x has exist, please confirm.", digest)
 	return instance.content[digest]
 }
 
 func (instance *ConsensusPlugin) Remove(digest types.Hash) {
 	instance.mutex.Lock()
-	delete(instance.content, digest)
+	cachedContent := instance.content[digest]
+	if cachedContent == nil {
+		return
+	}
+
+	cachedBlock := cachedContent.payload.(*types.Block)
+	for key, val := range instance.content {
+		valBlock := val.payload.(*types.Block)
+		if valBlock.Header.Height <= cachedBlock.Header.Height {
+			delete(instance.content, key)
+		}
+	}
 	instance.mutex.Unlock()
 }
 
