@@ -165,7 +165,11 @@ func (instance *fbftCore) waitResponse(digest types.Hash) {
 				Signatures: signatures,
 				Result:     err,
 			}
-			instance.result <- consensusResult
+			select {
+			case instance.result <- consensusResult:
+			default:
+				log.Error("block to consensus have time out, will ignore this response")
+			}
 			return
 		case signal := <-instance.signal:
 			log.Debug("receive signal of %v.", signal)
@@ -179,7 +183,11 @@ func (instance *fbftCore) waitResponse(digest types.Hash) {
 					Signatures: signatures,
 					Result:     err,
 				}
-				instance.result <- consensusResult
+				select {
+				case instance.result <- consensusResult:
+				default:
+					log.Error("block to consensus have time out, will ignore this response")
+				}
 				timeToCollectResponseMsg.Stop()
 				log.Info("receive satisfied responses before overtime")
 				return
