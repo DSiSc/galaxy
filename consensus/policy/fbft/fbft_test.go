@@ -134,6 +134,7 @@ func TestFBFTPolicy_ToConsensus(t *testing.T) {
 	var timeout1 = consensusConfig.ConsensusTimeout{
 		TimeoutToChangeView:         int64(1000),
 		TimeoutToCollectResponseMsg: int64(1000),
+		TimeoutToWaitCommitMsg:      int64(1000),
 	}
 	fbft, err := NewFBFTPolicy(timeout1, nil, true, MockSignatureVerifySwitch)
 	assert.NotNil(t, fbft)
