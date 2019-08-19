@@ -859,7 +859,11 @@ func (instance *fbftCore) doSyncBlock(bchain *repository.Repository, syncReq *bl
 	// subscribe block commit event
 	syncSuccessChan := make(chan interface{})
 	subscriber := instance.eventCenter.Subscribe(types.EventBlockCommitted, func(v interface{}) {
-		syncSuccessChan <- v
+		select {
+		case syncSuccessChan <- v:
+		default:
+			log.Info("block sync process is running, will ignore this block commit event and continue previous sync process")
+		}
 	})
 	defer instance.eventCenter.UnSubscribe(types.EventBlockCommitted, subscriber)
 
