@@ -555,7 +555,17 @@ func TestFbftCore_receiveResponse(t *testing.T) {
 	})
 	go fbft.waitResponse(mockHash)
 	fbft.receiveResponse(response)
-	ch := <-fbft.result
+
+	resultChan := make(chan messages.ConsensusResult)
+	go func() {
+		for {
+			result := <-fbft.result
+			go func() {
+				resultChan <- result
+			}()
+		}
+	}()
+	ch := <-resultChan
 	assert.Equal(t, 2, len(ch.Signatures))
 	assert.NotNil(t, ch.Result)
 	assert.Equal(t, fmt.Errorf("signature not satisfy"), ch.Result)
@@ -570,7 +580,7 @@ func TestFbftCore_receiveResponse(t *testing.T) {
 	content.SetState(common.InConsensus)
 	go fbft.waitResponse(mockHash)
 	fbft.receiveResponse(response)
-	ch = <-fbft.result
+	ch = <-resultChan
 	assert.Equal(t, len(mockSignset[:3]), len(ch.Signatures))
 	assert.Nil(t, ch.Result)
 	assert.Equal(t, common.ToConsensus, content.State())

@@ -35,7 +35,7 @@ type coreTimeout struct {
 
 const (
 	blockSyncReqCacheLimit = 40
-	connReadTimeOut        = 5
+	connReadTimeOut        = 60
 )
 
 type blockSyncRequest struct {
@@ -61,7 +61,6 @@ type fbftCore struct {
 	enableSyncVerifySignature  bool
 	enableLocalVerifySignature bool
 	blockSyncChan              chan *blockSyncRequest
-	requestProcessSignal       int32
 }
 
 func NewFBFTCore(blockSwitch chan<- interface{}, timer config.ConsensusTimeout, emptyBlock bool, signatureVerify config.SignatureVerifySwitch) *fbftCore {
@@ -83,8 +82,7 @@ func NewFBFTCore(blockSwitch chan<- interface{}, timer config.ConsensusTimeout, 
 			timeToChangeViewTime:     timer.TimeoutToChangeView,
 			timeToChangeViewStopChan: make(chan struct{}),
 		},
-		blockSyncChan:        make(chan *blockSyncRequest, blockSyncReqCacheLimit),
-		requestProcessSignal: 0,
+		blockSyncChan: make(chan *blockSyncRequest, blockSyncReqCacheLimit),
 	}
 }
 
@@ -94,12 +92,6 @@ func (instance *fbftCore) receiveRequest(request *messages.Request) {
 		log.Warn("only master process request.")
 		return
 	}
-
-	// check whether previous request has been processed
-	if !atomic.CompareAndSwapInt32(&instance.requestProcessSignal, 0, 1) {
-		log.Error("previous request is being processed, ignore this request")
-	}
-	defer atomic.StoreInt32(&instance.requestProcessSignal, 0)
 
 	log.Info("stop timeout master with view num %d.", instance.viewChange.GetCurrentViewNum())
 	instance.stopChangeViewTimer()
@@ -507,6 +499,8 @@ func (instance *fbftCore) receiveChangeViewReq(viewChangeReq *messages.ViewChang
 		// viewRequestState = viewRequests.ReceiveViewRequestByAccount(instance.nodes.local)
 	}
 	if viewRequestState == common.ViewEnd {
+		instance.viewChange.RemoveRequest(viewChangeReq.ViewNum) // remove unused view change request
+
 		instance.stopChangeViewTimer()
 		nodes = viewRequests.GetReceivedAccounts()
 		instance.viewChange.SetCurrentViewNum(viewChangeReq.ViewNum)

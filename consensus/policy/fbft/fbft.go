@@ -41,10 +41,12 @@ func (instance *FBFTPolicy) Initialization(local account.Account, master account
 	instance.core.tolerance = uint8((len(peers) - 1) / 3)
 	log.Debug("start timeout master with view num %d.", instance.core.viewChange.GetCurrentViewNum())
 	if !onLine {
+		// check whether previous request has been processed
 		if val := atomic.LoadInt32(&instance.core.coreTimer.timerIsRunning); val != 0 {
 			log.Warn("previous change view timer is running, skip this round timer")
 			return
 		}
+
 		if nil != instance.core.coreTimer.timeToChangeViewTimer {
 			instance.core.coreTimer.timeToChangeViewTimer.Reset(time.Duration(instance.timeout.TimeoutToChangeView) * time.Millisecond)
 		} else {
@@ -76,7 +78,8 @@ func (instance *FBFTPolicy) ToConsensus(p *common.Proposal) error {
 		Payload:   p.Block,
 	}
 	timeToCollectResponseMsg := time.NewTimer(time.Duration(instance.timeout.TimeoutToCollectResponseMsg) * time.Millisecond)
-	go utils.SendEvent(instance.core, request)
+
+	utils.SendEvent(instance.core, request)
 	select {
 	case consensusResult := <-instance.core.result:
 		if nil != consensusResult.Result {

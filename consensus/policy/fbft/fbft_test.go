@@ -152,7 +152,9 @@ func TestFBFTPolicy_ToConsensus(t *testing.T) {
 	})
 	fbft.core.eventCenter = event
 	monkey.Patch(utils.SendEvent, func(utils.Receiver, utils.Event) {
-		fbft.core.result <- mockConsensusResult
+		go func() {
+			fbft.core.result <- mockConsensusResult
+		}()
 	})
 	monkey.Patch(messages.BroadcastPeersFilter, func([]byte, messages.MessageType, types.Hash, []account.Account, account.Account) {
 		return
