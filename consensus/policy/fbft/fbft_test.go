@@ -153,7 +153,9 @@ func TestFBFTPolicy_ToConsensus(t *testing.T) {
 	})
 	fbft.core.eventCenter = event
 	monkey.Patch(utils.SendEvent, func(utils.Receiver, utils.Event) {
-		fbft.core.result <- mockConsensusResult
+		go func() {
+			fbft.core.result <- mockConsensusResult
+		}()
 	})
 	monkey.Patch(messages.BroadcastPeersFilter, func([]byte, messages.MessageType, types.Hash, []account.Account, account.Account) {
 		return
@@ -226,6 +228,7 @@ func TestFBFTPolicy_ToConsensus1(t *testing.T) {
 	var timeout1 = consensusConfig.ConsensusTimeout{
 		TimeoutToChangeView:         int64(1000),
 		TimeoutToCollectResponseMsg: int64(1000),
+		TimeoutToWaitCommitMsg:      int64(1000),
 	}
 	blockSwitch := make(chan interface{})
 	fbft, err := NewFBFTPolicy(timeout1, blockSwitch, true, MockSignatureVerifySwitch)

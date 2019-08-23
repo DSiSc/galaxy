@@ -70,8 +70,8 @@ func (instance *FBFTPolicy) ToConsensus(p *common.Proposal) error {
 		Timestamp: p.Timestamp,
 		Payload:   p.Block,
 	}
-	timeToCollectResponseMsg := time.NewTimer(time.Duration(instance.timeout.TimeoutToCollectResponseMsg) * time.Millisecond)
-	go utils.SendEvent(instance.core, request)
+	timeToCollectResponseMsg := time.NewTimer(time.Duration(instance.timeout.TimeoutToWaitCommitMsg) * time.Millisecond)
+	utils.SendEvent(instance.core, request)
 	select {
 	case consensusResult := <-instance.core.result:
 		if nil != consensusResult.Result {
