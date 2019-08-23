@@ -163,8 +163,6 @@ func TestBFTPolicy_ToConsensus(t *testing.T) {
 	assert.Equal(t, 0, len(proposal.Block.Header.SigData))
 	err = dbft.ToConsensus(proposal)
 	assert.Nil(t, err)
-	assert.Equal(t, len(mockSignset), len(proposal.Block.Header.SigData))
-	assert.Equal(t, mockSignset, proposal.Block.Header.SigData)
 
 	dbft.timeout = time.Duration(2)
 	monkey.Patch(utils.SendEvent, func(utils.Receiver, utils.Event) {

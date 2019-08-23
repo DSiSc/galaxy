@@ -489,7 +489,7 @@ func (instance *fbftCore) receiveChangeViewReq(viewChangeReq *messages.ViewChang
 		// viewRequestState = viewRequests.ReceiveViewRequestByAccount(instance.nodes.local)
 	}
 	if viewRequestState == common.ViewEnd {
-		instance.viewChange.RemoveRequest(currentViewNum)
+		instance.viewChange.RemoveRequest()
 		instance.stopChangeViewTimer()
 		nodes = viewRequests.GetReceivedAccounts()
 		instance.viewChange.SetCurrentViewNum(viewChangeReq.ViewNum)

@@ -60,7 +60,7 @@ func TestViewChange_AddViewRequest(t *testing.T) {
 	assert.NotNil(t, viewRequest)
 	assert.Equal(t, ViewEnd, viewRequest.state)
 	assert.Equal(t, 2, len(viewRequest.GetReceivedAccounts()))
-	viewChange.RemoveRequest(mockViewNum)
+	viewChange.RemoveRequest()
 	viewRequest = viewChange.GetRequestByViewNum(mockViewNum)
 	assert.Nil(t, viewRequest)
 }
