@@ -33,7 +33,7 @@ type coreTimeout struct {
 
 const (
 	blockSyncReqCacheLimit = 40
-	connReadTimeOut        = 5
+	connReadTimeOut        = 60
 )
 
 type blockSyncRequest struct {
@@ -489,6 +489,7 @@ func (instance *fbftCore) receiveChangeViewReq(viewChangeReq *messages.ViewChang
 		// viewRequestState = viewRequests.ReceiveViewRequestByAccount(instance.nodes.local)
 	}
 	if viewRequestState == common.ViewEnd {
+		instance.viewChange.RemoveRequest(currentViewNum)
 		instance.stopChangeViewTimer()
 		nodes = viewRequests.GetReceivedAccounts()
 		instance.viewChange.SetCurrentViewNum(viewChangeReq.ViewNum)
