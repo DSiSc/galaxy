@@ -76,12 +76,14 @@ func (instance *ViewChange) AddViewRequest(viewNum uint64, toChange uint8) (*Vie
 	return instance.viewRequests[viewNum], nil
 }
 
-func (instance *ViewChange) RemoveRequest(viewNum uint64) {
+func (instance *ViewChange) RemoveRequest() {
 	instance.lock.Lock()
 	defer instance.lock.Unlock()
-	if _, ok := instance.viewRequests[viewNum]; ok {
-		log.Info("remove view change %d.", viewNum)
-		delete(instance.viewRequests, viewNum)
+	for key, val := range instance.viewRequests {
+		if val.state == ViewEnd {
+			log.Info("remove view change %d.", val.toChange)
+			delete(instance.viewRequests, key)
+		}
 	}
 	return
 }
