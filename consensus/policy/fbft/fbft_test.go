@@ -109,9 +109,10 @@ func TestFBFTPolicy_Initialization(t *testing.T) {
 	assert.Nil(t, err)
 
 	fbft.Initialization(mockAccounts[3], mockAccounts[3], mockAccounts, nil, false)
-	assert.Equal(t, fbft.core.nodes.peers, mockAccounts)
-	assert.Equal(t, fbft.core.tolerance, uint8((len(mockAccounts)-1)/3))
-	assert.Equal(t, fbft.core.nodes.master, mockAccounts[3])
+	nodes := fbft.core.nodes.Load().(*nodesInfo)
+	assert.Equal(t, nodes.peers, mockAccounts)
+	assert.Equal(t, fbft.core.tolerance.Load().(uint8), uint8((len(mockAccounts)-1)/3))
+	assert.Equal(t, nodes.master, mockAccounts[3])
 }
 
 func TestFBFTPolicy_Start(t *testing.T) {
@@ -140,10 +141,10 @@ func TestFBFTPolicy_ToConsensus(t *testing.T) {
 	assert.NotNil(t, fbft)
 	assert.Nil(t, err)
 	fbft.local = mockAccounts[0]
-	fbft.core.nodes = &nodesInfo{
+	fbft.core.nodes.Store(&nodesInfo{
 		local: mockAccounts[0],
 		peers: mockAccounts,
-	}
+	})
 	var mockBlockSwitch = make(chan interface{})
 	fbft.core.blockSwitch = mockBlockSwitch
 	event := NewEvent()
@@ -206,11 +207,11 @@ var MockHash = types.Hash{
 func TestFBFTPolicy_GetConsensusResult(t *testing.T) {
 	fbft, err := NewFBFTPolicy(timeout, nil, true, MockSignatureVerifySwitch)
 	assert.Nil(t, err)
-	fbft.core.nodes = &nodesInfo{
+	fbft.core.nodes.Store(&nodesInfo{
 		local:  mockAccounts[0],
 		master: mockAccounts[1],
 		peers:  mockAccounts,
-	}
+	})
 	result := fbft.GetConsensusResult()
 	assert.Equal(t, uint64(0), result.View)
 	assert.Equal(t, result.Master, result.Master)
@@ -233,9 +234,9 @@ func TestFBFTPolicy_ToConsensus1(t *testing.T) {
 	blockSwitch := make(chan interface{})
 	fbft, err := NewFBFTPolicy(timeout1, blockSwitch, true, MockSignatureVerifySwitch)
 	fbft.local = mockAccounts[0]
-	fbft.core.nodes = &nodesInfo{
+	fbft.core.nodes.Store(&nodesInfo{
 		local: mockAccounts[0],
-	}
+	})
 	assert.Nil(t, err)
 	event := NewEvent()
 	event.Subscribe(types.EventConsensusFailed, func(v interface{}) {
@@ -283,9 +284,9 @@ func TestFBFTPolicy_Online(t *testing.T) {
 	})
 	fbft, err := NewFBFTPolicy(timeout1, nil, true, MockSignatureVerifySwitch)
 	fbft.local = mockAccounts[0]
-	fbft.core.nodes = &nodesInfo{
+	fbft.core.nodes.Store(&nodesInfo{
 		local: mockAccounts[0],
-	}
+	})
 	assert.Nil(t, err)
 	var b *repository.Repository
 	monkey.Patch(repository.NewLatestStateRepository, func() (*repository.Repository, error) {

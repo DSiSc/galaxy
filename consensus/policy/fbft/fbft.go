@@ -31,21 +31,16 @@ func NewFBFTPolicy(timeout config.ConsensusTimeout, blockSwitch chan<- interface
 
 func (instance *FBFTPolicy) Initialization(local account.Account, master account.Account, peers []account.Account, events types.EventCenter, onLine bool) {
 	instance.local = local
-	instance.core.nodes = &nodesInfo{
+	instance.core.nodes.Store(&nodesInfo{
 		local:  local,
 		master: master,
 		peers:  peers,
-	}
+	})
 	instance.core.eventCenter = events
-	instance.core.tolerance = uint8((len(peers) - 1) / 3)
+	instance.core.tolerance.Store(uint8((len(peers) - 1) / 3))
 	log.Debug("start timeout master with view num %d.", instance.core.viewChange.GetCurrentViewNum())
 	if !onLine {
-		if nil != instance.core.coreTimer.timeToChangeViewTimer {
-			instance.core.coreTimer.timeToChangeViewTimer.Reset(time.Duration(instance.timeout.TimeoutToChangeView) * time.Millisecond)
-		} else {
-			instance.core.coreTimer.timeToChangeViewTimer = time.NewTimer(time.Duration(instance.timeout.TimeoutToChangeView) * time.Millisecond)
-		}
-		go instance.core.waitMasterTimeout()
+		go instance.core.waitMasterTimeout(time.Duration(instance.timeout.TimeoutToChangeView) * time.Millisecond)
 	}
 }
 
@@ -55,7 +50,11 @@ func (instance *FBFTPolicy) PolicyName() string {
 
 func (instance *FBFTPolicy) Prepare(account account.Account) {
 	instance.local = account
-	instance.core.nodes.local = account
+
+	originNodes := instance.core.nodes.Load().(*nodesInfo)
+	newNodes := originNodes.clone()
+	newNodes.local = account
+	instance.core.nodes.Store(newNodes)
 }
 
 func (instance *FBFTPolicy) Start() {
@@ -98,11 +97,12 @@ func (instance *FBFTPolicy) Halt() {
 }
 
 func (instance *FBFTPolicy) GetConsensusResult() common.ConsensusResult {
-	log.Debug("now local is %d.", instance.core.nodes.local.Extension.Id)
+	nodes := instance.core.nodes.Load().(*nodesInfo)
+	log.Debug("now local is %d.", nodes.local.Extension.Id)
 	return common.ConsensusResult{
 		View:        instance.core.viewChange.GetCurrentViewNum(),
-		Participate: instance.core.nodes.peers,
-		Master:      instance.core.nodes.master,
+		Participate: nodes.peers,
+		Master:      nodes.master,
 	}
 }
 

@@ -14,6 +14,7 @@ import (
 	"github.com/DSiSc/validator/tools/account"
 	"net"
 	"strconv"
+	"sync/atomic"
 	"time"
 )
 
@@ -23,11 +24,27 @@ type nodesInfo struct {
 	peers  []account.Account
 }
 
+func newNodesInfo(local account.Account, master account.Account, peers []account.Account) *nodesInfo {
+	return &nodesInfo{
+		local:  local,
+		master: master,
+		peers:  peers,
+	}
+}
+
+func (self *nodesInfo) clone() *nodesInfo {
+	info := &nodesInfo{
+		local:  self.local,
+		master: self.master,
+		peers:  self.peers,
+	}
+	return info
+}
+
 type coreTimeout struct {
 	timeToCollectResponseMsg int64
 	timeToWaitCommitMsg      int64
 	timeToChangeViewTime     int64
-	timeToChangeViewTimer    *time.Timer
 	timeToChangeViewStopChan chan struct{}
 }
 
@@ -43,8 +60,8 @@ type blockSyncRequest struct {
 }
 
 type fbftCore struct {
-	nodes                      *nodesInfo
-	tolerance                  uint8
+	nodes                      atomic.Value
+	tolerance                  atomic.Value
 	status                     common.ViewStatus
 	coreTimer                  coreTimeout
 	result                     chan messages.ConsensusResult
@@ -62,7 +79,7 @@ type fbftCore struct {
 }
 
 func NewFBFTCore(blockSwitch chan<- interface{}, timer config.ConsensusTimeout, emptyBlock bool, signatureVerify config.SignatureVerifySwitch) *fbftCore {
-	return &fbftCore{
+	instance := &fbftCore{
 		enableEmptyBlock: emptyBlock,
 		blockSwitch:      blockSwitch,
 		status:           common.ViewNormal,
@@ -82,10 +99,13 @@ func NewFBFTCore(blockSwitch chan<- interface{}, timer config.ConsensusTimeout, 
 		},
 		blockSyncChan: make(chan *blockSyncRequest, blockSyncReqCacheLimit),
 	}
+	instance.tolerance.Store(uint8(0))
+	return instance
 }
 
 func (instance *fbftCore) receiveRequest(request *messages.Request) {
-	isMaster := instance.nodes.local == instance.nodes.master
+	nodes := instance.nodes.Load().(*nodesInfo)
+	isMaster := nodes.local == nodes.master
 	if !isMaster {
 		log.Warn("only master process request.")
 		return
@@ -97,8 +117,8 @@ func (instance *fbftCore) receiveRequest(request *messages.Request) {
 		log.Error("request must have signature from producer.")
 		return
 	}
-	if request.Account.Address != instance.nodes.local.Address {
-		log.Info("request from %x, not from %x.", request.Account.Address, instance.nodes.master.Address)
+	if request.Account.Address != nodes.local.Address {
+		log.Info("request from %x, not from %x.", request.Account.Address, nodes.master.Address)
 		_, err := utils.VerifyPayload(request.Payload, instance.enableLocalVerifySignature)
 		if nil != err {
 			log.Error("proposal verified failed with error %v.", err)
@@ -106,14 +126,14 @@ func (instance *fbftCore) receiveRequest(request *messages.Request) {
 		}
 	}
 	content := instance.consensusPlugin.Add(request.Payload.Header.MixDigest, request.Payload)
-	signData, err := utils.SignPayload(instance.nodes.local, request.Payload.Header.MixDigest)
+	signData, err := utils.SignPayload(nodes.local, request.Payload.Header.MixDigest)
 	if nil != err {
 		log.Error("archive proposal signature failed with error %v.", err)
 		return
 	}
-	if !content.AddSignature(instance.nodes.local, signData) {
+	if !content.AddSignature(nodes.local, signData) {
 		log.Error("add signature to digest %v by account %d failed.",
-			request.Payload.Header.MixDigest, instance.nodes.local.Extension.Id)
+			request.Payload.Header.MixDigest, nodes.local.Extension.Id)
 		return
 	}
 	err = content.SetState(common.InConsensus)
@@ -125,7 +145,7 @@ func (instance *fbftCore) receiveRequest(request *messages.Request) {
 		MessageType: messages.ProposalMessageType,
 		PayLoad: &messages.ProposalMessage{
 			Proposal: &messages.Proposal{
-				Account:   instance.nodes.local,
+				Account:   nodes.local,
 				Timestamp: request.Timestamp,
 				Payload:   request.Payload,
 				Signature: signData,
@@ -137,7 +157,7 @@ func (instance *fbftCore) receiveRequest(request *messages.Request) {
 		log.Error("marshal proposal msg failed with %v.", err)
 		return
 	}
-	messages.BroadcastPeersFilter(rawData, proposal.MessageType, request.Payload.Header.MixDigest, instance.nodes.peers, instance.nodes.local)
+	messages.BroadcastPeersFilter(rawData, proposal.MessageType, request.Payload.Header.MixDigest, nodes.peers, nodes.local)
 	go instance.waitResponse(request.Payload.Header.MixDigest)
 }
 
@@ -188,6 +208,7 @@ func (instance *fbftCore) waitResponse(digest types.Hash) {
 }
 
 func (instance *fbftCore) receiveProposal(proposal *messages.Proposal) {
+	nodes := instance.nodes.Load().(*nodesInfo)
 	instance.stopChangeViewTimer()
 	proposalBlockHeight := proposal.Payload.Header.Height
 	blockChain, err := repository.NewLatestStateRepository()
@@ -200,7 +221,10 @@ func (instance *fbftCore) receiveProposal(proposal *messages.Proposal) {
 		log.Warn("may be master info is wrong, which block height is %d, while received is %d, so change master to %d.",
 			currentBlockHeight, proposalBlockHeight, proposal.Account.Extension.Id)
 		instance.stopChangeViewTimer()
-		instance.nodes.master = proposal.Account
+
+		newNodes := nodes.clone()
+		newNodes.master = proposal.Account
+		instance.nodes.Store(newNodes)
 
 		blockSyncReq := &blockSyncRequest{
 			start:  currentBlockHeight + 1,
@@ -208,29 +232,24 @@ func (instance *fbftCore) receiveProposal(proposal *messages.Proposal) {
 			target: proposal.Account,
 		}
 		log.Info("block height (%d) of the [node-%d] fall behind with the height (%d) of [node-%d]. will sync block from that node", currentBlockHeight,
-			instance.nodes.local.Extension.Id, proposalBlockHeight-1, proposal.Account.Extension.Id)
+			newNodes.local.Extension.Id, proposalBlockHeight-1, proposal.Account.Extension.Id)
 		pushOrReplace(instance.blockSyncChan, blockSyncReq)
 		return
 	}
 	// TODO: add view num to determine thr right master
-	if instance.nodes.master != proposal.Account {
+	if nodes.master != proposal.Account {
 		log.Error("proposal must from master %d, while it from %d in fact.",
-			instance.nodes.master.Extension.Id, proposal.Account.Extension.Id)
+			nodes.master.Extension.Id, proposal.Account.Extension.Id)
 		return
 	}
 	// after sync, if master still not in inconsistent, try to change view
-	isMaster := instance.nodes.local == instance.nodes.master
+	isMaster := nodes.local == nodes.master
 	if isMaster {
 		log.Error("master will not receive proposal form itself %d.", proposal.Account.Extension.Id)
 		return
 	}
-	if nil != instance.coreTimer.timeToChangeViewTimer {
-		instance.coreTimer.timeToChangeViewTimer.Reset(time.Duration(instance.coreTimer.timeToWaitCommitMsg) * time.Millisecond)
-	} else {
-		instance.coreTimer.timeToChangeViewTimer = time.NewTimer(time.Duration(instance.coreTimer.timeToWaitCommitMsg) * time.Millisecond)
-	}
-	go instance.waitMasterTimeout()
-	if !utils.SignatureVerify(instance.nodes.master, proposal.Signature, proposal.Payload.Header.MixDigest) {
+	go instance.waitMasterTimeout(time.Duration(instance.coreTimer.timeToWaitCommitMsg) * time.Millisecond)
+	if !utils.SignatureVerify(nodes.master, proposal.Signature, proposal.Payload.Header.MixDigest) {
 		log.Error("proposal signature not from master, please confirm.")
 		return
 	}
@@ -240,7 +259,7 @@ func (instance *fbftCore) receiveProposal(proposal *messages.Proposal) {
 		log.Error("proposal verified failed with error %v.", err)
 		return
 	}
-	signData, err := utils.SignPayload(instance.nodes.local, proposal.Payload.Header.MixDigest)
+	signData, err := utils.SignPayload(nodes.local, proposal.Payload.Header.MixDigest)
 	if nil != err {
 		log.Error("archive proposal signature failed with error %v.", err)
 		return
@@ -249,7 +268,7 @@ func (instance *fbftCore) receiveProposal(proposal *messages.Proposal) {
 		MessageType: messages.ResponseMessageType,
 		PayLoad: &messages.ResponseMessage{
 			Response: &messages.Response{
-				Account:     instance.nodes.local,
+				Account:     nodes.local,
 				Timestamp:   proposal.Timestamp,
 				Digest:      proposal.Payload.Header.MixDigest,
 				Signature:   signData,
@@ -262,17 +281,18 @@ func (instance *fbftCore) receiveProposal(proposal *messages.Proposal) {
 		log.Error("encode proposal msg failed with %v.", err)
 		return
 	}
-	messages.Unicast(instance.nodes.master, msgRaw, response.MessageType, response.PayLoad.(*messages.ResponseMessage).Response.Digest)
+	messages.Unicast(nodes.master, msgRaw, response.MessageType, response.PayLoad.(*messages.ResponseMessage).Response.Digest)
 }
 
 func (instance *fbftCore) sendSyncBlockMsg(start uint64, end uint64, target account.Account) {
+	nodes := instance.nodes.Load().(*nodesInfo)
 	// TODO: sync blocks per block
 	for index := start; index <= end; index++ {
 		syncBlockRequest := messages.Message{
 			MessageType: messages.SyncBlockReqMessageType,
 			PayLoad: &messages.SyncBlockReqMessage{
 				SyncBlockReq: &messages.SyncBlockReq{
-					Account:    instance.nodes.local,
+					Account:    nodes.local,
 					Timestamp:  time.Now().Unix(),
 					BlockStart: index,
 					BlockEnd:   index,
@@ -343,21 +363,23 @@ func (instance *fbftCore) receiveSyncBlockResponse(response *messages.SyncBlockR
 }
 
 func (instance *fbftCore) maybeCommit(digest types.Hash) ([][]byte, error) {
+	nodes := instance.nodes.Load().(*nodesInfo)
 	content, err := instance.consensusPlugin.GetContentByHash(digest)
 	if nil != err {
 		log.Error("get content of %v failed with %v.", digest, err)
 		return make([][]byte, 0), fmt.Errorf("get content of %v failed with %v", digest, err)
 	}
 	signatures := content.Signatures()
-	if uint8(len(signatures)) < uint8(len(instance.nodes.peers))-instance.tolerance {
+	if uint8(len(signatures)) < uint8(len(nodes.peers))-instance.tolerance.Load().(uint8) {
 		log.Warn("signature not satisfied which need %d, while receive %d now",
-			uint8(len(instance.nodes.peers))-instance.tolerance, len(signatures))
+			uint8(len(nodes.peers))-instance.tolerance.Load().(uint8), len(signatures))
 		return signatures, fmt.Errorf("signature not satisfy")
 	}
 	return signatures, nil
 }
 
 func (instance *fbftCore) receiveResponse(response *messages.Response) {
+	nodes := instance.nodes.Load().(*nodesInfo)
 	currentBlockHeight := instance.consensusPlugin.GetLatestBlockHeight()
 	if response.BlockHeight <= currentBlockHeight {
 		log.Warn("the response %d from node %d exceed deadline which is %d.",
@@ -370,7 +392,7 @@ func (instance *fbftCore) receiveResponse(response *messages.Response) {
 		return
 	}
 	if common.ToConsensus != content.State() {
-		isMaster := instance.nodes.local == instance.nodes.master
+		isMaster := nodes.local == nodes.master
 		if !isMaster {
 			log.Info("only master need to process response.")
 			return
@@ -396,8 +418,9 @@ func (instance *fbftCore) receiveResponse(response *messages.Response) {
 }
 
 func (instance *fbftCore) tryToCommit(block *types.Block, result bool) {
+	nodes := instance.nodes.Load().(*nodesInfo)
 	commit := &messages.Commit{
-		Account:    instance.nodes.local,
+		Account:    nodes.local,
 		Timestamp:  time.Now().Unix(),
 		Digest:     block.Header.MixDigest,
 		Signatures: block.Header.SigData,
@@ -408,6 +431,7 @@ func (instance *fbftCore) tryToCommit(block *types.Block, result bool) {
 }
 
 func (instance *fbftCore) sendCommit(commit *messages.Commit, block *types.Block) {
+	nodes := instance.nodes.Load().(*nodesInfo)
 	committed := messages.Message{
 		MessageType: messages.CommitMessageType,
 		PayLoad: &messages.CommitMessage{
@@ -421,11 +445,11 @@ func (instance *fbftCore) sendCommit(commit *messages.Commit, block *types.Block
 	}
 	if !commit.Result {
 		log.Error("send the consensus with failed result.")
-		messages.BroadcastPeersFilter(msgRaw, committed.MessageType, commit.Digest, instance.nodes.peers, instance.nodes.local)
+		messages.BroadcastPeersFilter(msgRaw, committed.MessageType, commit.Digest, nodes.peers, nodes.local)
 		instance.eventCenter.Notify(types.EventConsensusFailed, nil)
 	} else {
 		log.Info("receive the successful consensus")
-		messages.BroadcastPeersFilter(msgRaw, committed.MessageType, commit.Digest, instance.nodes.peers, instance.nodes.local)
+		messages.BroadcastPeersFilter(msgRaw, committed.MessageType, commit.Digest, nodes.peers, nodes.local)
 		instance.commitBlock(block)
 	}
 }
@@ -435,7 +459,10 @@ func (instance *fbftCore) receiveCommit(commit *messages.Commit) {
 	instance.stopChangeViewTimer()
 	if !commit.Result {
 		log.Error("receive commit is consensus error.")
-		instance.nodes.master = commit.Account
+		nodes := instance.nodes.Load().(*nodesInfo)
+		newNodes := nodes.clone()
+		newNodes.master = commit.Account
+		instance.nodes.Store(newNodes)
 		instance.eventCenter.Notify(types.EventConsensusFailed, nil)
 		return
 	}
@@ -474,7 +501,8 @@ func (instance *fbftCore) receiveChangeViewReq(viewChangeReq *messages.ViewChang
 		log.Warn("current viewNum %d no less than received %d, so ignore it.", currentViewNum, viewChangeReq.ViewNum)
 		return
 	}
-	viewRequests, err := instance.viewChange.AddViewRequest(viewChangeReq.ViewNum, uint8(len(instance.nodes.peers))-instance.tolerance)
+	nodeInfos := instance.nodes.Load().(*nodesInfo)
+	viewRequests, err := instance.viewChange.AddViewRequest(viewChangeReq.ViewNum, uint8(len(nodeInfos.peers))-instance.tolerance.Load().(uint8))
 	if nil != err {
 		log.Error("Add view request failed with error %v.", err)
 		return
@@ -492,20 +520,24 @@ func (instance *fbftCore) receiveChangeViewReq(viewChangeReq *messages.ViewChang
 		instance.stopChangeViewTimer()
 		nodes = viewRequests.GetReceivedAccounts()
 		instance.viewChange.SetCurrentViewNum(viewChangeReq.ViewNum)
-		instance.nodes.master = utils.GetAccountWithMinId(nodes)
+
+		newNodesInfo := nodeInfos.clone()
+		newNodesInfo.master = utils.GetAccountWithMinId(nodes)
+		instance.nodes.Store(newNodesInfo)
 		instance.eventCenter.Notify(types.EventMasterChange, nil)
 		log.Info("now reach to consensus for viewNum %d and new master is %d.",
-			viewChangeReq.ViewNum, instance.nodes.master.Extension.Id)
+			viewChangeReq.ViewNum, newNodesInfo.master.Extension.Id)
 		instance.sendChangeViewReq(nodes, viewChangeReq.ViewNum)
 	}
 }
 
 func (instance *fbftCore) sendChangeViewReq(nodes []account.Account, newView uint64) {
+	nodeInfos := instance.nodes.Load().(*nodesInfo)
 	syncBlockResMsg := messages.Message{
 		MessageType: messages.ViewChangeMessageReqType,
 		PayLoad: &messages.ViewChangeReqMessage{
 			ViewChange: &messages.ViewChangeReq{
-				Account:   instance.nodes.local,
+				Account:   nodeInfos.local,
 				Nodes:     nodes,
 				Timestamp: time.Now().Unix(),
 				ViewNum:   newView,
@@ -517,12 +549,15 @@ func (instance *fbftCore) sendChangeViewReq(nodes []account.Account, newView uin
 		panic(fmt.Sprintf("marshal syncBlockResMsg msg failed with %v.", err))
 	}
 	// TODO: sign the digest
-	messages.BroadcastPeersFilter(msgRaw, syncBlockResMsg.MessageType, types.Hash{}, instance.nodes.peers, instance.nodes.local)
+	messages.BroadcastPeersFilter(msgRaw, syncBlockResMsg.MessageType, types.Hash{}, nodeInfos.peers, nodeInfos.local)
 }
 
-func (instance *fbftCore) waitMasterTimeout() {
+func (instance *fbftCore) waitMasterTimeout(d time.Duration) {
+	nodeInfos := instance.nodes.Load().(*nodesInfo)
+	timer := time.NewTimer(d)
+	defer timer.Stop()
 	select {
-	case <-instance.coreTimer.timeToChangeViewTimer.C:
+	case <-timer.C:
 		currentViewNum := instance.viewChange.GetCurrentViewNum()
 		requestViewNum := currentViewNum + 1
 		log.Warn("master timeout, issue change view from %d to %d.", currentViewNum, requestViewNum)
@@ -530,8 +565,8 @@ func (instance *fbftCore) waitMasterTimeout() {
 			MessageType: messages.ViewChangeMessageReqType,
 			PayLoad: &messages.ViewChangeReqMessage{
 				ViewChange: &messages.ViewChangeReq{
-					Account:   instance.nodes.local,
-					Nodes:     []account.Account{instance.nodes.local},
+					Account:   nodeInfos.local,
+					Nodes:     []account.Account{nodeInfos.local},
 					Timestamp: time.Now().Unix(),
 					ViewNum:   requestViewNum,
 				},
@@ -542,7 +577,7 @@ func (instance *fbftCore) waitMasterTimeout() {
 			log.Error("marshal proposal msg failed with %v.", err)
 			return
 		}
-		messages.BroadcastPeers(msgRaw, viewChangeReqMsg.MessageType, types.Hash{}, instance.nodes.peers)
+		messages.BroadcastPeers(msgRaw, viewChangeReqMsg.MessageType, types.Hash{}, nodeInfos.peers)
 		return
 	case <-instance.coreTimer.timeToChangeViewStopChan:
 		log.Info("stop change view timer")
@@ -552,9 +587,6 @@ func (instance *fbftCore) waitMasterTimeout() {
 
 // stop the instance change view timer
 func (instance *fbftCore) stopChangeViewTimer() {
-	if nil == instance.coreTimer.timeToChangeViewTimer {
-		return
-	}
 	// send stop signal to stop channel
 	select {
 	case instance.coreTimer.timeToChangeViewStopChan <- struct{}{}:
@@ -563,6 +595,7 @@ func (instance *fbftCore) stopChangeViewTimer() {
 }
 
 func (instance *fbftCore) sendOnlineRequest() {
+	nodeInfos := instance.nodes.Load().(*nodesInfo)
 	log.Info("send online request.")
 	chain, err := repository.NewLatestStateRepository()
 	if nil != err {
@@ -573,7 +606,7 @@ func (instance *fbftCore) sendOnlineRequest() {
 		MessageType: messages.OnlineRequestType,
 		PayLoad: &messages.OnlineRequestMessage{
 			OnlineRequest: &messages.OnlineRequest{
-				Account:     instance.nodes.local,
+				Account:     nodeInfos.local,
 				BlockHeight: currentBlockHeight,
 				Timestamp:   time.Now().Unix(),
 			},
@@ -584,13 +617,13 @@ func (instance *fbftCore) sendOnlineRequest() {
 		log.Error("marshal online request msg failed with %v.", err)
 		return
 	}
-	// TODO: only need (instance.tolerance + 1) agreement
-	walterLevel := len(instance.nodes.peers) - int(instance.tolerance)
+	// TODO: only need (instance.tolerance.Load().(uint8) + 1) agreement
+	walterLevel := len(nodeInfos.peers) - int(instance.tolerance.Load().(uint8))
 	currentHeight := instance.onlineWizard.GetCurrentHeight()
 	var state common.OnlineState
 	if currentBlockHeight == common.DefaultBlockHeight {
 		_, state = instance.onlineWizard.AddOnlineResponse(
-			currentBlockHeight, []account.Account{instance.nodes.local}, walterLevel, instance.nodes.master, instance.viewChange.GetCurrentViewNum())
+			currentBlockHeight, []account.Account{nodeInfos.local}, walterLevel, nodeInfos.master, instance.viewChange.GetCurrentViewNum())
 		if currentHeight > currentBlockHeight {
 			state = instance.onlineWizard.GetCurrentState()
 		}
@@ -598,11 +631,12 @@ func (instance *fbftCore) sendOnlineRequest() {
 			instance.eventCenter.Notify(types.EventOnline, nil)
 		}
 	}
-	messages.BroadcastPeersFilter(msgRaw, onlineMessage.MessageType, types.Hash{}, instance.nodes.peers, instance.nodes.local)
+	messages.BroadcastPeersFilter(msgRaw, onlineMessage.MessageType, types.Hash{}, nodeInfos.peers, nodeInfos.local)
 	return
 }
 
 func (instance *fbftCore) receiveOnlineRequest(request *messages.OnlineRequest) {
+	nodeInfos := instance.nodes.Load().(*nodesInfo)
 	chain, err := repository.NewLatestStateRepository()
 	if nil != err {
 		panic(fmt.Errorf("get latest state block chain failed with err %v", err))
@@ -615,10 +649,10 @@ func (instance *fbftCore) receiveOnlineRequest(request *messages.OnlineRequest) 
 		MessageType: messages.OnlineResponseType,
 		PayLoad: &messages.OnlineResponseMessage{
 			OnlineResponse: &messages.OnlineResponse{
-				Account:     instance.nodes.local,
+				Account:     nodeInfos.local,
 				BlockHeight: currentBlockHeight,
-				Nodes:       []account.Account{instance.nodes.local},
-				Master:      instance.nodes.master,
+				Nodes:       []account.Account{nodeInfos.local},
+				Master:      nodeInfos.master,
 				ViewNum:     currentViewNum,
 				Timestamp:   time.Now().Unix(),
 			},
@@ -627,17 +661,17 @@ func (instance *fbftCore) receiveOnlineRequest(request *messages.OnlineRequest) 
 	if common.DefaultBlockHeight == currentBlockHeight {
 		state := instance.onlineWizard.GetCurrentStateByHeight(currentBlockHeight)
 		if common.Online == state {
-			log.Info("now has to be end of online and master is %d.", instance.nodes.master.Extension.Id)
+			log.Info("now has to be end of online and master is %d.", nodeInfos.master.Extension.Id)
 		} else {
-			walterLevel := len(instance.nodes.peers) - int(instance.tolerance)
-			accounts := []account.Account{instance.nodes.local}
+			walterLevel := len(nodeInfos.peers) - int(instance.tolerance.Load().(uint8))
+			accounts := []account.Account{nodeInfos.local}
 			if currentBlockHeight == request.BlockHeight {
 				log.Info("init online, so add the received node of %d.", request.Account.Extension.Id)
 				accounts = append(accounts, request.Account)
 			}
-			nodes, state := instance.onlineWizard.AddOnlineResponse(currentBlockHeight, accounts, walterLevel, instance.nodes.master, currentViewNum)
+			nodes, state := instance.onlineWizard.AddOnlineResponse(currentBlockHeight, accounts, walterLevel, nodeInfos.master, currentViewNum)
 			if common.Online == state {
-				log.Info("now has to be end of online and master is %d.", instance.nodes.master.Extension.Id)
+				log.Info("now has to be end of online and master is %d.", nodeInfos.master.Extension.Id)
 				instance.eventCenter.Notify(types.EventOnline, nil)
 			}
 			log.Info("now receive %d response for block height %d and state is %v.", len(nodes), currentBlockHeight, state)
@@ -648,7 +682,7 @@ func (instance *fbftCore) receiveOnlineRequest(request *messages.OnlineRequest) 
 				panic("marshal online request msg failed.")
 			}
 			// init online, so broadcast it
-			messages.BroadcastPeersFilter(msgRaw, onlineResponse.MessageType, types.Hash{}, instance.nodes.peers, instance.nodes.local)
+			messages.BroadcastPeersFilter(msgRaw, onlineResponse.MessageType, types.Hash{}, nodeInfos.peers, nodeInfos.local)
 			return
 		}
 	}
@@ -662,6 +696,7 @@ func (instance *fbftCore) receiveOnlineRequest(request *messages.OnlineRequest) 
 }
 
 func (instance *fbftCore) receiveOnlineResponse(response *messages.OnlineResponse) {
+	nodeInfos := instance.nodes.Load().(*nodesInfo)
 	log.Info("receive online response from node %d with height %d and viewNum %d and master %d.",
 		response.Account.Extension.Id, response.BlockHeight, response.ViewNum, response.Master.Extension.Id)
 	chain, err := repository.NewLatestStateRepository()
@@ -679,13 +714,13 @@ func (instance *fbftCore) receiveOnlineResponse(response *messages.OnlineRespons
 			response.Account.Extension.Id, response.BlockHeight, response.Master.Extension.Id)
 		return
 	}
-	walterLevel := len(instance.nodes.peers) - int(instance.tolerance)
+	walterLevel := len(nodeInfos.peers) - int(instance.tolerance.Load().(uint8))
 	nodes, state := instance.onlineWizard.AddOnlineResponse(response.BlockHeight, response.Nodes, walterLevel, response.Master, response.ViewNum)
 	if common.Online == state {
 		log.Info("now online come to agree and master is %d and view num is %d.",
 			response.Master.Extension.Id, response.ViewNum)
 		instance.viewChange.SetCurrentViewNum(response.ViewNum)
-		instance.nodes.master = response.Master
+		nodeInfos.master = response.Master
 		instance.eventCenter.Notify(types.EventOnline, nil)
 	}
 	if common.DefaultViewNum == response.BlockHeight {
@@ -694,7 +729,7 @@ func (instance *fbftCore) receiveOnlineResponse(response *messages.OnlineRespons
 			MessageType: messages.OnlineResponseType,
 			PayLoad: &messages.OnlineResponseMessage{
 				OnlineResponse: &messages.OnlineResponse{
-					Account:     instance.nodes.local,
+					Account:     nodeInfos.local,
 					Nodes:       nodes,
 					BlockHeight: response.BlockHeight,
 					Master:      response.Master,
@@ -707,16 +742,17 @@ func (instance *fbftCore) receiveOnlineResponse(response *messages.OnlineRespons
 			log.Error("marshal online response msg failed with %v.", err)
 			return
 		}
-		messages.BroadcastPeersFilter(msgRaw, onlineResponse.MessageType, types.Hash{}, instance.nodes.peers, instance.nodes.local)
+		messages.BroadcastPeersFilter(msgRaw, onlineResponse.MessageType, types.Hash{}, nodeInfos.peers, nodeInfos.local)
 	}
 }
 
 func (instance *fbftCore) ProcessEvent(e utils.Event) utils.Event {
+	nodeInfos := instance.nodes.Load().(*nodesInfo)
 	var err error
 	switch et := e.(type) {
 	case *messages.Request:
 		log.Info("receive request from replica %d with digest %x.",
-			instance.nodes.local.Extension.Id, et.Payload.Header.MixDigest)
+			nodeInfos.local.Extension.Id, et.Payload.Header.MixDigest)
 		instance.receiveRequest(et)
 	case *messages.Proposal:
 		log.Info("receive proposal from replica %d with digest %x.",
@@ -751,14 +787,15 @@ func (instance *fbftCore) ProcessEvent(e utils.Event) utils.Event {
 		instance.receiveOnlineResponse(et)
 	default:
 		log.Warn("replica %d received an unknown message type %v",
-			instance.nodes.local.Extension.Id, et)
+			nodeInfos.local.Extension.Id, et)
 		err = fmt.Errorf("not support type %v", et)
 	}
 	return err
 }
 
 func (instance *fbftCore) Start() {
-	url := instance.nodes.local.Extension.Url
+	nodeInfos := instance.nodes.Load().(*nodesInfo)
+	url := nodeInfos.local.Extension.Url
 	localAddress, _ := net.ResolveTCPAddr("tcp4", url)
 	var tcpListener, err = net.Listen("tcp", "0.0.0.0"+":"+strconv.Itoa(localAddress.Port))
 	if err != nil {
@@ -781,6 +818,7 @@ func (instance *fbftCore) Start() {
 }
 
 func handleClient(conn net.Conn, bft *fbftCore) {
+	nodeInfos := bft.nodes.Load().(*nodesInfo)
 	conn.SetReadDeadline(time.Now().Add(time.Second * time.Duration(connReadTimeOut)))
 	reader := bufio.NewReaderSize(conn, common.MaxBufferLen)
 	msg, err := messages.ReadMessage(reader)
@@ -807,7 +845,7 @@ func handleClient(conn net.Conn, bft *fbftCore) {
 		response := payload.(*messages.ResponseMessage).Response
 		log.Info("receive response message from node %d with payload %x.",
 			response.Account.Extension.Id, response.Digest)
-		if response.Account.Extension.Id == bft.nodes.master.Extension.Id {
+		if response.Account.Extension.Id == nodeInfos.master.Extension.Id {
 			log.Warn("master will not receive response message from itself.")
 			return
 		}
