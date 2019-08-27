@@ -46,6 +46,7 @@ type coreTimeout struct {
 	timeToWaitCommitMsg      int64
 	timeToChangeViewTime     int64
 	timeToChangeViewStopChan chan struct{}
+	isRunning                int32
 }
 
 const (
@@ -516,7 +517,6 @@ func (instance *fbftCore) receiveChangeViewReq(viewChangeReq *messages.ViewChang
 		// viewRequestState = viewRequests.ReceiveViewRequestByAccount(instance.nodes.local)
 	}
 	if viewRequestState == common.ViewEnd {
-		instance.viewChange.RemoveRequest()
 		instance.stopChangeViewTimer()
 		nodes = viewRequests.GetReceivedAccounts()
 		instance.viewChange.SetCurrentViewNum(viewChangeReq.ViewNum)
@@ -553,6 +553,14 @@ func (instance *fbftCore) sendChangeViewReq(nodes []account.Account, newView uin
 }
 
 func (instance *fbftCore) waitMasterTimeout(d time.Duration) {
+	if atomic.CompareAndSwapInt32(&instance.coreTimer.isRunning, 0, 1) {
+		log.Info("previous timer is running, wait for previous finished")
+		return
+	}
+	defer func() {
+		atomic.StoreInt32(&instance.coreTimer.isRunning, 0)
+	}()
+
 	nodeInfos := instance.nodes.Load().(*nodesInfo)
 	timer := time.NewTimer(d)
 	defer timer.Stop()
