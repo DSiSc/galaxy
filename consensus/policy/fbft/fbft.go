@@ -1,6 +1,7 @@
 package fbft
 
 import (
+	"errors"
 	"fmt"
 	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/craft/types"
@@ -9,6 +10,8 @@ import (
 	"github.com/DSiSc/galaxy/consensus/messages"
 	"github.com/DSiSc/galaxy/consensus/utils"
 	"github.com/DSiSc/validator/tools/account"
+	"math/rand"
+	"sync/atomic"
 	"time"
 )
 
@@ -17,7 +20,8 @@ type FBFTPolicy struct {
 	name  string
 	core  *fbftCore
 	// time to reach consensus
-	timeout config.ConsensusTimeout
+	timeout      config.ConsensusTimeout
+	isProcessing int32
 }
 
 func NewFBFTPolicy(timeout config.ConsensusTimeout, blockSwitch chan<- interface{}, emptyBlock bool, signVerify config.SignatureVerifySwitch) (*FBFTPolicy, error) {
@@ -39,8 +43,9 @@ func (instance *FBFTPolicy) Initialization(local account.Account, master account
 	instance.core.eventCenter = events
 	instance.core.tolerance.Store(uint8((len(peers) - 1) / 3))
 	log.Debug("start timeout master with view num %d.", instance.core.viewChange.GetCurrentViewNum())
-	if !onLine {
-		go instance.core.waitMasterTimeout(time.Duration(instance.timeout.TimeoutToChangeView) * time.Millisecond)
+	if !onLine && local.Address != master.Address {
+		randDuration := rand.Int63n(5) * 1000
+		go instance.core.waitMasterTimeout(time.Duration(instance.timeout.TimeoutToChangeView+randDuration) * time.Millisecond)
 	}
 }
 
@@ -62,6 +67,11 @@ func (instance *FBFTPolicy) Start() {
 }
 
 func (instance *FBFTPolicy) ToConsensus(p *common.Proposal) error {
+	if !atomic.CompareAndSwapInt32(&instance.isProcessing, 0, 1) {
+		log.Warn("previous round have not finished")
+		return errors.New("previous round have not finished")
+	}
+	defer atomic.StoreInt32(&instance.isProcessing, 0)
 	var err error
 	var result bool
 	request := &messages.Request{

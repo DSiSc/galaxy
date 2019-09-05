@@ -295,7 +295,7 @@ func TestBftCore_Start(t *testing.T) {
 	})
 	fbft := NewFBFTCore(nil, mockTime, true, MockSignatureVerifySwitch)
 	fbft.eventCenter = event
-	nodes := &nodesInfo{local: mockAccounts[0]}
+	nodes := &nodesInfo{local: mockAccounts[1]}
 	fbft.nodes.Store(nodes)
 	assert.NotNil(t, fbft)
 	var account = account.Account{
@@ -304,7 +304,7 @@ func TestBftCore_Start(t *testing.T) {
 		},
 	}
 	commit := &messages.Commit{
-		Account:    mockAccounts[0],
+		Account:    mockAccounts[1],
 		Timestamp:  time.Now().Unix(),
 		Digest:     mockHash,
 		Signatures: mockSignset,
