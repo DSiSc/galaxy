@@ -209,15 +209,20 @@ func (instance *fbftCore) waitResponse(digest types.Hash) {
 }
 
 func (instance *fbftCore) receiveProposal(proposal *messages.Proposal) {
-	nodes := instance.nodes.Load().(*nodesInfo)
-	instance.stopChangeViewTimer()
 	proposalBlockHeight := proposal.Payload.Header.Height
 	blockChain, err := repository.NewLatestStateRepository()
 	if nil != err {
 		panic(fmt.Errorf("get latest state block chain failed with err %v", err))
 	}
-	// if fall back, so sync block s first
 	currentBlockHeight := blockChain.GetCurrentBlockHeight()
+	if proposalBlockHeight <= currentBlockHeight {
+		log.Warn("master is older than ourself, will ignore outdated proposal")
+		return
+	}
+
+	nodes := instance.nodes.Load().(*nodesInfo)
+	instance.stopChangeViewTimer()
+	// if fall back, so sync block s first
 	if proposalBlockHeight != common.DefaultBlockHeight && currentBlockHeight < proposalBlockHeight-1 {
 		log.Warn("may be master info is wrong, which block height is %d, while received is %d, so change master to %d.",
 			currentBlockHeight, proposalBlockHeight, proposal.Account.Extension.Id)
@@ -517,6 +522,7 @@ func (instance *fbftCore) receiveChangeViewReq(viewChangeReq *messages.ViewChang
 		// viewRequestState = viewRequests.ReceiveViewRequestByAccount(instance.nodes.local)
 	}
 	if viewRequestState == common.ViewEnd {
+		instance.sendChangeViewReq(nodes, viewChangeReq.ViewNum)
 		instance.stopChangeViewTimer()
 		nodes = viewRequests.GetReceivedAccounts()
 		instance.viewChange.SetCurrentViewNum(viewChangeReq.ViewNum)
@@ -527,7 +533,6 @@ func (instance *fbftCore) receiveChangeViewReq(viewChangeReq *messages.ViewChang
 		instance.eventCenter.Notify(types.EventMasterChange, nil)
 		log.Info("now reach to consensus for viewNum %d and new master is %d.",
 			viewChangeReq.ViewNum, newNodesInfo.master.Extension.Id)
-		instance.sendChangeViewReq(nodes, viewChangeReq.ViewNum)
 	}
 }
 
@@ -650,6 +655,16 @@ func (instance *fbftCore) receiveOnlineRequest(request *messages.OnlineRequest) 
 		panic(fmt.Errorf("get latest state block chain failed with err %v", err))
 	}
 	currentBlockHeight := chain.GetCurrentBlockHeight()
+	// sync block from remote
+	if currentBlockHeight < request.BlockHeight && nodeInfos.local.Address != request.Account.Address {
+		blockSyncReq := &blockSyncRequest{
+			start:  currentBlockHeight + 1,
+			end:    request.BlockHeight,
+			target: request.Account,
+		}
+		pushOrReplace(instance.blockSyncChan, blockSyncReq)
+	}
+
 	currentViewNum := instance.viewChange.GetCurrentViewNum()
 	log.Info("receive online request from node %d with height %d and local height is %d and local viewNum is %d.",
 		request.Account.Extension.Id, request.BlockHeight, currentBlockHeight, currentViewNum)
@@ -713,6 +728,13 @@ func (instance *fbftCore) receiveOnlineResponse(response *messages.OnlineRespons
 	}
 	currentBlockHeight := chain.GetCurrentBlockHeight()
 	if response.BlockHeight < currentBlockHeight {
+		// sync block from remote
+		blockSyncReq := &blockSyncRequest{
+			start:  currentBlockHeight + 1,
+			end:    response.BlockHeight,
+			target: response.Account,
+		}
+		pushOrReplace(instance.blockSyncChan, blockSyncReq)
 		log.Warn("block height received %d less than local %d, so ignore it.", response.BlockHeight, currentBlockHeight)
 		return
 	}

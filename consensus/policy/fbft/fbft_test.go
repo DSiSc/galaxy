@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"reflect"
 	"testing"
+	"sync/atomic"
 )
 
 var mockSignset = [][]byte{
@@ -176,11 +177,17 @@ func TestFBFTPolicy_ToConsensus(t *testing.T) {
 	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetBlockByHash", func(*repository.Repository, types.Hash) (*types.Block, error) {
 		return proposal.Block, nil
 	})
+
+	// mock retrieve block from consensus
+	var blockStore atomic.Value
 	go func() {
-		err = fbft.ToConsensus(proposal)
-		assert.Nil(t, err)
+		block := <-mockBlockSwitch
+		blockStore.Store(block)
 	}()
-	block := <-mockBlockSwitch
+
+	err = fbft.ToConsensus(proposal)
+	assert.Nil(t, err)
+	block := blockStore.Load().(*types.Block)
 	assert.NotNil(t, block)
 	assert.Equal(t, len(mockSignset), len(proposal.Block.Header.SigData))
 	assert.Equal(t, mockSignset, proposal.Block.Header.SigData)
