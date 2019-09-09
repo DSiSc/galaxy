@@ -15,6 +15,7 @@ import (
 	"github.com/DSiSc/validator/tools/account"
 	"github.com/stretchr/testify/assert"
 	"reflect"
+	"sync/atomic"
 	"testing"
 )
 
@@ -109,9 +110,10 @@ func TestFBFTPolicy_Initialization(t *testing.T) {
 	assert.Nil(t, err)
 
 	fbft.Initialization(mockAccounts[3], mockAccounts[3], mockAccounts, nil, false)
-	assert.Equal(t, fbft.core.nodes.peers, mockAccounts)
-	assert.Equal(t, fbft.core.tolerance, uint8((len(mockAccounts)-1)/3))
-	assert.Equal(t, fbft.core.nodes.master, mockAccounts[3])
+	nodes := fbft.core.nodes.Load().(*nodesInfo)
+	assert.Equal(t, nodes.peers, mockAccounts)
+	assert.Equal(t, fbft.core.tolerance.Load().(uint8), uint8((len(mockAccounts)-1)/3))
+	assert.Equal(t, nodes.master, mockAccounts[3])
 }
 
 func TestFBFTPolicy_Start(t *testing.T) {
@@ -134,15 +136,16 @@ func TestFBFTPolicy_ToConsensus(t *testing.T) {
 	var timeout1 = consensusConfig.ConsensusTimeout{
 		TimeoutToChangeView:         int64(1000),
 		TimeoutToCollectResponseMsg: int64(1000),
+		TimeoutToWaitCommitMsg:      int64(1000),
 	}
 	fbft, err := NewFBFTPolicy(timeout1, nil, true, MockSignatureVerifySwitch)
 	assert.NotNil(t, fbft)
 	assert.Nil(t, err)
 	fbft.local = mockAccounts[0]
-	fbft.core.nodes = &nodesInfo{
+	fbft.core.nodes.Store(&nodesInfo{
 		local: mockAccounts[0],
 		peers: mockAccounts,
-	}
+	})
 	var mockBlockSwitch = make(chan interface{})
 	fbft.core.blockSwitch = mockBlockSwitch
 	event := NewEvent()
@@ -152,7 +155,9 @@ func TestFBFTPolicy_ToConsensus(t *testing.T) {
 	})
 	fbft.core.eventCenter = event
 	monkey.Patch(utils.SendEvent, func(utils.Receiver, utils.Event) {
-		fbft.core.result <- mockConsensusResult
+		go func() {
+			fbft.core.result <- mockConsensusResult
+		}()
 	})
 	monkey.Patch(messages.BroadcastPeersFilter, func([]byte, messages.MessageType, types.Hash, []account.Account, account.Account) {
 		return
@@ -172,11 +177,17 @@ func TestFBFTPolicy_ToConsensus(t *testing.T) {
 	monkey.PatchInstanceMethod(reflect.TypeOf(b), "GetBlockByHash", func(*repository.Repository, types.Hash) (*types.Block, error) {
 		return proposal.Block, nil
 	})
+
+	// mock retrieve block from consensus
+	var blockStore atomic.Value
 	go func() {
-		err = fbft.ToConsensus(proposal)
-		assert.Nil(t, err)
+		block := <-mockBlockSwitch
+		blockStore.Store(block)
 	}()
-	block := <-mockBlockSwitch
+
+	err = fbft.ToConsensus(proposal)
+	assert.Nil(t, err)
+	block := blockStore.Load().(*types.Block)
 	assert.NotNil(t, block)
 	assert.Equal(t, len(mockSignset), len(proposal.Block.Header.SigData))
 	assert.Equal(t, mockSignset, proposal.Block.Header.SigData)
@@ -203,11 +214,11 @@ var MockHash = types.Hash{
 func TestFBFTPolicy_GetConsensusResult(t *testing.T) {
 	fbft, err := NewFBFTPolicy(timeout, nil, true, MockSignatureVerifySwitch)
 	assert.Nil(t, err)
-	fbft.core.nodes = &nodesInfo{
+	fbft.core.nodes.Store(&nodesInfo{
 		local:  mockAccounts[0],
 		master: mockAccounts[1],
 		peers:  mockAccounts,
-	}
+	})
 	result := fbft.GetConsensusResult()
 	assert.Equal(t, uint64(0), result.View)
 	assert.Equal(t, result.Master, result.Master)
@@ -225,13 +236,14 @@ func TestFBFTPolicy_ToConsensus1(t *testing.T) {
 	var timeout1 = consensusConfig.ConsensusTimeout{
 		TimeoutToChangeView:         int64(1000),
 		TimeoutToCollectResponseMsg: int64(1000),
+		TimeoutToWaitCommitMsg:      int64(1000),
 	}
 	blockSwitch := make(chan interface{})
 	fbft, err := NewFBFTPolicy(timeout1, blockSwitch, true, MockSignatureVerifySwitch)
 	fbft.local = mockAccounts[0]
-	fbft.core.nodes = &nodesInfo{
+	fbft.core.nodes.Store(&nodesInfo{
 		local: mockAccounts[0],
-	}
+	})
 	assert.Nil(t, err)
 	event := NewEvent()
 	event.Subscribe(types.EventConsensusFailed, func(v interface{}) {
@@ -279,9 +291,9 @@ func TestFBFTPolicy_Online(t *testing.T) {
 	})
 	fbft, err := NewFBFTPolicy(timeout1, nil, true, MockSignatureVerifySwitch)
 	fbft.local = mockAccounts[0]
-	fbft.core.nodes = &nodesInfo{
+	fbft.core.nodes.Store(&nodesInfo{
 		local: mockAccounts[0],
-	}
+	})
 	assert.Nil(t, err)
 	var b *repository.Repository
 	monkey.Patch(repository.NewLatestStateRepository, func() (*repository.Repository, error) {

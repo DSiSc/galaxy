@@ -164,8 +164,8 @@ func TestBftCore_ProcessEvent(t *testing.T) {
 		return uint64(0)
 	})
 	fbft := NewFBFTCore(nil, mockTime, true, MockSignatureVerifySwitch)
-	fbft.nodes = &nodesInfo{local: mockAccounts[0]}
-	fbft.coreTimer.timeToChangeViewTimer = time.NewTimer(30 * time.Second)
+	nodes := &nodesInfo{local: mockAccounts[0]}
+	fbft.nodes.Store(nodes)
 	fbft.consensusPlugin = common.NewConsensusPlugin()
 	content := fbft.consensusPlugin.Add(mockHash, block)
 	assert.NotNil(t, content)
@@ -183,7 +183,9 @@ func TestBftCore_ProcessEvent(t *testing.T) {
 	}
 	fbft.ProcessEvent(mock_request)
 
-	fbft.nodes.master = mockAccounts[0]
+	newNodes := nodes.clone()
+	newNodes.master = mockAccounts[0]
+	fbft.nodes.Store(newNodes)
 	monkey.Patch(repository.NewRepositoryByBlockHash, func(types.Hash) (*repository.Repository, error) {
 		return b, nil
 	})
@@ -194,7 +196,9 @@ func TestBftCore_ProcessEvent(t *testing.T) {
 	monkey.Patch(signature.Verify, func(keypair.PublicKey, []byte) (types.Address, error) {
 		return mockAccounts[0].Address, nil
 	})
-	fbft.nodes.peers = mockAccounts
+	newNodes = nodes.clone()
+	newNodes.peers = mockAccounts
+	fbft.nodes.Store(newNodes)
 	monkey.Patch(json.Marshal, func(v interface{}) ([]byte, error) {
 		return nil, nil
 	})
@@ -219,7 +223,9 @@ func TestBftCore_ProcessEvent(t *testing.T) {
 			},
 		},
 	}
-	fbft.nodes.master = mockAccounts[1]
+	newNodes = nodes.clone()
+	newNodes.master = mockAccounts[1]
+	fbft.nodes.Store(newNodes)
 	fbft.ProcessEvent(mock_proposal)
 	monkey.Patch(signature.Verify, func(_ keypair.PublicKey, sign []byte) (types.Address, error) {
 		var address types.Address
@@ -238,7 +244,9 @@ func TestBftCore_ProcessEvent(t *testing.T) {
 		return address, nil
 	})
 
-	fbft.nodes.master = mockAccounts[0]
+	newNodes = nodes.clone()
+	newNodes.master = mockAccounts[0]
+	fbft.nodes.Store(newNodes)
 	mockResponse := &messages.Response{
 		Account:   mockAccounts[0],
 		Timestamp: time.Now().Unix(),
@@ -251,7 +259,7 @@ func TestBftCore_ProcessEvent(t *testing.T) {
 	assert.Equal(t, true, ok)
 	ok = content.AddSignature(mockAccounts[2], mockSignset[2])
 	assert.Equal(t, true, ok)
-	fbft.tolerance = uint8((len(fbft.nodes.peers) - 1) / 3)
+	fbft.tolerance.Store(uint8((len(newNodes.peers) - 1) / 3))
 	go fbft.waitResponse(mockHash)
 	fbft.ProcessEvent(mockResponse)
 	ch := <-fbft.result
@@ -287,7 +295,8 @@ func TestBftCore_Start(t *testing.T) {
 	})
 	fbft := NewFBFTCore(nil, mockTime, true, MockSignatureVerifySwitch)
 	fbft.eventCenter = event
-	fbft.nodes = &nodesInfo{local: mockAccounts[0]}
+	nodes := &nodesInfo{local: mockAccounts[1]}
+	fbft.nodes.Store(nodes)
 	assert.NotNil(t, fbft)
 	var account = account.Account{
 		Extension: account.AccountExtension{
@@ -295,7 +304,7 @@ func TestBftCore_Start(t *testing.T) {
 		},
 	}
 	commit := &messages.Commit{
-		Account:    mockAccounts[0],
+		Account:    mockAccounts[1],
 		Timestamp:  time.Now().Unix(),
 		Digest:     mockHash,
 		Signatures: mockSignset,
@@ -324,10 +333,12 @@ var fakeSignature = []byte{
 
 func TestBftCore_receiveRequest(t *testing.T) {
 	fbft := NewFBFTCore(nil, mockTime, true, MockSignatureVerifySwitch)
-	fbft.nodes = &nodesInfo{local: mockAccounts[0]}
-	fbft.coreTimer.timeToChangeViewTimer = time.NewTimer(30 * time.Second)
+	nodes := &nodesInfo{local: mockAccounts[0]}
+	fbft.nodes.Store(nodes)
 	assert.NotNil(t, fbft)
-	fbft.nodes.peers = mockAccounts
+	nodes = nodes.clone()
+	nodes.peers = mockAccounts
+	fbft.nodes.Store(nodes)
 	// only master process request
 	request := &messages.Request{
 		Timestamp: 1535414400,
@@ -338,10 +349,14 @@ func TestBftCore_receiveRequest(t *testing.T) {
 			},
 		},
 	}
-	fbft.nodes.master = mockAccounts[1]
+	nodes = nodes.clone()
+	nodes.master = mockAccounts[1]
+	fbft.nodes.Store(nodes)
 	fbft.receiveRequest(request)
 	// absence of signature
-	fbft.nodes.master = mockAccounts[0]
+	nodes = nodes.clone()
+	nodes.master = mockAccounts[0]
+	fbft.nodes.Store(nodes)
 	fbft.receiveRequest(request)
 
 	request.Payload.Header.SigData = append(request.Payload.Header.SigData, fakeSignature)
@@ -378,14 +393,18 @@ func TestBftCore_receiveRequest(t *testing.T) {
 
 func TestNewFBFTCore_broadcast(t *testing.T) {
 	fbft := NewFBFTCore(nil, mockTime, true, MockSignatureVerifySwitch)
-	fbft.nodes = &nodesInfo{local: mockAccounts[0]}
+	nodes := &nodesInfo{local: mockAccounts[0]}
+	fbft.nodes.Store(nodes)
 	assert.NotNil(t, fbft)
-	fbft.nodes.peers = mockAccounts
+
+	nodes = nodes.clone()
+	nodes.peers = mockAccounts
+	fbft.nodes.Store(nodes)
 	// resolve error
 	monkey.Patch(net.ResolveTCPAddr, func(string, string) (*net.TCPAddr, error) {
 		return nil, fmt.Errorf("resolve error")
 	})
-	messages.BroadcastPeers(nil, messages.ProposalMessageType, mockHash, fbft.nodes.peers)
+	messages.BroadcastPeers(nil, messages.ProposalMessageType, mockHash, nodes.peers)
 
 	monkey.Patch(net.ResolveTCPAddr, func(string, string) (*net.TCPAddr, error) {
 		return nil, nil
@@ -393,7 +412,7 @@ func TestNewFBFTCore_broadcast(t *testing.T) {
 	monkey.Patch(net.DialTCP, func(string, *net.TCPAddr, *net.TCPAddr) (*net.TCPConn, error) {
 		return nil, fmt.Errorf("dail error")
 	})
-	messages.BroadcastPeers(nil, messages.ProposalMessageType, mockHash, fbft.nodes.peers)
+	messages.BroadcastPeers(nil, messages.ProposalMessageType, mockHash, nodes.peers)
 
 	var c net.TCPConn
 	monkey.Patch(net.DialTCP, func(string, *net.TCPAddr, *net.TCPAddr) (*net.TCPConn, error) {
@@ -402,7 +421,7 @@ func TestNewFBFTCore_broadcast(t *testing.T) {
 	monkey.PatchInstanceMethod(reflect.TypeOf(&c), "Write", func(*net.TCPConn, []byte) (int, error) {
 		return 0, nil
 	})
-	messages.BroadcastPeers(nil, messages.ProposalMessageType, mockHash, fbft.nodes.peers)
+	messages.BroadcastPeers(nil, messages.ProposalMessageType, mockHash, nodes.peers)
 	monkey.Unpatch(net.ResolveTCPAddr)
 	monkey.Unpatch(net.DialTCP)
 	monkey.UnpatchInstanceMethod(reflect.TypeOf(&c), "Write")
@@ -410,13 +429,18 @@ func TestNewFBFTCore_broadcast(t *testing.T) {
 
 func TestBftCore_unicast(t *testing.T) {
 	fbft := NewFBFTCore(nil, mockTime, true, MockSignatureVerifySwitch)
-	fbft.nodes = &nodesInfo{local: mockAccounts[0]}
+	nodes := &nodesInfo{local: mockAccounts[0]}
+	fbft.nodes.Store(nodes)
 	assert.NotNil(t, fbft)
-	fbft.nodes.peers = mockAccounts
+
+	nodes = nodes.clone()
+	nodes.peers = mockAccounts
+	fbft.nodes.Store(nodes)
+
 	monkey.Patch(net.ResolveTCPAddr, func(string, string) (*net.TCPAddr, error) {
 		return nil, fmt.Errorf("resolve error")
 	})
-	err := messages.Unicast(fbft.nodes.peers[1], nil, messages.ProposalMessageType, mockHash)
+	err := messages.Unicast(nodes.peers[1], nil, messages.ProposalMessageType, mockHash)
 	assert.Equal(t, fmt.Errorf("resolve error"), err)
 	monkey.Patch(net.ResolveTCPAddr, func(string, string) (*net.TCPAddr, error) {
 		return nil, nil
@@ -428,7 +452,7 @@ func TestBftCore_unicast(t *testing.T) {
 	monkey.PatchInstanceMethod(reflect.TypeOf(&c), "Write", func(*net.TCPConn, []byte) (int, error) {
 		return 0, nil
 	})
-	err = messages.Unicast(fbft.nodes.peers[1], nil, messages.ProposalMessageType, mockHash)
+	err = messages.Unicast(nodes.peers[1], nil, messages.ProposalMessageType, mockHash)
 	assert.NotNil(t, err)
 	monkey.Unpatch(net.ResolveTCPAddr)
 	monkey.Unpatch(net.DialTCP)
@@ -437,11 +461,13 @@ func TestBftCore_unicast(t *testing.T) {
 
 func TestBftCore_receiveProposal(t *testing.T) {
 	fbft := NewFBFTCore(nil, mockTime, true, MockSignatureVerifySwitch)
-	fbft.nodes = &nodesInfo{local: mockAccounts[0]}
-	fbft.coreTimer.timeToChangeViewTimer = time.NewTimer(30 * time.Second)
+	nodes := &nodesInfo{local: mockAccounts[0]}
+	fbft.nodes.Store(nodes)
 	assert.NotNil(t, fbft)
-	fbft.nodes.peers = mockAccounts
-	fbft.nodes.master = mockAccounts[0]
+	nodes = nodes.clone()
+	nodes.peers = mockAccounts
+	nodes.master = mockAccounts[0]
+	fbft.nodes.Store(nodes)
 	// master receive proposal
 	proposal := &messages.Proposal{
 		Timestamp: 1535414400,
@@ -462,7 +488,7 @@ func TestBftCore_receiveProposal(t *testing.T) {
 	fbft.receiveProposal(proposal)
 
 	// verify failed: Get NewRepositoryByBlockHash failed
-	fbft.nodes.local.Extension.Id = mockAccounts[0].Extension.Id + 1
+	nodes.local.Extension.Id = mockAccounts[0].Extension.Id + 1
 	monkey.Patch(signature.Verify, func(keypair.PublicKey, []byte) (types.Address, error) {
 		return mockAccounts[1].Address, nil
 	})
@@ -510,11 +536,12 @@ func TestBftCore_receiveProposal(t *testing.T) {
 
 func TestFbftCore_receiveResponse(t *testing.T) {
 	fbft := NewFBFTCore(nil, mockTime, true, MockSignatureVerifySwitch)
-	fbft.nodes = &nodesInfo{local: mockAccounts[0]}
-	fbft.nodes.peers = mockAccounts
-	fbft.nodes.master = mockAccounts[0]
+	nodes := &nodesInfo{local: mockAccounts[0]}
+	nodes.peers = mockAccounts
+	nodes.master = mockAccounts[0]
+	fbft.nodes.Store(nodes)
 	fbft.coreTimer.timeToCollectResponseMsg = 1000
-	fbft.tolerance = 1
+	fbft.tolerance.Store(uint8(1))
 	event := NewEvent()
 	event.Subscribe(types.EventMasterChange, func(v interface{}) {
 		log.Error("receive view change event.")
@@ -589,9 +616,11 @@ func TestFbftCore_receiveResponse(t *testing.T) {
 func TestFbftCore_SendCommit(t *testing.T) {
 	blockSwitch := make(chan interface{})
 	fbft := NewFBFTCore(blockSwitch, mockTime, true, MockSignatureVerifySwitch)
-	fbft.nodes = &nodesInfo{local: mockAccounts[0]}
+	nodes := &nodesInfo{local: mockAccounts[0]}
+	fbft.nodes.Store(nodes)
 	assert.NotNil(t, fbft)
-	fbft.nodes.peers = mockAccounts
+	nodes = nodes.clone()
+	nodes.peers = mockAccounts
 	block := &types.Block{
 		HeaderHash: mockHash,
 		Header: &types.Header{
@@ -657,7 +686,8 @@ func TestFBFTPolicy_commit(t *testing.T) {
 	}
 	var receive = make(chan interface{})
 	core := NewFBFTCore(receive, mockTime, true, MockSignatureVerifySwitch)
-	core.nodes = &nodesInfo{local: mockAccount}
+	nodes := &nodesInfo{local: mockAccount}
+	core.nodes.Store(nodes)
 	block := &types.Block{
 		Header: &types.Header{
 			ChainID:       1,
@@ -671,7 +701,9 @@ func TestFBFTPolicy_commit(t *testing.T) {
 		},
 		Transactions: make([]*types.Transaction, 0),
 	}
-	core.nodes.peers = append(core.nodes.peers, mockAccount)
+	nodes = nodes.clone()
+	nodes.peers = append(nodes.peers, mockAccount)
+	core.nodes.Store(nodes)
 	var b *repository.Repository
 	monkey.Patch(repository.NewRepositoryByBlockHash, func(types.Hash) (*repository.Repository, error) {
 		return b, nil
@@ -688,10 +720,10 @@ func TestFBFTPolicy_commit(t *testing.T) {
 func TestFbftCore_ProcessEvent(t *testing.T) {
 	blockSwitch := make(chan interface{})
 	fbft := NewFBFTCore(blockSwitch, mockTime, true, MockSignatureVerifySwitch)
-	fbft.nodes = &nodesInfo{local: mockAccounts[0]}
-	fbft.coreTimer.timeToChangeViewTimer = time.NewTimer(30 * time.Second)
-	fbft.nodes.peers = mockAccounts
-	fbft.tolerance = 1
+	nodesInfo := &nodesInfo{local: mockAccounts[0]}
+	nodesInfo.peers = mockAccounts
+	fbft.nodes.Store(nodesInfo)
+	fbft.tolerance.Store(uint8(1))
 	event := NewEvent()
 	event.Subscribe(types.EventMasterChange, func(v interface{}) {
 		log.Error("receive view change event.")
@@ -770,11 +802,11 @@ func TestFbftCore_ProcessEvent2(t *testing.T) {
 		return
 	})
 	core := NewFBFTCore(nil, mockTime, true, MockSignatureVerifySwitch)
-	core.nodes = &nodesInfo{
+	core.nodes.Store(&nodesInfo{
 		local:  mockAccounts[0],
 		master: mockAccounts[1],
 		peers:  mockAccounts,
-	}
+	})
 	// if receive default block request and equal to local, then record it and broadcast
 	err := core.ProcessEvent(onlineReq)
 	assert.Nil(t, err)
@@ -807,7 +839,7 @@ func TestFbftCore_ProcessEvent3(t *testing.T) {
 		return onlineResponse.BlockHeight + 1
 	})
 	core := NewFBFTCore(nil, mockTime, true, MockSignatureVerifySwitch)
-	core.nodes = &nodesInfo{local: mockAccounts[0]}
+	core.nodes.Store(&nodesInfo{local: mockAccounts[0]})
 	err := core.ProcessEvent(onlineResponse)
 	assert.Nil(t, err)
 
@@ -824,13 +856,12 @@ func TestFbftCore_ProcessEvent3(t *testing.T) {
 		return
 	})
 	core = NewFBFTCore(nil, mockTime, true, MockSignatureVerifySwitch)
-	core.nodes = &nodesInfo{local: mockAccounts[0]}
-	core.tolerance = 1
-	core.nodes = &nodesInfo{
+	core.tolerance.Store(uint8(1))
+	core.nodes.Store(&nodesInfo{
 		local:  mockAccounts[1],
 		master: mockAccounts[1],
 		peers:  mockAccounts,
-	}
+	})
 	core.eventCenter = event
 	err = core.ProcessEvent(onlineResponse)
 	assert.Nil(t, err)
@@ -872,7 +903,7 @@ func TestFbftCore_ProcessEvent4(t *testing.T) {
 		return nil
 	})
 	core := NewFBFTCore(nil, mockTime, true, MockSignatureVerifySwitch)
-	core.nodes = &nodesInfo{local: mockAccounts[0]}
+	core.nodes.Store(&nodesInfo{local: mockAccounts[0]})
 	err := core.ProcessEvent(syncBlockReq)
 	assert.Nil(t, err)
 
@@ -920,19 +951,20 @@ func TestFbftCore_ProcessEvent5(t *testing.T) {
 		return uint64(0)
 	})
 	core := NewFBFTCore(nil, mockTime, true, MockSignatureVerifySwitch)
-	core.nodes = &nodesInfo{local: mockAccounts[0]}
-	core.nodes = &nodesInfo{
+	core.nodes.Store(&nodesInfo{
 		local:  mockAccounts[1],
 		master: mockAccounts[1],
 		peers:  mockAccounts,
-	}
+	})
 	err := core.ProcessEvent(proposal)
 	assert.Nil(t, err)
 
 	monkey.Patch(messages.Unicast, func(account.Account, []byte, messages.MessageType, types.Hash) error {
 		return nil
 	})
-	core.nodes.master = mockAccounts[2]
+	nodesInfo := core.nodes.Load().(*nodesInfo)
+	nodesInfo.master = mockAccounts[2]
+	core.nodes.Store(nodesInfo)
 	err = core.ProcessEvent(proposal)
 	assert.Nil(t, err)
 
@@ -942,7 +974,9 @@ func TestFbftCore_ProcessEvent5(t *testing.T) {
 	monkey.Patch(utils.SignatureVerify, func(account.Account, []byte, types.Hash) bool {
 		return false
 	})
-	core.nodes.master = mockAccounts[0]
+	nodesInfo = nodesInfo.clone()
+	nodesInfo.master = mockAccounts[0]
+	core.nodes.Store(nodesInfo)
 	err = core.ProcessEvent(proposal)
 	assert.Nil(t, err)
 

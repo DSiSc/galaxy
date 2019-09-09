@@ -28,7 +28,7 @@ const (
 	OnlineResponseType                           // 9, response for node online request
 )
 
-const connWriteTimeOut = 5
+const connWriteTimeOut = 60
 
 type Message struct {
 	MessageType MessageType
